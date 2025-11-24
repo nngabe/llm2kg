@@ -49,3 +49,73 @@ Lastly, the chatbot can be run with:
 ```
 python cli.py
 ```
+
+Here is a sample response from the chatbot after indexing documents `0:200` from the `economics` dataset:
+
+## Sample Response 1
+You > who are some famous physicists?   
+🕷️  Thinking... (Searching Knowledge Graph)
+
+--- 🔍 RETRIEVED CONTEXT ---
+  Retrieved Graph Data:
+  
+  === Entity: Solow (Person) ===
+  Summary: An economist known for his work on economic growth and the Solow residual.
+  Connections:
+    -> [COMPUTED] -> Solow residual (Economic Concept)
+       Context: Solow computed the Solow residual for the U.S. economy.
+  
+  === Entity: Keynes (Person) ===
+  Summary: An economist known for his contributions to monetary theory, including the concept of liquidity.
+  Connections:
+  
+  === Entity: George P. Schultz (Person) ===
+  Summary: A professor of economics and former Secretary of the Treasury and Director of the Office of Management and Budget.
+  Connections:
+    -> [IS_A] -> Economist (Profession)
+       Context: George P. Schultz is a professor of economics, thus an economist.
+       
+-----------------------------
+
+🔎 Searching Graph for: 'who are some famous physicists?'...
+🤖 AI > The provided graph data does not include information about physicists. It focuses on economists and their contributions to economic theories and policies. If you have any questions related to the economists or economic concepts mentioned in the data, feel free to ask!
+
+## Sample Response 2
+You > who are some famous economists?
+🕷️  Thinking... (Searching Knowledge Graph)
+
+--- 🔍 RETRIEVED CONTEXT ---
+  Retrieved Graph Data:
+  
+  === Entity: John Maynard Keynes (Person) ===
+  Summary: An influential economist known for his ideas on government intervention in the economy.
+  Connections:
+    -> [INFLUENCES] -> Keynesian Economists (Group)
+       Context: John Maynard Keynes' theories form the basis of Keynesian economics.
+  
+  === Entity: Keynesian Economists (Group) ===
+  Summary: Economists who follow the theories of John Maynard Keynes, emphasizing the role of government intervention in the economy.
+  Connections:
+    -> [OPINION_ON] -> Macroeconomic Adjustment (Concept)
+       Context: Keynesian economists argue that macroeconomic adjustment can take a very long time.
+  
+  === Entity: George P. Schultz (Person) ===
+  Summary: A professor of economics and former Secretary of the Treasury and Director of the Office of Management and Budget.
+  Connections:
+    -> [IS_A] -> Economist (Profession)
+       Context: George P. Schultz is a professor of economics, thus an economist.
+    
+    ...  
+
+-----------------------------
+
+🔎 Searching Graph for: 'who are some famous economists?'...
+🤖 AI > Based on the provided graph data, some famous economists include:
+
+1. **John Maynard Keynes**: He is an influential economist known for his ideas on government intervention in the economy. His theories form the basis of Keynesian economics, which emphasizes the role of government intervention in managing economic cycles [John Maynard Keynes (Person)].
+
+2. **Hyman Minsky**: Known for his work on financial instability and the nature of money, Minsky contributed significantly to the understanding of economic crises and the dynamics of financial markets [Hyman Minsky (Person)].
+
+3. **George P. Schultz**: A professor of economics and former Secretary of the Treasury, Schultz has played a significant role in economic policy and management [George P. Schultz (Person)].
+
+These individuals have made substantial contributions to economic theory and policy, influencing both academic thought and practical economic management.
