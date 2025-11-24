@@ -16,7 +16,7 @@ git clone https://github.com/nngabe/llm2kg.git
 cd llm2kg/
 ```
 
-Then start the supplied docker containers for the Neo4J and Python environment with
+Then start the docker containers for the Neo4J and Python environment with:
 ```
 docker compose exec llm-app bash
 ```
