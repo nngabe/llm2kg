@@ -1,0 +1,13 @@
+neo4j>=5.18.0       
+neo4j-graphrag     
+langchain>=0.2.0
+langchain-community
+langchain-neo4j   
+langchain-openai            
+langchain-google-genai 
+langchain-anthropic 
+langchain-text-splitters
+pandas
+tiktoken         
+python-dotenv    
+pydantic>=2.0

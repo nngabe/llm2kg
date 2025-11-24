@@ -1,20 +1,22 @@
 import os
 import re
+import argparse
 from typing import List
 from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI as ChatGoogleAI, GoogleGenerativeAIEmbeddings as GoogleAIEmbeddings
+from langchain_google_vertexai import ChatVertexAI
 from langchain_core.prompts import ChatPromptTemplate
 from datasets import load_dataset
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from neo4j import GraphDatabase
 
 # --- CONFIGURATION ---
-NEO4J_URI="bolt://localhost:7687"
-#NEO4J_URI = os.environ["NEO4J_URI"]
-NEO4J_USER = os.environ["NEO4J_USERNAME"]
-NEO4J_PASSWORD = os.environ["NEO4J_PASSWORD"]
+NEO4J_URI = os.getenv("NEO4J_URI", "neo4j://localhost:7687")
+NEO4J_USER = os.getenv("NEO4J_USERNAME", "neo4j")
+NEO4J_PASSWORD= os.getenv("NEO4J_PASSWORD", "password")
 
-# --- 1. ONTOLOGY (Unchanged) ---
+# --- 1. ONTOLOGY ---
 class Node(BaseModel):
     id: str = Field(description="Unique identifier, e.g., 'Albert Einstein'")
     type: str = Field(description="Category, e.g., 'Person', 'Location'")
@@ -28,12 +30,16 @@ class KnowledgeGraph(BaseModel):
     nodes: List[Node]
     edges: List[Edge]
 
-# --- 2. ENHANCED NEO4J LOADER WITH VECTORS ---
+# --- 2. NEO4J LOADER WITH VECTOR STORE ---
 class Neo4jVectorLoader:
-    def __init__(self, uri, user, password):
+    def __init__(self, uri, user, password, provider='openai'):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
-        # Initialize OpenAI Embeddings (Dimensions: 1536 for ada-002 / 3-small)
-        self.embeddings_model = OpenAIEmbeddings(model="text-embedding-3-small")
+        self.provider = provider
+        # Initialize Embeddings (Dimensions: 1536 for 3-small, )
+        if self.provider=='openai':
+            self.embeddings_model = OpenAIEmbeddings(model="text-embedding-3-small")
+        elif self.provider=='google':
+            self.embeddings_model = GoogleAIEmbeddings(model="models/gemini-embedding-001")
 
     def close(self):
         self.driver.close()
@@ -105,8 +111,8 @@ class Neo4jVectorLoader:
             return [record.data() for record in result]
 
 # --- 3. PIPELINE EXECUTION ---
-def run_graph_rag_pipeline():
-    loader = Neo4jVectorLoader(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
+def run_graph_rag_pipeline(provider='openai', limit_docs=5, subject='economics'):
+    loader = Neo4jVectorLoader(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, provider=provider)
     
     try:
         # Step 1: Setup Index
@@ -114,11 +120,23 @@ def run_graph_rag_pipeline():
         
         # Step 2: Load Data (Simulated reuse of extraction logic)
         print("📥 Loading & Processing Data...")
-        dataset = load_dataset("wikitext", "wikitext-2-v1", split="train", streaming=True)
+        if subject == 'economics':
+            dataset = load_dataset("cais/wmdp-mmlu-auxiliary-corpora", "economics-corpus", split='train')
+        elif subject == 'law':
+            dataset = load_dataset("cais/wmdp-mmlu-auxiliary-corpora", "law-corpus", split='train')
+        elif subject == 'physics':
+            dataset = load_dataset("cais/wmdp-mmlu-auxiliary-corpora", "physics-corpus", split='train')
+        #dataset = load_dataset("EleutherAI/the_pile_deduplicated", split="train", streaming=True)
+        #dataset = load_dataset("wikitext", "wikitext-2-v1", split="train", streaming=True)
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
         
         # Setup Extraction Chain
-        llm = ChatOpenAI(model="gpt-4o", temperature=0)
+        if loader.provider=='openai':
+            llm = ChatOpenAI(model="gpt-4o", temperature=0)
+        elif loader.provider=='google':
+            #llm = ChatGoogleAI(model='gemini-3-pro', temperature=0)
+            llm = ChatGoogleAI(model="gemini-2.5-pro", temperature=0)
+        print(f'\n base llm: {llm}\n')
         structured_llm = llm.with_structured_output(KnowledgeGraph)
         prompt = ChatPromptTemplate.from_messages([
             ("system", "Extract nodes and edges."),
@@ -143,13 +161,13 @@ def run_graph_rag_pipeline():
                     print(f"Error: {e}")
             
             count += 1
-            if count >= 2: break # Stop after 2 articles for demo
+            if count >= limit_docs: break # Stop after 2 articles for demo
 
         # Step 3: Perform a Vector Search
         print("\n🔎 TESTING VECTOR SEARCH:")
         print("-" * 30)
         # We search for a concept that might not match exact keywords
-        search_term = "political leaders" 
+        search_term = f"{subject}" 
         results = loader.vector_search(search_term)
         
         print(f"Query: '{search_term}'")
@@ -160,4 +178,16 @@ def run_graph_rag_pipeline():
         loader.close()
 
 if __name__ == "__main__":
-    run_graph_rag_pipeline()
+    parser = argparse.ArgumentParser(description="arguments for LLM provider and KG pipeline config.")
+
+    parser.add_argument("--provider", type=str, default='openai') 
+    parser.add_argument("--limit_docs", type=int, default=5)
+    parser.add_argument("--subject", type=str, default='economics')
+
+    args = parser.parse_args()
+    
+    providers_list = ['openai', 'google']
+    subject_list = ['economics', 'law', 'physics']
+    print(f'Building {args.subject} KG with {args.provider} vector index.')
+    
+    run_graph_rag_pipeline(provider=args.provider, limit_docs=args.limit_docs)

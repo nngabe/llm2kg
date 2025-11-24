@@ -5,11 +5,9 @@ from langchain_core.prompts import ChatPromptTemplate
 from neo4j import GraphDatabase
 
 # --- CONFIGURATION ---
-os.environ["OPENAI_API_KEY"] = "sk-..." 
-
-NEO4J_URI = "bolt://localhost:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "password123"
+NEO4J_URI = os.getenv("NEO4J_URI", "neo4j://localhost:7687")
+NEO4J_USER = os.getenv("NEO4J_USERNAME", "neo4j")
+NEO4J_PASSWORD= os.getenv("NEO4J_PASSWORD", "password")
 
 class EntityResolver:
     def __init__(self):
@@ -25,7 +23,7 @@ class EntityResolver:
         Scans the graph for nodes with very similar vector embeddings.
         Returns a list of tuples: (Name A, Name B, Score)
         """
-        print("🕵️ Scanning for duplicates using Vector Index...")
+        print(" Scanning for duplicates using Vector Index...")
         
         # We iterate through nodes and query the index for neighbors.
         # In a massive production graph, you would use LSH (Locality Sensitive Hashing) here.
