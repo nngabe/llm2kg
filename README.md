@@ -1,4 +1,4 @@
-#LLM generation of Knowledge Graphs (KG) and Semi-structured Knowledge Bases (SKB)
+# LLM generation of Knowledge Graphs (KG) and Semi-structured Knowledge Bases (SKB)
 
 This repo contains an end-to-end GraphRAG application in the following steps:
 1. Pipeline for constructing a KG (as a Neo4J graph database) with vector indexing and node/edge text descriptions: `build_skb.py`
