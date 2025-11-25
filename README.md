@@ -78,6 +78,7 @@ You > who are some famous physicists?
 -----------------------------
 
 🔎 Searching Graph for: 'who are some famous physicists?'
+
 🤖 Chatbot > The provided graph data does not include information about physicists. It focuses on economists and their contributions to economic theories and policies. If you have any questions related to the economists or economic concepts mentioned in the data, feel free to ask!
 
 ## Sample Response 2
@@ -153,6 +154,7 @@ You > what are your favorite economic theories?
 -----------------------------
 
 🔎 Searching Graph for: 'what are your favorite economic theories?'
+
 🤖 Chatbot > As a helpful assistant, I don't have personal preferences or favorites. However, I can provide information on various economic theories based on the provided data:
 
 1. **Keynesian Economics**: This theory, based on the ideas of John Maynard Keynes, emphasizes the role of government intervention in the economy. Keynesian economists argue that macroeconomic adjustment can take a very long time, and thus, active government policies are necessary to manage economic cycles and ensure stability [Keynesian Economists, Keynesian policy thinking].
