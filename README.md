@@ -6,7 +6,7 @@ This repo contains an end-to-end GraphRAG application in the following steps:
 3. Tools for GraphRAG using similarity search and 1-hop neighbor enrichment:  `graphrag.py` uses only node and edge labels, `skb_graphrag.py` uses additional node/edge descriptions.
 4. A CLI chatbot for answering questions based on a GraphRAG supplied context: `cli.py`.
 
-The KG can be built from text datasets on economics, law, and physics found in `cais/wmdp-mmlu-auxiliary-corpora`[1](https://huggingface.co/datasets/cais/wmdp-mmlu-auxiliary-corpora?library=datasets)
+The KG can be built from text datasets on economics, law, and physics found in `cais/wmdp-mmlu-auxiliary-corpora` [[1](https://huggingface.co/datasets/cais/wmdp-mmlu-auxiliary-corpora?library=datasets)].
 
 ## Setup
 
