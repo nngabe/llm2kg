@@ -59,7 +59,7 @@ Lastly, a set of benchmark questions from Economics, Law, and Physics can be be 
 python eval.py
 ```
 # Sample Responses
-Here is a sample response from the chatbot after indexing documents `0:200` from the `economics` dataset:
+Here is a sample response from the chatbot building the KG and indexing documents `0:200` from the `economics` dataset:
 
 ## Sample Response 1
 You > who are some famous physicists?   
