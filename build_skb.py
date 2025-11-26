@@ -10,7 +10,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from neo4j import GraphDatabase
 
 # --- CONFIGURATION ---
-# n.b. these are the defaults for a clean install of neo4j inside the docker compose environment
+# n.b. these are the defaults for neo4j inside the docker compose environment
 NEO4J_URI = os.getenv("NEO4J_URI", "neo4j://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USERNAME", "neo4j")
 NEO4J_PASSWORD= os.getenv("NEO4J_PASSWORD", "password")
