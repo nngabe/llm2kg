@@ -2,11 +2,12 @@
 
 This repo contains an end-to-end GraphRAG application in the following steps:
 1. Pipeline for constructing a KG (as a Neo4J graph database) with vector indexing and node/edge text descriptions: `build_skb.py`
-2. Utility to perform entity resolution by similarity search on the KG vector index, with an LLM judge for final merging decisions: `resolve_entities.py`
-3. Tools for GraphRAG using similarity search and 1-hop neighbor enrichment:  `graphrag.py` uses only node and edge labels, `skb_graphrag.py` uses additional node/edge descriptions.
+2. Entity resolution by similarity search on the KG vector index, with an LLM judge for final merging decisions: `resolve_entities.py`
+3. Tools for GraphRAG using vector search + 1-hop neighbor enrichment:  `graphrag.py` uses only node and edge labels, `skb_graphrag.py` adds node/edge descriptions to context.
 4. A CLI chatbot for answering questions based on a GraphRAG supplied context: `cli.py`.
+5. Evaluation using six LLM-as-a-judge metrics: `eval.py`.
 
-The KG can be built from text datasets on economics, law, and physics found in `cais/wmdp-mmlu-auxiliary-corpora` [[1](https://huggingface.co/datasets/cais/wmdp-mmlu-auxiliary-corpora?library=datasets)].
+The KG can be built from text datasets on Economics, Law, and Physics found in `cais/wmdp-mmlu-auxiliary-corpora` [[1](https://huggingface.co/datasets/cais/wmdp-mmlu-auxiliary-corpora?library=datasets)].
 
 ## Setup
 
@@ -45,12 +46,19 @@ Entity resolution can be performed to clean up the extracted graph with:
 python resolve_entities.py 
 ```
 
-Lastly, the chatbot can be run with:
+The chatbot can be run with:
 
 ```
 python cli.py
 ```
+The chatbot is instructed only to answer questions using the retrieved context from the KG, and will not answer questions on other topics.
 
+Lastly, a set of benchmark questions from Economics, Law, and Physics can be be used to evaluate the given Answer and Context from the GraphRAG enabled (context relevance, groundedness,   answer relevance, context precision, context recall, perplexity):
+
+```
+python eval.py
+```
+# Sample Responses
 Here is a sample response from the chatbot after indexing documents `0:200` from the `economics` dataset:
 
 ## Sample Response 1
@@ -109,8 +117,6 @@ You > who are some famous economists?
 
 -----------------------------
 
-🔎 Searching Graph for: 'who are some famous economists?'
-
 🤖 Chatbot > Based on the provided graph data, some famous economists include:
 
 1. **John Maynard Keynes**: He is an influential economist known for his ideas on government intervention in the economy. His theories form the basis of Keynesian economics, which emphasizes the role of government intervention in managing economic cycles [John Maynard Keynes (Person)].
@@ -154,8 +160,6 @@ You > what are your favorite economic theories?
        
 -----------------------------
 
-🔎 Searching Graph for: 'what are your favorite economic theories?'
-
 🤖 Chatbot > As a helpful assistant, I don't have personal preferences or favorites. However, I can provide information on various economic theories based on the provided data:
 
 1. **Keynesian Economics**: This theory, based on the ideas of John Maynard Keynes, emphasizes the role of government intervention in the economy. Keynesian economists argue that macroeconomic adjustment can take a very long time, and thus, active government policies are necessary to manage economic cycles and ensure stability [Keynesian Economists, Keynesian policy thinking].
@@ -167,3 +171,53 @@ You > what are your favorite economic theories?
 4. **Neoclassical Economics**: This perspective emphasizes the importance of aggregate supply and long-term productivity growth in determining potential GDP. Neoclassical economists believe in the natural adjustment of the economy to its potential GDP and typically advocate for a limited role of active stabilization policy, focusing instead on creating a stable economic environment [Neoclassical Perspective, Neoclassical Economists].
 
 Each of these theories offers different insights and approaches to understanding and managing economic systems.
+
+## Sample Evaluation
+After building a KG only with Economics data, we can see that the GraphRAG system performs well on Economics questions, and very poorly on Law and Physics quesions, as expected. There does appear to be some transfer between the Economics we've constructed and the Law questions, but not the Physics questions, which makes sense.
+
+`python eval.py`
+
+--- ECON TEST REPORT ---
+|    | Question                | Answer          |   Context_Rel. |   Groundedness |   Answer_Rel. |   Context_Prec. |   Context_Rec. |   Perplexity |   Comp_Score |
+|---:|:------------------------|:----------------|---------------:|---------------:|--------------:|----------------:|---------------:|-------------:|-------------:|
+|  0 | Explain the concept ... | Definition      |           1    |           0.75 |          1    |            1    |           1    |         6.44 |         0.95 |
+|  1 | What happens to the ... | When supply ... |           0.75 |           0.25 |          0.75 |            1    |           1    |         6.63 |         0.77 |
+|  2 | Define Gross Domesti... | Definition:     |           1    |           1    |          0.75 |            0.75 |           1    |         6.91 |         0.91 |
+|  3 | What is the differen... | Short answer... |           0.5  |           0.5  |          1    |            0.75 |           0.5  |         7.93 |         0.64 |
+|  4 | How does an increase... | Short answer... |           0.75 |           0.75 |          0.75 |            0.25 |           0.5  |         7.33 |         0.59 |
+|  5 | What describes a Mar... | A market mon... |           1    |           1    |          1    |            1    |           0.75 |         4.27 |         0.93 |
+|  6 | What is Price Elasti... | Price elasti... |           1    |           1    |          0.75 |            1    |           1    |         3.85 |         0.95 |
+|  7 | Explain the Law of D... | Definition      |           1    |           0.75 |          1    |            1    |           1    |         7.5  |         0.95 |
+|  8 | What constitutes Fis... | Short answer... |           1    |           1    |          1    |            1    |           1    |         3.61 |         1    |
+|  9 | What is the invisibl... | The graph do... |           0    |           0.75 |          1    |            0    |           0    |        10.74 |         0.32 |
+
+
+  --- LAW TEST REPORT ---
+|    | Question                | Answer          |   Context_Rel. |   Groundedness |   Answer_Rel. |   Context_Prec. |   Context_Rec. |   Perplexity |   Comp_Score |
+|---:|:------------------------|:----------------|---------------:|---------------:|--------------:|----------------:|---------------:|-------------:|-------------:|
+|  0 | What are the four el... | I can’t find... |           0.5  |           0.5  |          1    |               0 |           0.5  |        18.13 |         0.5  |
+|  1 | What is 'Considerati... | The graph da... |           0.5  |           0.75 |          1    |               0 |           0    |         7.97 |         0.41 |
+|  2 | Explain the concept ... | I can’t find... |           0.25 |           0.75 |          0.25 |               0 |           0    |        13.66 |         0.23 |
+|  3 | What does the First ... | The First Am... |           1    |           1    |          0.75 |               1 |           0.75 |        17.11 |         0.89 |
+|  4 | What is the differen... | I cannot fin... |           0.5  |           0.5  |          0.75 |               0 |           0    |         9.09 |         0.32 |
+|  5 | Explain the principl... | Short defini... |           0.5  |           0.5  |          1    |               0 |           0    |         8.32 |         0.36 |
+|  6 | What is Double Jeopa... | The retrieve... |           0.25 |           1    |          0.25 |               0 |           0    |        23.14 |         0.27 |
+|  7 | What is a Plaintiff?... | I can't find... |           0    |           1    |          0.25 |               0 |           0    |        14.2  |         0.23 |
+|  8 | Define 'Habeas Corpu... | I can’t find... |           0.5  |           1    |          0.25 |               0 |           0    |        15.22 |         0.32 |
+|  9 | What is the 'Statute... | I cannot fin... |           0.5  |           1    |          0.25 |               0 |           0    |        13.29 |         0.32 |
+
+
+ --- PHYSICS TEST REPORT ---
+|    | Question                | Answer          |   Context_Rel. |   Groundedness |   Answer_Rel. |   Context_Prec. |   Context_Rec. |   Perplexity |   Comp_Score |
+|---:|:------------------------|:----------------|---------------:|---------------:|--------------:|----------------:|---------------:|-------------:|-------------:|
+|  0 | State Newton's Secon... | I’m unable t... |           0    |           1    |          0.25 |               0 |              0 |        14.79 |         0.23 |
+|  1 | What is the differen... | I can’t answ... |           0    |           1    |          0.25 |               0 |              0 |        21.94 |         0.23 |
+|  2 | Define Kinetic Energ... | I can’t find... |           0.25 |           0.25 |          0.75 |               0 |              0 |        23.36 |         0.23 |
+|  3 | What does the First ... | I cannot ans... |           0    |           1    |          0.25 |               0 |              0 |        12.87 |         0.23 |
+|  4 | Explain Ohm's Law....   | I can’t expl... |           0    |           1    |          0.25 |               0 |              0 |         9.16 |         0.23 |
+|  5 | What is the accelera... | I can’t find... |           0.5  |           0.75 |          0.75 |               0 |              0 |        15.66 |         0.36 |
+|  6 | Define Momentum....     | I can’t find... |           0    |           1    |          0.25 |               0 |              0 |        23.38 |         0.23 |
+|  7 | What is Friction?...    | I cannot fin... |           0    |           0.75 |          0.75 |               0 |              0 |        16.66 |         0.27 |
+|  8 | What is a Vector qua... | I don't have... |           0    |           0.75 |          0.25 |               0 |              0 |        19.7  |         0.18 |
+|  9 | Explain the concept ... | The retrieve... |           0.25 |           1    |          0.25 |               0 |              0 |        12.24 |         0.27 |
+
