@@ -86,8 +86,6 @@ You > who are some famous physicists?
        
 -----------------------------
 
-🔎 Searching Graph for: 'who are some famous physicists?'
-
 🤖 Chatbot > The provided graph data does not include information about physicists. It focuses on economists and their contributions to economic theories and policies. If you have any questions related to the economists or economic concepts mentioned in the data, feel free to ask!
 
 ## Sample Response 2
