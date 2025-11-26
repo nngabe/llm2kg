@@ -174,7 +174,9 @@ Thinking... (Searching Knowledge Graph)
 Each of these theories offers different insights and approaches to understanding and managing economic systems.
 
 ## Sample Evaluation
-After building a KG only with Economics data, we can see that the GraphRAG system performs well on Economics questions, and very poorly on Law and Physics quesions, as expected. There does appear to be some transfer from the Economics KG in answering the Law questions, but not the Physics questions, which makes sense. Unabreviated column names are:
+After building a KG only with Economics data, we can see that the GraphRAG system performs well on Economics questions, and very poorly on Law and Physics quesions, as expected. There does appear to be some transfer from the Economics KG in answering the Law questions, but not the Physics questions, which makes sense. 
+
+Unabreviated column names are:
 
 `Context_Relevance| Groundedness| Answer_Relevancy| Context_Precision| Context_Recall| Perplexity| Composite_Score`
 
@@ -183,10 +185,10 @@ Here is an example output of:
 `python eval.py`
 
 --- ECON TEST REPORT ---
-|    | Question                | Answer          |  Ctx_Rel. | Ground. | Ans_Rel. | Ctx_Prec. | Ctx_Rec. | Perplx. | **Comp_Score** |
-|---:|:------------------------|:----------------|---------------:|---------------:|--------------:|----------------:|---------------:|-------------:|-------------:|
-|  0 | Explain the concept ... | Definition      |           1    |           0.75 |          1    |            1    |           1    |         6.44 |         0.95 |
-|  1 | What happens to the ... | When supply ... |           0.75 |           0.25 |          0.75 |            1    |           1    |         6.63 |         0.77 |
+|    | Quest. | Answer          |  Ctx_Rel. | Ground. | Ans_Rel. | Ctx_Prec. | Ctx_Rec. | Perplx. | **Comp_Score** |
+|---:|:--------------------|:--------------|---------------:|---------------:|--------------:|----------------:|---------------:|-------------:|-------------:|
+|  0 | Explain the concept... | Definition      |           1    |           0.75 |          1    |            1    |           1    |         6.44 |         0.95 |
+|  1 | What happens to the... | When supply... |           0.75 |           0.25 |          0.75 |            1    |           1    |         6.63 |         0.77 |
 |  2 | Define Gross Domesti... | Definition:     |           1    |           1    |          0.75 |            0.75 |           1    |         6.91 |         0.91 |
 |  3 | What is the differen... | Short answer... |           0.5  |           0.5  |          1    |            0.75 |           0.5  |         7.93 |         0.64 |
 |  4 | How does an increase... | Short answer... |           0.75 |           0.75 |          0.75 |            0.25 |           0.5  |         7.33 |         0.59 |
@@ -198,7 +200,7 @@ Here is an example output of:
 
 
   --- LAW TEST REPORT ---
-|    | Question      | Answer | Ctx_Rel. | Ground. | Ans_Rel. |   Ctx_Prec. |   Ctx_Rec. |   Perplx. |   **Comp_Score** |
+|    | Quest.| Ans. | Ctx_Rel. | Ground. | Ans_Rel. |   Ctx_Prec. |   Ctx_Rec. |   Perplx. |   **Comp_Score** |
 |---:|:------------------------|:----------------|---------------:|---------------:|--------------:|----------------:|---------------:|-------------:|-------------:|
 |  0 | What are the four el... | I can’t find... |           0.5  |           0.5  |          1    |               0 |           0.5  |        18.13 |         0.5  |
 |  1 | What is 'Considerati... | The graph da... |           0.5  |           0.75 |          1    |               0 |           0    |         7.97 |         0.41 |
