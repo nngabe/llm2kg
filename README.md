@@ -63,9 +63,10 @@ Here is a sample response from the chatbot after indexing documents `0:200` from
 
 ## Sample Response 1
 You > who are some famous physicists?   
-🕷️  Thinking... (Searching Knowledge Graph)
 
---- 🔍 RETRIEVED CONTEXT ---
+Thinking... (Searching Knowledge Graph)
+
+--- RETRIEVED CONTEXT ---
   Retrieved Graph Data:
   
   === Entity: Solow (Person) ===
@@ -90,9 +91,10 @@ You > who are some famous physicists?
 
 ## Sample Response 2
 You > who are some famous economists?
-🕷️  Thinking... (Searching Knowledge Graph)
 
---- 🔍 RETRIEVED CONTEXT ---
+Thinking... (Searching Knowledge Graph)
+
+--- RETRIEVED CONTEXT ---
   Retrieved Graph Data:
   
   === Entity: John Maynard Keynes (Person) ===
@@ -127,9 +129,10 @@ These individuals have made substantial contributions to economic theory and pol
 
 ## Sample Response 3
 You > what are your favorite economic theories?
-🕷️  Thinking... (Searching Knowledge Graph)
 
---- 🔍 RETRIEVED CONTEXT ---
+Thinking... (Searching Knowledge Graph)
+
+--- RETRIEVED CONTEXT ---
   Retrieved Graph Data:
   
   === Entity: Keynesian Economists (Group) ===
