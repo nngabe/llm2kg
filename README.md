@@ -186,32 +186,32 @@ Here is an example output of:
 
 --- ECON TEST REPORT ---
 |    | Quest. | Answer          |  Ctx_Rel. | Grd. | Ans_Rel. | Ctx_Prec. | Ctx_Rec. | Perplx. | **COMP** |
-|---:|:-------|:-------|---------:|---------:|--------:|---------:|--------:|-------:|-------:|
-|  0 | Explain the concept... | Definition      |           1    |           0.75 |          1    |            1    |           1    |         6.44 |         0.95 |
-|  1 | What happens to the... | When supply... |           0.75 |           0.25 |          0.75 |            1    |           1    |         6.63 |         0.77 |
-|  2 | Define Gross Domesti... | Definition:     |           1    |           1    |          0.75 |            0.75 |           1    |         6.91 |         0.91 |
-|  3 | What is the differen... | Short answer... |           0.5  |           0.5  |          1    |            0.75 |           0.5  |         7.93 |         0.64 |
-|  4 | How does an increase... | Short answer... |           0.75 |           0.75 |          0.75 |            0.25 |           0.5  |         7.33 |         0.59 |
-|  5 | What describes a Mar... | A market mon... |           1    |           1    |          1    |            1    |           0.75 |         4.27 |         0.93 |
-|  6 | What is Price Elasti... | Price elasti... |           1    |           1    |          0.75 |            1    |           1    |         3.85 |         0.95 |
-|  7 | Explain the Law of D... | Definition      |           1    |           0.75 |          1    |            1    |           1    |         7.5  |         0.95 |
-|  8 | What constitutes Fis... | Short answer... |           1    |           1    |          1    |            1    |           1    |         3.61 |         1    |
-|  9 | What is the invisibl... | The graph do... |           0    |           0.75 |          1    |            0    |           0    |        10.74 |         0.32 |
+|---:|:-----|:-------|---------:|---------:|--------:|---------:|--------:|-------:|-------:|
+|  0 | Explain the conc... | Definition      |           1    |           0.75 |          1    |            1    |           1    |         6.44 |         0.95 |
+|  1 | What happens to... | When supply... |           0.75 |           0.25 |          0.75 |            1    |           1    |         6.63 |         0.77 |
+|  2 | Define Gross Dome... | Definition:     |           1    |           1    |          0.75 |            0.75 |           1    |         6.91 |         0.91 |
+|  3 | What is the diffe... | Short answer... |           0.5  |           0.5  |          1    |            0.75 |           0.5  |         7.93 |         0.64 |
+|  4 | How does an incre... | Short answer... |           0.75 |           0.75 |          0.75 |            0.25 |           0.5  |         7.33 |         0.59 |
+|  5 | What describes a Ma... | A market mon... |           1    |           1    |          1    |            1    |           0.75 |         4.27 |         0.93 |
+|  6 | What is Price Elas... | Price elasti... |           1    |           1    |          0.75 |            1    |           1    |         3.85 |         0.95 |
+|  7 | Explain the Law of ... | Definition      |           1    |           0.75 |          1    |            1    |           1    |         7.5  |         0.95 |
+|  8 | What constitutes Fi... | Short answer... |           1    |           1    |          1    |            1    |           1    |         3.61 |         1    |
+|  9 | What is the invisi... | The graph do... |           0    |           0.75 |          1    |            0    |           0    |        10.74 |         0.32 |
 
 
   --- LAW TEST REPORT ---
-|    | Quest.| Ans. | Ctx_Rel. | Grd. | Ans_Rel. |   Ctx_Prec. |   Ctx_Rec. |   Perplx. |   **COMP** |
-|---:|:-------|:--------|---------------:|---------------:|--------------:|----------------:|---------------:|-------------:|-------------:|
-|  0 | What are the four el... | I can’t find... |           0.5  |           0.5  |          1    |               0 |           0.5  |        18.13 |         0.5  |
-|  1 | What is 'Considerati... | The graph da... |           0.5  |           0.75 |          1    |               0 |           0    |         7.97 |         0.41 |
-|  2 | Explain the concept ... | I can’t find... |           0.25 |           0.75 |          0.25 |               0 |           0    |        13.66 |         0.23 |
-|  3 | What does the First ... | The First Am... |           1    |           1    |          0.75 |               1 |           0.75 |        17.11 |         0.89 |
-|  4 | What is the differen... | I cannot fin... |           0.5  |           0.5  |          0.75 |               0 |           0    |         9.09 |         0.32 |
-|  5 | Explain the principl... | Short defini... |           0.5  |           0.5  |          1    |               0 |           0    |         8.32 |         0.36 |
-|  6 | What is Double Jeopa... | The retrieve... |           0.25 |           1    |          0.25 |               0 |           0    |        23.14 |         0.27 |
-|  7 | What is a Plaintiff?... | I can't find... |           0    |           1    |          0.25 |               0 |           0    |        14.2  |         0.23 |
-|  8 | Define 'Habeas Corpu... | I can’t find... |           0.5  |           1    |          0.25 |               0 |           0    |        15.22 |         0.32 |
-|  9 | What is the 'Statute... | I cannot fin... |           0.5  |           1    |          0.25 |               0 |           0    |        13.29 |         0.32 |
+|    | Quest. | Ans. | Ctx_Rel. | Grd. | Ans_Rel. |   Ctx_Prec. |   Ctx_Rec. |   Perplx. |   **COMP** |
+|---:|:-----|:--------|---------------:|---------------:|--------------:|----------------:|---------------:|-------------:|-------------:|
+|  0 | What are the four... | I can’t find... |           0.5  |           0.5  |          1    |               0 |           0.5  |        18.13 |         0.5  |
+|  1 | What is 'Considerat... | The graph da... |           0.5  |           0.75 |          1    |               0 |           0    |         7.97 |         0.41 |
+|  2 | Explain the concep... | I can’t find... |           0.25 |           0.75 |          0.25 |               0 |           0    |        13.66 |         0.23 |
+|  3 | What does the Firs... | The First Am... |           1    |           1    |          0.75 |               1 |           0.75 |        17.11 |         0.89 |
+|  4 | What is the differ... | I cannot fin... |           0.5  |           0.5  |          0.75 |               0 |           0    |         9.09 |         0.32 |
+|  5 | Explain the princi... | Short defini... |           0.5  |           0.5  |          1    |               0 |           0    |         8.32 |         0.36 |
+|  6 | What is Double Jeop... | The retrieve... |           0.25 |           1    |          0.25 |               0 |           0    |        23.14 |         0.27 |
+|  7 | What is a Plaintiff? | I can't find... |           0    |           1    |          0.25 |               0 |           0    |        14.2  |         0.23 |
+|  8 | Define 'Habeas Cor... | I can’t find... |           0.5  |           1    |          0.25 |               0 |           0    |        15.22 |         0.32 |
+|  9 | What is the 'Stat... | I cannot fin... |           0.5  |           1    |          0.25 |               0 |           0    |        13.29 |         0.32 |
 
 
  --- PHYSICS TEST REPORT ---
