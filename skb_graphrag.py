@@ -14,12 +14,12 @@ class GraphRAG:
     def __init__(self):
         self.driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
         self.embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
-        self.llm = ChatOpenAI(model="gpt-4o", temperature=0)
+        self.llm = ChatOpenAI(model="gpt-5-mini", temperature=0)
 
     def close(self):
         self.driver.close()
 
-    def retrieve_graph_context(self, query_text: str, limit: int = 3) -> List[Dict[str, Any]]:
+    def retrieve_graph_context(self, query_text: str, limit: int = 10) -> List[Dict[str, Any]]:
         """
         Retrieves nodes by vector similarity, including their descriptions
         and the descriptions of their outgoing relationships.
@@ -81,7 +81,6 @@ class GraphRAG:
         return formatted_text
 
     def generate_answer(self, user_question: str):
-        print(f"🔎 Searching Graph for: '{user_question}'...")
 
         # 1. Retrieve
         context_data = self.retrieve_graph_context(user_question)

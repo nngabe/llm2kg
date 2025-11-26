@@ -1,6 +1,7 @@
 import os
 import sys
-from skb_graphrag import GraphRAG # Assumes your GraphRAG class is in backend.py
+import skb_graphrag 
+import graphrag 
 
 # Optional: Add colors for better readability in the terminal
 class Colors:
@@ -14,15 +15,18 @@ class Colors:
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
 
-def main():
+def main(backend='skb'):
     # 1. Initialize
-    print(f"{Colors.HEADER}🕸️  Initializing Neo4j GraphRAG CLI...{Colors.ENDC}")
+    print(f"{Colors.HEADER}  Initializing Neo4j GraphRAG CLI...{Colors.ENDC}")
     
     try:
-        rag = GraphRAG()
-        print(f"{Colors.GREEN}✅ Connected to Neo4j Database{Colors.ENDC}")
+        if backend=='skb':
+            rag = skb_graphrag.GraphRAG()
+        elif backend=='kg':
+            rag = graphrag.GraphRAG()
+        print(f"{Colors.GREEN} Connected to Neo4j Database{Colors.ENDC}")
     except Exception as e:
-        print(f"{Colors.YELLOW}❌ Connection Error: {e}{Colors.ENDC}")
+        print(f"{Colors.YELLOW} Connection Error: {e}{Colors.ENDC}")
         sys.exit(1)
 
     print(f"\n{Colors.BOLD}Instructions:{Colors.ENDC}")
@@ -42,13 +46,13 @@ def main():
             if not user_input.strip():
                 continue
 
-            print(f"{Colors.YELLOW}🕷️  Thinking... (Searching Knowledge Graph){Colors.ENDC}")
+            print(f"{Colors.YELLOW}  Thinking... (Searching Knowledge Graph){Colors.ENDC}")
 
             # A. Retrieve & Display Context (The "Sidebar" feature)
             context_data = rag.retrieve_graph_context(user_input)
             
             if context_data:
-                print(f"\n{Colors.BOLD}--- 🔍 RETRIEVED CONTEXT ---{Colors.ENDC}")
+                print(f"\n{Colors.BOLD}---  RETRIEVED CONTEXT ---{Colors.ENDC}")
                 formatted_context = rag.format_context(context_data)
                 # Indent context for visual separation
                 print("\n".join(f"  {line}" for line in formatted_context.splitlines()))
@@ -56,9 +60,9 @@ def main():
                 
                 # B. Generate Answer
                 answer = rag.generate_answer(user_input)
-                print(f"{Colors.GREEN}🤖 AI > {answer}{Colors.ENDC}")
+                print(f"{Colors.GREEN} Chatbot > {answer}{Colors.ENDC}")
             else:
-                print(f"{Colors.YELLOW}🤖 AI > I couldn't find any relevant nodes in the graph to answer that.{Colors.ENDC}")
+                print(f"{Colors.YELLOW}  Chatbot > I couldn't find any relevant nodes in the graph to answer that.{Colors.ENDC}")
 
         except KeyboardInterrupt:
             print("\nGoodbye!")

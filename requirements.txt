@@ -11,3 +11,7 @@ pandas
 tiktoken         
 python-dotenv    
 pydantic>=2.0
+transformers 
+torch 
+tabulate 
+tqdm

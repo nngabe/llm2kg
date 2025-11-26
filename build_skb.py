@@ -10,22 +10,23 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from neo4j import GraphDatabase
 
 # --- CONFIGURATION ---
+# n.b. these are the defaults for a clean install of neo4j inside the docker compose environment
 NEO4J_URI = os.getenv("NEO4J_URI", "neo4j://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USERNAME", "neo4j")
 NEO4J_PASSWORD= os.getenv("NEO4J_PASSWORD", "password")
 
-# --- 1. UPDATED ONTOLOGY (Semi-Structured) ---
+# --- 1. ONTOLOGY (Semi-Structured) ---
 class Node(BaseModel):
     id: str = Field(description="Unique identifier, e.g., 'Albert Einstein'")
     type: str = Field(description="Category, e.g., 'Person', 'Location'")
-    # NEW: Capturing unstructured context
+    # Capturing unstructured context
     description: str = Field(description="A brief summary of this entity based on the text.")
 
 class Edge(BaseModel):
     source: str = Field(description="Source node id")
     target: str = Field(description="Target node id")
     relation: str = Field(description="Relationship, e.g., 'born_in'")
-    # NEW: Capturing edge context
+    # Capturing edge context
     description: str = Field(description="Context explaining why this relationship exists.")
 
 class KnowledgeGraph(BaseModel):
@@ -33,7 +34,7 @@ class KnowledgeGraph(BaseModel):
     edges: List[Edge]
 
 # --- 2. UPDATED LOADER ---
-class Neo4jRichLoader:
+class Neo4jLoader:
     def __init__(self, uri, user, password):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
         self.embeddings_model = OpenAIEmbeddings(model="text-embedding-3-small")
@@ -100,7 +101,7 @@ class Neo4jRichLoader:
 
 # --- 3. UPDATED PIPELINE EXECUTION ---
 def run_skb_pipeline(provider='openai', limit_docs=5, restart_index=0, subject='economics'):
-    loader = Neo4jRichLoader(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
+    loader = Neo4jLoader(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
     
     try:
         loader.init_indices()
@@ -119,7 +120,7 @@ def run_skb_pipeline(provider='openai', limit_docs=5, restart_index=0, subject='
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
         
         # --- KEY CHANGE: PROMPT ENGINEERING ---
-        llm = ChatOpenAI(model="gpt-4o", temperature=0)
+        llm = ChatOpenAI(model="gpt-5-mini", temperature=0)
         structured_llm = llm.with_structured_output(KnowledgeGraph)
         
         system_prompt = """
@@ -177,7 +178,8 @@ if __name__ == "__main__":
     parser.add_argument("--subject", type=str, default='economics')
 
     kwargs = vars(parser.parse_args())
-    print(kwargs)
+    print(f'kwargs: {kwargs}')
+
     providers_list = ['openai', 'google']
     subject_list = ['economics', 'law', 'physics']
     print(f'\nBuilding {kwargs["subject"]} KG with {kwargs["provider"]} vector index and text descriptions.\n')
