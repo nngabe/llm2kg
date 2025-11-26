@@ -206,7 +206,7 @@ After building a KG only with Economics data, we can see that the GraphRAG syste
 
 
  --- PHYSICS TEST REPORT ---
-|||  | Question                | Answer          |   Context_Rel. |   Groundedness |   Answer_Rel. |   Context_Prec. |   Context_Rec. |   Perplexity |   Comp_Score |
+|    | Question                | Answer          |   Context_Rel. |   Groundedness |   Answer_Rel. |   Context_Prec. |   Context_Rec. |   Perplexity |   Comp_Score |
 |---:|:------------------------|:----------------|---------------:|---------------:|--------------:|----------------:|---------------:|-------------:|-------------:|
 |  0 | State Newton's Secon... | I’m unable t... |           0    |           1    |          0.25 |               0 |              0 |        14.79 |         0.23 |
 |  1 | What is the differen... | I can’t answ... |           0    |           1    |          0.25 |               0 |              0 |        21.94 |         0.23 |
