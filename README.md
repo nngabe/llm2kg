@@ -175,7 +175,8 @@ Each of these theories offers different insights and approaches to understanding
 
 ## Sample Evaluation
 After building a KG only with Economics data, we can see that the GraphRAG system performs well on Economics questions, and very poorly on Law and Physics quesions, as expected. There does appear to be some transfer from the Economics KG in answering the Law questions, but not the Physics questions, which makes sense. Unabreviated column names are:
-`Context_Relevance |   Groundedness |   Answer_Relevancy |   Context_Precision |   Context_Recall |   Perplexity |   Composite_Score`
+
+`Context_Relevance | Groundedness | Answer_Relevancy | Context_Precision | Context_Recall | Perplexity | Composite_Score`
 
 Here is an example output of:
 `python eval.py`
