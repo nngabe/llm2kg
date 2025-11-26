@@ -176,7 +176,7 @@ After building a KG only with Economics data, we can see that the GraphRAG syste
 `python eval.py`
 
 --- ECON TEST REPORT ---
-|    | Question                | Answer          |   Context_Rel. |   Groundedness |   Answer_Rel. |   Context_Prec. |   Context_Rec. |   Perplexity |   Comp_Score |
+|    | Question                | Answer          |   Ctx_Rel. |   Ground. |   Answer_Rel. |   Ctx_Prec. |   Context_Rec. |   Perplx. |   Comp_Score |
 |---:|:------------------------|:----------------|---------------:|---------------:|--------------:|----------------:|---------------:|-------------:|-------------:|
 |  0 | Explain the concept ... | Definition      |           1    |           0.75 |          1    |            1    |           1    |         6.44 |         0.95 |
 |  1 | What happens to the ... | When supply ... |           0.75 |           0.25 |          0.75 |            1    |           1    |         6.63 |         0.77 |
@@ -191,7 +191,7 @@ After building a KG only with Economics data, we can see that the GraphRAG syste
 
 
   --- LAW TEST REPORT ---
-|    | Question                | Answer          |   Context_Rel. |   Groundedness |   Answer_Rel. |   Context_Prec. |   Context_Rec. |   Perplexity |   Comp_Score |
+|    | Question                | Answer          |   Ctx_Rel. |   Ground. |   Answer_Rel. |   Ctx_Prec. |   Context_Rec. |   Perplx. |   Comp_Score |
 |---:|:------------------------|:----------------|---------------:|---------------:|--------------:|----------------:|---------------:|-------------:|-------------:|
 |  0 | What are the four el... | I can’t find... |           0.5  |           0.5  |          1    |               0 |           0.5  |        18.13 |         0.5  |
 |  1 | What is 'Considerati... | The graph da... |           0.5  |           0.75 |          1    |               0 |           0    |         7.97 |         0.41 |
@@ -206,7 +206,7 @@ After building a KG only with Economics data, we can see that the GraphRAG syste
 
 
  --- PHYSICS TEST REPORT ---
-|    | Question                | Answer          |   Context_Rel. |   Groundedness |   Answer_Rel. |   Context_Prec. |   Context_Rec. |   Perplexity |   Comp_Score |
+|    | Question                | Answer          |   Context_Rel. |   Groundedness |   Answer_Rel. |   Ctx_Prec. |   Context_Rec. |   Perplx. |   Comp_Score |
 |---:|:------------------------|:----------------|---------------:|---------------:|--------------:|----------------:|---------------:|-------------:|-------------:|
 |  0 | State Newton's Secon... | I’m unable t... |           0    |           1    |          0.25 |               0 |              0 |        14.79 |         0.23 |
 |  1 | What is the differen... | I can’t answ... |           0    |           1    |          0.25 |               0 |              0 |        21.94 |         0.23 |
