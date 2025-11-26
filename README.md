@@ -185,8 +185,8 @@ Here is an example output of:
 `python eval.py`
 
 --- ECON TEST REPORT ---
-|    | Quest. | Answer          |  Ctx_Rel. | Ground. | Ans_Rel. | Ctx_Prec. | Ctx_Rec. | Perplx. | **Comp_Score** |
-|---:|:--------------------|:--------------|---------------:|---------------:|--------------:|----------------:|---------------:|-------------:|-------------:|
+|    | Quest. | Answer          |  Ctx_Rel. | Grd. | Ans_Rel. | Ctx_Prec. | Ctx_Rec. | Perplx. | **Comp_Score** |
+|---:|:-------|:-------|---------------:|---------------:|--------------:|----------------:|---------------:|-------------:|-------------:|
 |  0 | Explain the concept... | Definition      |           1    |           0.75 |          1    |            1    |           1    |         6.44 |         0.95 |
 |  1 | What happens to the... | When supply... |           0.75 |           0.25 |          0.75 |            1    |           1    |         6.63 |         0.77 |
 |  2 | Define Gross Domesti... | Definition:     |           1    |           1    |          0.75 |            0.75 |           1    |         6.91 |         0.91 |
