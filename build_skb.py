@@ -119,8 +119,7 @@ def run_skb_pipeline(provider='openai', limit_docs=5, restart_index=0, subject='
         dataset = dataset.select(range(restart_index,restart_index + limit_docs))
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
         
-        # --- KEY CHANGE: PROMPT ENGINEERING ---
-        llm = ChatOpenAI(model="gpt-5-mini", temperature=0)
+        llm = ChatOpenAI(model="gpt-4o", temperature=0)
         structured_llm = llm.with_structured_output(KnowledgeGraph)
         
         system_prompt = """
