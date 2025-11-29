@@ -37,7 +37,7 @@ The knowledge graph can be constructed from scratch (or restarted from index) wi
 ```
 python build_skb.py --restart_index 0 --limit_docs 200 --subject economics
 ```
-which indexes documents `0:200` with the parameters given.
+which indexes documents `0:200` of the economics dataset.
 
 
 Entity resolution can be performed to clean up the extracted graph with:
