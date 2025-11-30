@@ -12,6 +12,7 @@ tiktoken
 python-dotenv    
 pydantic>=2.0
 transformers 
+datasets
 torch 
 tabulate 
 tqdm
