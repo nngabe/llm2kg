@@ -35,7 +35,7 @@ export OPENAI_API_KEY=sk-...
 ```
 
 The Neo4j environment is already configured within the docker container, and the default URI, username, and password are used in all scripts. 
-Note that the KG stored in the containers Neo4j instance will be lost when the container is closed.
+Note that the KG stored in the container Neo4j instance will be lost when the container is closed.
 
 The knowledge graph can be constructed from scratch (or restarted from index) with:
 
