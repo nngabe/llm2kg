@@ -19,6 +19,7 @@ cd llm2kg/
 
 Then start the docker containers for the Neo4J/Python environment (using configs in `docker-compose.yml`):
 ```
+docker compose up -d
 docker compose exec llm-app bash
 ```
 
