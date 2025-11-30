@@ -22,6 +22,10 @@ Then start the docker containers for the Neo4J/Python environment (using configs
 docker compose up -d
 docker compose exec llm-app bash
 ```
+and install the python dependencies with 
+```
+python -m pip install requirements.txt
+```
 
 ## Running the pipeline
 
