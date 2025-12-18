@@ -6,7 +6,10 @@ langchain-neo4j
 langchain-openai            
 langchain-google-genai 
 langchain-anthropic 
+langchain-huggingface
+langchain-ollama
 langchain-text-splitters
+sentence-transformers
 pandas
 tiktoken         
 python-dotenv    

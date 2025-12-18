@@ -1,9 +1,12 @@
 import os
 import re
+import time
 import argparse
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from datasets import load_dataset
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -37,7 +40,15 @@ class KnowledgeGraph(BaseModel):
 class Neo4jLoader:
     def __init__(self, uri, user, password):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
-        self.embeddings_model = OpenAIEmbeddings(model="text-embedding-3-small")
+        self.embedding_model = OllamaEmbeddings(
+            base_url="http://host.docker.internal:11434",
+            model="qwen3-embedding:8b",
+        )
+        #self.embedding_model = HuggingFaceEmbeddings(model_name="Qwen/Qwen3-Embedding-8B",
+        #                        model_kwargs = {"device": "cpu"},
+        #                        encode_kwargs = {"normalize_embeddings": False},
+        #                       )
+        #self.embedding_model = OpenAIEmbeddings(model="text-embedding-3-small")
 
     def close(self):
         self.driver.close()
@@ -62,11 +73,12 @@ class Neo4jLoader:
     def add_graph_data(self, data: KnowledgeGraph):
         with self.driver.session() as session:
             # 1. Create Nodes with Rich Embeddings
+
             for node in data.nodes:
                 # KEY CHANGE: We embed the description, not just the name.
                 # This makes the vector search "Semantically Aware".
                 text_to_embed = f"{node.id} ({node.type}): {node.description}"
-                vector = self.embeddings_model.embed_query(text_to_embed)
+                vector = self.embedding_model.embed_query(text_to_embed)
                 
                 session.execute_write(self._create_node_with_metadata, node, vector)
             
@@ -116,10 +128,12 @@ def run_skb_pipeline(provider='openai', limit_docs=5, restart_index=0, subject='
         elif subject == 'physics':
             dataset = load_dataset("cais/wmdp-mmlu-auxiliary-corpora", "physics-corpus", split='train')
 
-        dataset = dataset.select(range(restart_index,restart_index + limit_docs))
+        end_index = restart_index + limit_docs if limit_docs > 0 else len(dataset)
+        dataset = dataset.select(range(restart_index, end_index)) 
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-        
-        llm = ChatOpenAI(model="gpt-4o", temperature=0)
+       
+        llm = ChatOllama(model="qwen3:30b-a3b",  temperature=0, base_url="http://host.docker.internal:11434")
+        #llm = ChatOpenAI(model="gpt-4o", temperature=0)
         structured_llm = llm.with_structured_output(KnowledgeGraph)
         
         system_prompt = """
@@ -137,13 +151,14 @@ def run_skb_pipeline(provider='openai', limit_docs=5, restart_index=0, subject='
         chain = prompt | structured_llm
 
         count = 0
-        print(f'\n [doc][chunk]\n')
+        print(f'\n [doc/total_docs][chunk]\n')
         for entry in dataset:
             text = entry['text']
             if len(text.strip()) < 50: continue
             
             chunks = text_splitter.split_text(text)
-            
+
+            tic = time.time()    
             for i,chunk in enumerate(chunks):
                 try:
                     # The LLM now extracts descriptions automatically due to the updated Pydantic schema
@@ -151,7 +166,9 @@ def run_skb_pipeline(provider='openai', limit_docs=5, restart_index=0, subject='
                     
                     if data.nodes:
                         loader.add_graph_data(data)
-                        print(f" [{count+restart_index}][{i}] Indexed {len(data.nodes)} nodes with vector embedding and node/edge descriptions.")
+                        toc = time.time() - tic
+                        tic = time.time()
+                        print(f" [{count+restart_index}/{end_index}][{i}] Indexed {len(data.nodes)} nodes with vector embedding and node/edge descriptions. ({toc:.2f} s)")
                         
                         # DEBUG: Show what the LLM extracted to verify it's working
                         #print(f"      Example Node: {data.nodes[0].id} -> {data.nodes[0].description[:50]}...")
@@ -161,7 +178,7 @@ def run_skb_pipeline(provider='openai', limit_docs=5, restart_index=0, subject='
                     print(e)
             
             count += 1
-            if count >= limit_docs: break 
+
     except Exception as e:
         print(e)
 
