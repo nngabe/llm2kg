@@ -38,17 +38,16 @@ class KnowledgeGraph(BaseModel):
 
 # --- 2. UPDATED LOADER ---
 class Neo4jLoader:
-    def __init__(self, uri, user, password):
+    def __init__(self, uri, user, password, provider='local'):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
-        self.embedding_model = OllamaEmbeddings(
-            base_url="http://host.docker.internal:11434",
-            model="qwen3-embedding:8b",
-        )
-        #self.embedding_model = HuggingFaceEmbeddings(model_name="Qwen/Qwen3-Embedding-8B",
-        #                        model_kwargs = {"device": "cpu"},
-        #                        encode_kwargs = {"normalize_embeddings": False},
-        #                       )
-        #self.embedding_model = OpenAIEmbeddings(model="text-embedding-3-small")
+    
+        if provider=='local':
+            self.embedding_model = OllamaEmbeddings(
+                base_url="http://host.docker.internal:11434",
+                model="qwen3-embedding:8b",
+            )
+        elif provider=='openai':
+            self.embedding_model = OpenAIEmbeddings(model="text-embedding-3-small")
 
     def close(self):
         self.driver.close()
@@ -112,8 +111,8 @@ class Neo4jLoader:
         tx.run(query, source=edge.source, target=edge.target, desc=edge.description)
 
 # --- 3. UPDATED PIPELINE EXECUTION ---
-def run_skb_pipeline(provider='openai', limit_docs=5, restart_index=0, subject='economics'):
-    loader = Neo4jLoader(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
+def run_skb_pipeline(provider='local', limit_docs=5, restart_index=0, subject='economics'):
+    loader = Neo4jLoader(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, provider=provider)
     
     try:
         loader.init_indices()
@@ -131,9 +130,11 @@ def run_skb_pipeline(provider='openai', limit_docs=5, restart_index=0, subject='
         end_index = restart_index + limit_docs if limit_docs > 0 else len(dataset)
         dataset = dataset.select(range(restart_index, end_index)) 
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-       
-        llm = ChatOllama(model="qwen3:30b-a3b",  temperature=0, base_url="http://host.docker.internal:11434")
-        #llm = ChatOpenAI(model="gpt-4o", temperature=0)
+      
+        if provider=='local':
+            llm = ChatOllama(model="qwen3:30b-a3b",  temperature=0, base_url="http://host.docker.internal:11434")
+        elif provider=='openai':
+            llm = ChatOpenAI(model="gpt-4o", temperature=0)
         structured_llm = llm.with_structured_output(KnowledgeGraph)
         
         system_prompt = """
@@ -188,7 +189,7 @@ def run_skb_pipeline(provider='openai', limit_docs=5, restart_index=0, subject='
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="arguments for LLM provider and KG pipeline config.")
 
-    parser.add_argument("--provider", type=str, default='openai')
+    parser.add_argument("--provider", type=str, default='local')
     parser.add_argument("--limit_docs", type=int, default=5)
     parser.add_argument("--restart_index", type=int, default=0)
     parser.add_argument("--subject", type=str, default='economics')
