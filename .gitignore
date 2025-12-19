@@ -1,2 +1,4 @@
 neo4j_data
 neo4j_plugins
+benchmarks/*.pkl
+benchmarks/*.txt

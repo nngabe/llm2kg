@@ -2,6 +2,7 @@ import os
 import re
 import time
 import argparse
+import logging
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
@@ -12,6 +13,10 @@ from datasets import load_dataset
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from neo4j import GraphDatabase
 
+# Configure logging for debugging parsing failures
+logging.basicConfig(level=logging.WARNING)
+logger = logging.getLogger(__name__)
+
 # --- CONFIGURATION ---
 # n.b. these are the defaults for neo4j inside the docker compose environment
 NEO4J_URI = os.getenv("NEO4J_URI", "neo4j://localhost:7687")
@@ -19,6 +24,11 @@ NEO4J_USER = os.getenv("NEO4J_USERNAME", "neo4j")
 NEO4J_PASSWORD= os.getenv("NEO4J_PASSWORD", "password")
 
 # --- 1. ONTOLOGY (Semi-Structured) ---
+def normalize_entity(name: str) -> str:
+    """Standardize entity naming: 'NEOCLASSICAL_ECONOMICS' -> 'Neoclassical Economics'"""
+    return ' '.join(name.replace('_', ' ').split()).title()
+
+
 class Node(BaseModel):
     id: str = Field(description="Unique identifier, e.g., 'Albert Einstein'")
     type: str = Field(description="Category, e.g., 'Person', 'Location'")
@@ -89,18 +99,18 @@ class Neo4jLoader:
         # We store the description property on the node
         query = """
         MERGE (n:Entity {name: $name})
-        ON CREATE SET 
-            n.type = $type, 
+        ON CREATE SET
+            n.type = $type,
             n.description = $desc,
             n.embedding = $vector
         """
         # Optional: ON MATCH SET n.description = $desc (if you want to overwrite)
-
-        tx.run(query, name=node.id, type=node.type, desc=node.description, vector=vector)
+        # Normalize entity name for consistency
+        tx.run(query, name=normalize_entity(node.id), type=node.type, desc=node.description, vector=vector)
 
     def _create_edge_with_metadata(self, tx, edge: Edge):
         rel_type = self.sanitize(edge.relation)
-        
+
         # We store the description property on the relationship
         query = f"""
         MATCH (s:Entity {{name: $source}})
@@ -108,7 +118,8 @@ class Neo4jLoader:
         MERGE (s)-[r:{rel_type}]->(t)
         ON CREATE SET r.description = $desc
         """
-        tx.run(query, source=edge.source, target=edge.target, desc=edge.description)
+        # Normalize entity names for consistency
+        tx.run(query, source=normalize_entity(edge.source), target=normalize_entity(edge.target), desc=edge.description)
 
 # --- 3. UPDATED PIPELINE EXECUTION ---
 def run_skb_pipeline(provider='local', limit_docs=5, restart_index=0, subject='economics'):
@@ -137,13 +148,13 @@ def run_skb_pipeline(provider='local', limit_docs=5, restart_index=0, subject='e
             llm = ChatOpenAI(model="gpt-4o", temperature=0)
         structured_llm = llm.with_structured_output(KnowledgeGraph)
         
-        system_prompt = """
-        You are a Knowledge Graph expert. Extract a semi-structured graph from the text.
-        
-        1. Identify Entities (Nodes): Include a 'description' summarizing who/what the entity is.
-        2. Identify Relationships (Edges): Include a 'description' explaining the context of the link.
-        3. Use consistent IDs.
-        """
+        system_prompt = """You are a Knowledge Graph expert. Extract a semi-structured graph from the text.
+
+1. Identify Entities (Nodes): Include a 'description' summarizing who/what the entity is.
+2. Identify Relationships (Edges): Include a 'description' explaining the context of the link.
+3. Use consistent IDs.
+"""
+#IMPORTANT: Return ONLY valid JSON with no extra text, markdown, or explanation. Ensure all strings are properly quoted and there are no trailing commas."""
         
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),
@@ -176,7 +187,11 @@ def run_skb_pipeline(provider='local', limit_docs=5, restart_index=0, subject='e
                         #print(f"      Example Edge: {data.edges[0].relation} -> {data.edges[0].description[:50]}...")
                         
                 except Exception as e:
-                    print(e)
+                    error_msg = str(e)
+                    if "json" in error_msg.lower() or "Invalid" in error_msg:
+                        logger.warning(f" [{count+restart_index}/{end_index}][{i}] JSON parsing failed - skipping chunk. Error: {error_msg[:100]}")
+                    else:
+                        logger.error(f" [{count+restart_index}/{end_index}][{i}] Unexpected error: {e}")
             
             count += 1
 

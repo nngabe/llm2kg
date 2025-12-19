@@ -1,0 +1,668 @@
+
+================================================================================
+MODEL COMPARISON BENCHMARK REPORT
+================================================================================
+
+[SUMMARY TABLE]
++-------------------------+------------+-----------+---------------+---------------+------------------+-----------+----------+
+| Model                   | Gold Std   | Success   |   Nodes/Chunk |   Edges/Chunk | Entity Overlap   | Latency   |   Issues |
++=========================+============+===========+===============+===============+==================+===========+==========+
+| o1 (Gold Standard)      | Yes        | 22/22     |           8.5 |           7.9 | N/A              | 13.52s    |        0 |
++-------------------------+------------+-----------+---------------+---------------+------------------+-----------+----------+
+| GPT-5.2 (Gold Standard) | Yes        | 22/22     |          15.4 |          17.7 | N/A              | 11.91s    |        0 |
++-------------------------+------------+-----------+---------------+---------------+------------------+-----------+----------+
+| GPT-4o                  | No         | 22/22     |           7.5 |           6.6 | 55.6%            | 6.14s     |        1 |
++-------------------------+------------+-----------+---------------+---------------+------------------+-----------+----------+
+| GPT-4o-mini             | No         | 22/22     |           8   |           7.7 | 41.0%            | 11.91s    |        2 |
++-------------------------+------------+-----------+---------------+---------------+------------------+-----------+----------+
+| Qwen3 30B (Local)       | No         | 21/22     |           7.2 |           7.7 | 10.9%            | 41.33s    |        3 |
++-------------------------+------------+-----------+---------------+---------------+------------------+-----------+----------+
+| Qwen3 8B (Local)        | No         | 22/22     |           7.7 |           7.7 | 21.4%            | 51.09s    |        2 |
++-------------------------+------------+-----------+---------------+---------------+------------------+-----------+----------+
+| Llama3.1 8B (Local)     | No         | 22/22     |           6.3 |           5.9 | 3.0%             | 56.11s    |        1 |
++-------------------------+------------+-----------+---------------+---------------+------------------+-----------+----------+
+
+================================================================================
+DEGRADATION ANALYSIS
+================================================================================
+
+[GOLD STANDARD BASELINE]
+
+  o1 (Gold Standard):
+    - Success rate: 100.0%
+    - Avg nodes/chunk: 8.5
+    - Avg edges/chunk: 7.9
+    - Avg latency: 13.52s
+
+  GPT-5.2 (Gold Standard):
+    - Success rate: 100.0%
+    - Avg nodes/chunk: 15.4
+    - Avg edges/chunk: 17.7
+    - Avg latency: 11.91s
+
+[MODEL COMPARISON TO GOLD STANDARD]
+
+  GPT-4o:
+    - Success rate: 100.0%
+    - Entity overlap: 55.6%
+    - Relationship overlap: 10.5%
+    - Avg latency: 6.14s
+    - Issues identified:
+      * Low relationship overlap with gold standard (10.5%)
+    - Sample missing entities: ['year 2013', 'start-ups', 'year 2019']
+    - Sample extra entities: ['productivity growth', 'industries', 'clean air']
+
+  GPT-4o-mini:
+    - Success rate: 100.0%
+    - Entity overlap: 41.0%
+    - Relationship overlap: 4.7%
+    - Avg latency: 11.91s
+    - Issues identified:
+      * Low entity overlap with gold standard (41.0%)
+      * Low relationship overlap with gold standard (4.7%)
+    - Sample missing entities: ['neoclassical economists', 'neoclassical perspective', 'aggregate demand']
+    - Sample extra entities: ['neoclassical economics', '2013', '2019']
+
+  Qwen3 30B (Local):
+    - Success rate: 95.5%
+    - Entity overlap: 10.9%
+    - Relationship overlap: 1.9%
+    - Avg latency: 41.33s
+    - Issues identified:
+      * Parse failures: 1/22 (4.5%)
+      * Low entity overlap with gold standard (10.9%)
+      * Low relationship overlap with gold standard (1.9%)
+    - Sample missing entities: ['aggregate demand', 'potential gdp', 'elasticity of demand and supply']
+    - Sample extra entities: ['long term productivity growth', 'potential gdp level', 'start ups medical innovation']
+
+  Qwen3 8B (Local):
+    - Success rate: 100.0%
+    - Entity overlap: 21.4%
+    - Relationship overlap: 2.3%
+    - Avg latency: 51.09s
+    - Issues identified:
+      * Low entity overlap with gold standard (21.4%)
+      * Low relationship overlap with gold standard (2.3%)
+    - Sample missing entities: ['aggregate supply', 'aggregate demand', 'active stabilization policy']
+    - Sample extra entities: ['potential gdp level', 'hands off policy', 'elasticityofdemandandsupply']
+
+  Llama3.1 8B (Local):
+    - Success rate: 100.0%
+    - Entity overlap: 3.0%
+    - Relationship overlap: 0.0%
+    - Avg latency: 56.11s
+    - Issues identified:
+      * Low entity overlap with gold standard (3.0%)
+    - Sample missing entities: ['full employment', 'potential gdp', 'aggregate supply']
+    - Sample extra entities: ['5', '3', '2']
+
+[DEGRADATION PATTERNS]
+
+  1. JSON/Structured Output Parsing Issues:
+     - Qwen3 30B (Local): 1 failures
+     CAUSE: Smaller models may not reliably produce valid JSON
+     FIX: Add retry logic or fallback parsing
+
+  3. Entity Inconsistency (different entity naming):
+     - GPT-4o-mini: 41.0% overlap
+     - Qwen3 30B (Local): 10.9% overlap
+     - Qwen3 8B (Local): 21.4% overlap
+     - Llama3.1 8B (Local): 3.0% overlap
+     CAUSE: Models use different naming conventions for same entities
+     FIX: Add entity normalization/resolution post-processing
+
+================================================================================
+NEO4J WRITE EXPLANATION (DRY RUN)
+================================================================================
+
+[o1 (Gold Standard)]
+
+  NODES TO CREATE (179 unique entities):
+  --------------------------------------------------
+
+  Cypher: MERGE (n:Entity {name: 'Neoclassical Perspective'})
+          ON CREATE SET n.type = 'EconomicTheory'
+                        n.description = 'An economic viewpoint that places more emphasis on...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Neoclassical Economists'})
+          ON CREATE SET n.type = 'Group'
+                        n.description = 'Economists who follow the neoclassical perspective...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Aggregate Supply'})
+          ON CREATE SET n.type = 'EconomicConcept'
+                        n.description = 'The total supply of goods and services produced in...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Potential Gdp'})
+          ON CREATE SET n.type = 'EconomicConcept'
+                        n.description = 'The level of GDP attainable when the economy is op...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Full Employment'})
+          ON CREATE SET n.type = 'EconomicConcept'
+                        n.description = 'A situation in which nearly all who are able and w...'
+                        n.embedding = [vector of 1536 floats]
+
+  ... and 174 more nodes
+
+  EDGES TO CREATE (173 relationships):
+  --------------------------------------------------
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Perspective'})
+          MATCH (t:Entity {name: 'Aggregate Supply'})
+          MERGE (s)-[r:EMPHASIZES]->(t)
+          ON CREATE SET r.description = 'The neoclassical perspective places more...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economists'})
+          MATCH (t:Entity {name: 'Potential Gdp'})
+          MERGE (s)-[r:BELIEVE]->(t)
+          ON CREATE SET r.description = 'Neoclassical economists believe that lon...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economists'})
+          MATCH (t:Entity {name: 'Full Employment'})
+          MERGE (s)-[r:BELIEVE]->(t)
+          ON CREATE SET r.description = 'They believe the economy will return to ...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economists'})
+          MATCH (t:Entity {name: 'Keynesian Policy'})
+          MERGE (s)-[r:ARE_SKEPTICAL_OF]->(t)
+          ON CREATE SET r.description = 'They are skeptical of the effectiveness ...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economists'})
+          MATCH (t:Entity {name: 'Active Stabilization Policy'})
+          MERGE (s)-[r:PREFER_LIMITED_ROLE]->(t)
+          ON CREATE SET r.description = 'They advocate a limited role for active ...'
+
+  ... and 168 more edges
+
+  RELATIONSHIP TYPE DISTRIBUTION:
+    - named_after: 19
+    - includes: 4
+    - provides_benefit: 4
+    - shifts: 4
+    - faces: 4
+    - is_located_in: 4
+    - potential_example_of: 4
+    - grants_monopoly: 4
+    - interested_in: 3
+    - influences: 3
+
+[GPT-5.2 (Gold Standard)]
+
+  NODES TO CREATE (316 unique entities):
+  --------------------------------------------------
+
+  Cypher: MERGE (n:Entity {name: 'Neoclassical Perspective'})
+          ON CREATE SET n.type = 'EconomicSchool'
+                        n.description = 'A macroeconomic perspective that emphasizes aggreg...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Aggregate Supply'})
+          ON CREATE SET n.type = 'EconomicConcept'
+                        n.description = 'The total output producers are willing and able to...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Neoclassical Economists'})
+          ON CREATE SET n.type = 'Group'
+                        n.description = 'Economists associated with the neoclassical perspe...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Long Term Productivity Growth'})
+          ON CREATE SET n.type = 'EconomicConcept'
+                        n.description = 'Sustained increases in productivity over time; vie...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Potential Gdp'})
+          ON CREATE SET n.type = 'EconomicConcept'
+                        n.description = 'The economy’s sustainable output level (often asso...'
+                        n.embedding = [vector of 1536 floats]
+
+  ... and 311 more nodes
+
+  EDGES TO CREATE (389 relationships):
+  --------------------------------------------------
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Perspective'})
+          MATCH (t:Entity {name: 'Aggregate Supply'})
+          MERGE (s)-[r:EMPHASIZES]->(t)
+          ON CREATE SET r.description = 'The text states the neoclassical perspec...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economists'})
+          MATCH (t:Entity {name: 'Long Term Productivity Growth'})
+          MERGE (s)-[r:BELIEVE_DETERMINES]->(t)
+          ON CREATE SET r.description = 'They believe long term productivity grow...'
+
+  Cypher: MATCH (s:Entity {name: 'Long Term Productivity Growth'})
+          MATCH (t:Entity {name: 'Potential Gdp'})
+          MERGE (s)-[r:DETERMINES]->(t)
+          ON CREATE SET r.description = 'Productivity growth is identified as the...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economists'})
+          MATCH (t:Entity {name: 'Full Employment'})
+          MERGE (s)-[r:EXPECT_RETURN_TO]->(t)
+          ON CREATE SET r.description = 'They believe the economy typically retur...'
+
+  Cypher: MATCH (s:Entity {name: 'Aggregate Demand'})
+          MATCH (t:Entity {name: 'Full Employment'})
+          MERGE (s)-[r:CHANGE_FOLLOWED_BY_RETURN_TO]->(t)
+          ON CREATE SET r.description = 'After a change in aggregate demand, the ...'
+
+  ... and 384 more edges
+
+  RELATIONSHIP TYPE DISTRIBUTION:
+    - named_after: 20
+    - located_in: 17
+    - partly_funded_by: 16
+    - affects: 8
+    - helps_determine: 8
+    - increases: 7
+    - includes: 5
+    - includes_example: 5
+    - measured_in_example: 5
+    - provides_benefit: 4
+
+[GPT-4o]
+
+  NODES TO CREATE (150 unique entities):
+  --------------------------------------------------
+
+  Cypher: MERGE (n:Entity {name: 'Neoclassical Perspective'})
+          ON CREATE SET n.type = 'Economic Theory'
+                        n.description = 'An economic viewpoint that emphasizes the importan...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Neoclassical Economists'})
+          ON CREATE SET n.type = 'Group'
+                        n.description = 'Economists who adhere to the neoclassical perspect...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Aggregate Supply'})
+          ON CREATE SET n.type = 'Economic Concept'
+                        n.description = 'The total supply of goods and services that firms ...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Productivity Growth'})
+          ON CREATE SET n.type = 'Economic Concept'
+                        n.description = 'The increase in the efficiency of production, whic...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Potential Gdp'})
+          ON CREATE SET n.type = 'Economic Concept'
+                        n.description = 'The maximum output an economy can produce without ...'
+                        n.embedding = [vector of 1536 floats]
+
+  ... and 145 more nodes
+
+  EDGES TO CREATE (146 relationships):
+  --------------------------------------------------
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Perspective'})
+          MATCH (t:Entity {name: 'Aggregate Supply'})
+          MERGE (s)-[r:EMPHASIZES]->(t)
+          ON CREATE SET r.description = 'The neoclassical perspective places more...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economists'})
+          MATCH (t:Entity {name: 'Productivity Growth'})
+          MERGE (s)-[r:BELIEVE_DETERMINES]->(t)
+          ON CREATE SET r.description = 'Neoclassical economists believe that lon...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economists'})
+          MATCH (t:Entity {name: 'Potential Gdp'})
+          MERGE (s)-[r:DETERMINES]->(t)
+          ON CREATE SET r.description = 'Neoclassical economists believe that lon...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economists'})
+          MATCH (t:Entity {name: 'Full Employment'})
+          MERGE (s)-[r:RETURN_TO]->(t)
+          ON CREATE SET r.description = 'Neoclassical economists believe the econ...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economists'})
+          MATCH (t:Entity {name: 'Keynesian Policy'})
+          MERGE (s)-[r:SKEPTICAL_OF]->(t)
+          ON CREATE SET r.description = 'Neoclassical economists are skeptical of...'
+
+  ... and 141 more edges
+
+  RELATIONSHIP TYPE DISTRIBUTION:
+    - named_after: 19
+    - affects: 16
+    - includes: 6
+    - benefit: 4
+    - shift: 4
+    - located_in: 4
+    - shifts: 3
+    - interested_in: 3
+    - negatively_impacts: 3
+    - discussed_in: 3
+
+[GPT-4o-mini]
+
+  NODES TO CREATE (168 unique entities):
+  --------------------------------------------------
+
+  Cypher: MERGE (n:Entity {name: 'Neoclassical Economics'})
+          ON CREATE SET n.type = 'Economic_Theory'
+                        n.description = 'An economic perspective that emphasizes aggregate ...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Aggregate Supply'})
+          ON CREATE SET n.type = 'Economic_Concept'
+                        n.description = 'The total supply of goods and services that firms ...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Potential Gdp'})
+          ON CREATE SET n.type = 'Economic_Concept'
+                        n.description = 'The maximum output an economy can produce without ...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Full Employment'})
+          ON CREATE SET n.type = 'Economic_Concept'
+                        n.description = 'A situation in which all available labor resources...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Keynesian Policy'})
+          ON CREATE SET n.type = 'Economic_Theory'
+                        n.description = 'An economic theory advocating for active governmen...'
+                        n.embedding = [vector of 1536 floats]
+
+  ... and 163 more nodes
+
+  EDGES TO CREATE (169 relationships):
+  --------------------------------------------------
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economics'})
+          MATCH (t:Entity {name: 'Aggregate Supply'})
+          MERGE (s)-[r:EMPHASIZES]->(t)
+          ON CREATE SET r.description = 'Neoclassical economics places more empha...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economics'})
+          MATCH (t:Entity {name: 'Potential Gdp'})
+          MERGE (s)-[r:DETERMINES]->(t)
+          ON CREATE SET r.description = 'Neoclassical economists believe that lon...'
+
+  Cypher: MATCH (s:Entity {name: 'Aggregate Supply'})
+          MATCH (t:Entity {name: 'Full Employment'})
+          MERGE (s)-[r:RETURNS_TO]->(t)
+          ON CREATE SET r.description = 'The economy typically returns to full em...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economics'})
+          MATCH (t:Entity {name: 'Keynesian Policy'})
+          MERGE (s)-[r:SKEPTICAL_OF]->(t)
+          ON CREATE SET r.description = 'Neoclassical economists are skeptical of...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economics'})
+          MATCH (t:Entity {name: 'Active Stabilization Policy'})
+          MERGE (s)-[r:ADVOCATES]->(t)
+          ON CREATE SET r.description = 'Neoclassical economists advocate for a l...'
+
+  ... and 164 more edges
+
+  RELATIONSHIP TYPE DISTRIBUTION:
+    - funded: 15
+    - affects: 11
+    - includes: 5
+    - is_a: 5
+    - determines: 4
+    - influences: 4
+    - located_in: 4
+    - benefits: 3
+    - requires: 3
+    - compared_across: 3
+
+[Qwen3 30B (Local)]
+
+  NODES TO CREATE (152 unique entities):
+  --------------------------------------------------
+
+  Cypher: MERGE (n:Entity {name: 'Neoclassical Perspective'})
+          ON CREATE SET n.type = 'Economic Theory'
+                        n.description = 'A school of economic thought emphasizing aggregate...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Neoclassical Economists'})
+          ON CREATE SET n.type = 'Economic Group'
+                        n.description = 'A collective of economists adhering to the neoclas...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Aggregate Supply'})
+          ON CREATE SET n.type = 'Economic Concept'
+                        n.description = 'The total supply of goods and services produced in...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Long Term Productivity Growth'})
+          ON CREATE SET n.type = 'Economic Factor'
+                        n.description = 'The sustained increase in output per worker over t...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Potential Gdp Level'})
+          ON CREATE SET n.type = 'Economic Metric'
+                        n.description = 'The maximum sustainable output of an economy witho...'
+                        n.embedding = [vector of 1536 floats]
+
+  ... and 147 more nodes
+
+  EDGES TO CREATE (161 relationships):
+  --------------------------------------------------
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Perspective'})
+          MATCH (t:Entity {name: 'Aggregate Supply'})
+          MERGE (s)-[r:EMPHASIZES]->(t)
+          ON CREATE SET r.description = 'The neoclassical perspective prioritizes...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economists'})
+          MATCH (t:Entity {name: 'Long Term Productivity Growth'})
+          MERGE (s)-[r:BELIEVES_DETERMINES]->(t)
+          ON CREATE SET r.description = 'Neoclassical economists hold that long-t...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economists'})
+          MATCH (t:Entity {name: 'Potential Gdp Level'})
+          MERGE (s)-[r:BELIEVES_DETERMINED_BY]->(t)
+          ON CREATE SET r.description = 'Neoclassical economists assert that pote...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economists'})
+          MATCH (t:Entity {name: 'Full Employment'})
+          MERGE (s)-[r:BELIEVES_ECONOMY_RETURNS_TO]->(t)
+          ON CREATE SET r.description = 'Neoclassical economists maintain that ec...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economists'})
+          MATCH (t:Entity {name: 'Keynesian Policy'})
+          MERGE (s)-[r:SKEPTICAL_OF_EFFECTIVENESS]->(t)
+          ON CREATE SET r.description = 'Neoclassical economists doubt the timeli...'
+
+  ... and 156 more edges
+
+  RELATIONSHIP TYPE DISTRIBUTION:
+    - named_after: 19
+    - located_in: 19
+    - affects: 6
+    - applies_to: 6
+    - requires: 4
+    - enables: 3
+    - supports: 3
+    - contrasts_with: 3
+    - causes_loss_of_gains: 3
+    - discussed_in: 3
+
+[Qwen3 8B (Local)]
+
+  NODES TO CREATE (165 unique entities):
+  --------------------------------------------------
+
+  Cypher: MERGE (n:Entity {name: 'Neoclassical Perspective'})
+          ON CREATE SET n.type = 'Concept'
+                        n.description = 'An economic theory emphasizing aggregate supply an...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Neoclassical Economists'})
+          ON CREATE SET n.type = 'Group'
+                        n.description = 'Economists who prioritize long-term productivity g...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Keynesian Policy'})
+          ON CREATE SET n.type = 'Policy'
+                        n.description = 'A macroeconomic approach advocating government int...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Potential Gdp Level'})
+          ON CREATE SET n.type = 'Economic_Indicator'
+                        n.description = 'The maximum sustainable output an economy can prod...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: 'Full Employment'})
+          ON CREATE SET n.type = 'Economic_State'
+                        n.description = 'A state where all available labor resources are be...'
+                        n.embedding = [vector of 1536 floats]
+
+  ... and 160 more nodes
+
+  EDGES TO CREATE (169 relationships):
+  --------------------------------------------------
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Perspective'})
+          MATCH (t:Entity {name: 'Neoclassical Economists'})
+          MERGE (s)-[r:ASSOCIATED_WITH]->(t)
+          ON CREATE SET r.description = 'The neoclassical perspective is associat...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economists'})
+          MATCH (t:Entity {name: 'Potential Gdp Level'})
+          MERGE (s)-[r:DETERMINES]->(t)
+          ON CREATE SET r.description = 'Neoclassical economists believe long-ter...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economists'})
+          MATCH (t:Entity {name: 'Full Employment'})
+          MERGE (s)-[r:RETURNS_TO]->(t)
+          ON CREATE SET r.description = 'Neoclassical economists assert economies...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economists'})
+          MATCH (t:Entity {name: 'Keynesian Policy'})
+          MERGE (s)-[r:SKEPTICAL_OF]->(t)
+          ON CREATE SET r.description = 'Neoclassical economists are skeptical of...'
+
+  Cypher: MATCH (s:Entity {name: 'Neoclassical Economists'})
+          MATCH (t:Entity {name: 'Hands Off Policy'})
+          MERGE (s)-[r:ADVOCATES]->(t)
+          ON CREATE SET r.description = 'Neoclassical economists advocate for a h...'
+
+  ... and 164 more edges
+
+  RELATIONSHIP TYPE DISTRIBUTION:
+    - named_after: 15
+    - funded: 15
+    - Linked to: 8
+    - affects: 5
+    - interestedIn: 3
+    - independentOf: 3
+    - shifts: 3
+    - cause change in: 3
+    - DependsOn: 3
+    - requires: 3
+
+[Llama3.1 8B (Local)]
+
+  NODES TO CREATE (27 unique entities):
+  --------------------------------------------------
+
+  Cypher: MERGE (n:Entity {name: '1'})
+          ON CREATE SET n.type = 'perspective'
+                        n.description = 'A school of economic thought...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: '2'})
+          ON CREATE SET n.type = 'economists'
+                        n.description = 'Experts in the field of economics...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: '3'})
+          ON CREATE SET n.type = 'productivity growth'
+                        n.description = 'Increase in efficiency and output over time...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: '4'})
+          ON CREATE SET n.type = 'GDP level'
+                        n.description = 'The total value of goods and services produced wit...'
+                        n.embedding = [vector of 1536 floats]
+
+  Cypher: MERGE (n:Entity {name: '5'})
+          ON CREATE SET n.type = 'aggregate demand'
+                        n.description = 'The total amount of spending in an economy at a gi...'
+                        n.embedding = [vector of 1536 floats]
+
+  ... and 22 more nodes
+
+  EDGES TO CREATE (130 relationships):
+  --------------------------------------------------
+
+  Cypher: MATCH (s:Entity {name: '1'})
+          MATCH (t:Entity {name: '2'})
+          MERGE (s)-[r:ASSOCIATED_WITH]->(t)
+          ON CREATE SET r.description = 'Neoclassical economists adhere to this p...'
+
+  Cypher: MATCH (s:Entity {name: '2'})
+          MATCH (t:Entity {name: '3'})
+          MERGE (s)-[r:INFLUENCED_BY]->(t)
+          ON CREATE SET r.description = 'Long term productivity growth is a key f...'
+
+  Cypher: MATCH (s:Entity {name: '2'})
+          MATCH (t:Entity {name: '5'})
+          MERGE (s)-[r:BELIEVE_AFFECTS]->(t)
+          ON CREATE SET r.description = 'Neoclassical economists believe that cha...'
+
+  Cypher: MATCH (s:Entity {name: '1'})
+          MATCH (t:Entity {name: '4'})
+          MERGE (s)-[r:DETERMINES_POTENTIAL_OF]->(t)
+          ON CREATE SET r.description = 'The neoclassical perspective places more...'
+
+  Cypher: MATCH (s:Entity {name: '1'})
+          MATCH (t:Entity {name: '2'})
+          MERGE (s)-[r:IMPLEMENTED]->(t)
+          ON CREATE SET r.description = 'The tax was introduced in 2013...'
+
+  ... and 125 more edges
+
+  RELATIONSHIP TYPE DISTRIBUTION:
+    - affects: 9
+    - named_after: 8
+    - benefits: 6
+    - example_of_product: 5
+    - founded: 5
+    - influences: 4
+    - namesake: 4
+    - loses: 3
+    - Result of: 3
+    - Affects: 2
+
+================================================================================
+SAMPLE EXTRACTION COMPARISON
+================================================================================
+
+[Chunk: doc0_chunk0]
+
+  o1 (Gold Standard):
+    Nodes: ['Neoclassical Perspective', 'Neoclassical Economists', 'Aggregate Supply', 'Potential Gdp', 'Full Employment', 'Aggregate Demand', 'Keynesian Policy', 'Active Stabilization Policy']
+    Edges: [('Neoclassical Perspective', 'emphasizes', 'Aggregate Supply'), ('Neoclassical Economists', 'believe', 'Potential Gdp'), ('Neoclassical Economists', 'believe', 'Full Employment'), ('Neoclassical Economists', 'are_skeptical_of', 'Keynesian Policy'), ('Neoclassical Economists', 'prefer_limited_role', 'Active Stabilization Policy')]
+
+  GPT-5.2 (Gold Standard):
+    Nodes: ['Neoclassical Perspective', 'Aggregate Supply', 'Neoclassical Economists', 'Long Term Productivity Growth', 'Potential Gdp', 'Full Employment', 'Aggregate Demand', 'Keynesian Policy', 'Active Stabilization Policy', 'Hands-Off Role']
+    Edges: [('Neoclassical Perspective', 'emphasizes', 'Aggregate Supply'), ('Neoclassical Economists', 'believe_determines', 'Long Term Productivity Growth'), ('Long Term Productivity Growth', 'determines', 'Potential Gdp'), ('Neoclassical Economists', 'expect_return_to', 'Full Employment'), ('Aggregate Demand', 'change_followed_by_return_to', 'Full Employment'), ('Neoclassical Economists', 'skeptical_of', 'Keynesian Policy'), ('Neoclassical Economists', 'advocate_limited_role_for', 'Active Stabilization Policy'), ('Hands-Off Role', 'applied_to', 'Active Stabilization Policy')]
+
+  GPT-4o:
+    Nodes: ['Neoclassical Perspective', 'Neoclassical Economists', 'Aggregate Supply', 'Productivity Growth', 'Potential Gdp', 'Full Employment', 'Aggregate Demand', 'Keynesian Policy', 'Active Stabilization Policy']
+    Edges: [('Neoclassical Perspective', 'emphasizes', 'Aggregate Supply'), ('Neoclassical Economists', 'believe determines', 'Productivity Growth'), ('Neoclassical Economists', 'determines', 'Potential Gdp'), ('Neoclassical Economists', 'return to', 'Full Employment'), ('Neoclassical Economists', 'skeptical of', 'Keynesian Policy'), ('Neoclassical Economists', 'advocate limited role', 'Active Stabilization Policy')]
+
+  GPT-4o-mini:
+    Nodes: ['Neoclassical Economics', 'Aggregate Supply', 'Potential Gdp', 'Full Employment', 'Keynesian Policy', 'Active Stabilization Policy']
+    Edges: [('Neoclassical Economics', 'emphasizes', 'Aggregate Supply'), ('Neoclassical Economics', 'determines', 'Potential Gdp'), ('Aggregate Supply', 'returns_to', 'Full Employment'), ('Neoclassical Economics', 'skeptical_of', 'Keynesian Policy'), ('Neoclassical Economics', 'advocates', 'Active Stabilization Policy')]
+
+  Qwen3 30B (Local):
+    Nodes: ['Neoclassical Perspective', 'Neoclassical Economists', 'Aggregate Supply', 'Long Term Productivity Growth', 'Potential Gdp Level', 'Full Employment', 'Keynesian Policy', 'Active Stabilization Policy']
+    Edges: [('Neoclassical Perspective', 'EMPHASIZES', 'Aggregate Supply'), ('Neoclassical Economists', 'BELIEVES_DETERMINES', 'Long Term Productivity Growth'), ('Neoclassical Economists', 'BELIEVES_DETERMINED_BY', 'Potential Gdp Level'), ('Neoclassical Economists', 'BELIEVES_ECONOMY_RETURNS_TO', 'Full Employment'), ('Neoclassical Economists', 'SKEPTICAL_OF_EFFECTIVENESS', 'Keynesian Policy'), ('Neoclassical Economists', 'ADVOCATES_LIMITED_ROLE_FOR', 'Active Stabilization Policy')]
+
+  Qwen3 8B (Local):
+    Nodes: ['Neoclassical Perspective', 'Neoclassical Economists', 'Keynesian Policy', 'Potential Gdp Level', 'Full Employment', 'Hands Off Policy']
+    Edges: [('Neoclassical Perspective', 'associated_with', 'Neoclassical Economists'), ('Neoclassical Economists', 'determines', 'Potential Gdp Level'), ('Neoclassical Economists', 'returns_to', 'Full Employment'), ('Neoclassical Economists', 'skeptical_of', 'Keynesian Policy'), ('Neoclassical Economists', 'advocates', 'Hands Off Policy')]
+
+  Llama3.1 8B (Local):
+    Nodes: ['1', '2', '3', '4', '5']
+    Edges: [('1', 'associated with', '2'), ('2', 'influenced by', '3'), ('2', 'believe affects', '5'), ('1', 'determines potential of', '4')]
