@@ -44,3 +44,11 @@ outputs/
 # Logs
 *.log
 logs/
+
+# Fine-tuning data and models
+data/finetuning/
+models/finetuned/
+
+# Google Drive credentials
+client_secrets.json
+gdrive_credentials.json
