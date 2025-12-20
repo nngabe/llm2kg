@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_ollama import ChatOllama
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from datasets import load_dataset
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -28,7 +29,7 @@ import pickle
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-CACHE_FILE = "/app/benchmarks/results_cache.pkl"
+CACHE_FILE = os.path.join(os.path.dirname(__file__), "results_cache.pkl")
 
 
 def load_cache() -> Dict[str, List[Any]]:
@@ -73,82 +74,106 @@ class KnowledgeGraph(BaseModel):
 @dataclass
 class ModelConfig:
     name: str
-    provider: str  # 'openai', 'anthropic', 'ollama'
+    provider: str  # 'openai', 'anthropic', 'ollama', 'google'
     model_id: str
     is_gold_standard: bool = False
     temperature: float = 0.0
     base_url: Optional[str] = None
+    disable_thinking: bool = False  # For thinking models, disable reasoning output
 
 
 # Define all models to benchmark
 BENCHMARK_MODELS = [
     # Gold-standard models (highest quality, use for ground truth)
     ModelConfig(
-        name="o1 (Gold Standard)",
-        provider="openai",
-        model_id="o1",
-        is_gold_standard=True,
-    ),
-    ModelConfig(
         name="GPT-5.2 (Gold Standard)",
         provider="openai",
         model_id="gpt-5.2",
         is_gold_standard=True,
     ),
+    # Gemini models
     ModelConfig(
-        name="Claude Opus 4.5 (Gold Standard)",
-        provider="anthropic",
-        model_id="claude-opus-4-5-20251101",
-        is_gold_standard=True,
+        name="Gemini 3 Pro Preview",
+        provider="google",
+        model_id="gemini-3-pro-preview",
+        is_gold_standard=False,
     ),
-    # High-quality production models
     ModelConfig(
-        name="GPT-4o",
+        name="Gemini 2.5 Flash",
+        provider="google",
+        model_id="gemini-2.5-flash",
+        is_gold_standard=False,
+    ),
+    # OpenAI models
+    ModelConfig(
+        name="GPT-5-mini",
         provider="openai",
-        model_id="gpt-4o",
+        model_id="gpt-5-mini",
         is_gold_standard=False,
     ),
+    # Local Ollama models - Gemma variants
     ModelConfig(
-        name="Claude Sonnet 4",
-        provider="anthropic",
-        model_id="claude-sonnet-4-20250514",
+        name="Gemma3 27B IT QAT (Local)",
+        provider="ollama",
+        model_id="gemma3:27b-it-qat",
         is_gold_standard=False,
-    ),
-    # Cost-optimized models
-    ModelConfig(
-        name="GPT-4o-mini",
-        provider="openai",
-        model_id="gpt-4o-mini",
-        is_gold_standard=False,
+        base_url="http://localhost:11434",
     ),
     ModelConfig(
-        name="Claude Haiku 3.5",
-        provider="anthropic",
-        model_id="claude-3-5-haiku-20241022",
+        name="Gemma3 12B IT QAT (Local)",
+        provider="ollama",
+        model_id="gemma3:12b-it-qat",
         is_gold_standard=False,
+        base_url="http://localhost:11434",
     ),
-    # Local Ollama models (from original script)
     ModelConfig(
-        name="Qwen3 30B (Local)",
+        name="Gemma3 12B (Local)",
+        provider="ollama",
+        model_id="gemma3:12b",
+        is_gold_standard=False,
+        base_url="http://localhost:11434",
+    ),
+    ModelConfig(
+        name="Gemma3 27B (Local)",
+        provider="ollama",
+        model_id="gemma3:27b",
+        is_gold_standard=False,
+        base_url="http://localhost:11434",
+    ),
+    # Local Ollama models - Qwen variants
+    ModelConfig(
+        name="Qwen3 30B A3B (Local)",
         provider="ollama",
         model_id="qwen3:30b-a3b",
         is_gold_standard=False,
-        base_url="http://host.docker.internal:11434",
+        base_url="http://localhost:11434",
     ),
     ModelConfig(
-        name="Qwen3 8B (Local)",
+        name="Qwen3 14B (Local)",
         provider="ollama",
-        model_id="qwen3:8b",
+        model_id="qwen3:14b",
         is_gold_standard=False,
-        base_url="http://host.docker.internal:11434",
+        base_url="http://localhost:11434",
     ),
+    # Note: Thinking models (like qwen3-next:80b-a3b-thinking) are incompatible with
+    # LangChain's structured output because they output reasoning tokens before JSON.
+    # Use qwen3:32b instead for comparable quality without thinking tokens.
     ModelConfig(
-        name="Llama3.1 8B (Local)",
+        name="Qwen3 32B (Local)",
         provider="ollama",
-        model_id="llama3.1:8b",
+        model_id="qwen3:32b",
         is_gold_standard=False,
-        base_url="http://host.docker.internal:11434",
+        base_url="http://localhost:11434",
     ),
+    # Note: Kimi Linear 48B requires vLLM with CUDA (NVIDIA GPU).
+    # Uncomment below if running on a CUDA-capable system:
+    # ModelConfig(
+    #     name="Kimi Linear 48B A3B (Local)",
+    #     provider="openai",
+    #     model_id="kimi-linear-48b-a3b",
+    #     is_gold_standard=False,
+    #     base_url="http://localhost:8000/v1",
+    # ),
 ]
 
 
@@ -209,10 +234,23 @@ class ModelBenchmark:
         if config.provider == "openai":
             # o1/o3 models don't support temperature parameter
             if config.model_id.startswith("o1") or config.model_id.startswith("o3"):
+                if config.base_url:
+                    return ChatOpenAI(model=config.model_id, base_url=config.base_url)
                 return ChatOpenAI(model=config.model_id)
+            if config.base_url:
+                return ChatOpenAI(
+                    model=config.model_id,
+                    temperature=config.temperature,
+                    base_url=config.base_url,
+                )
             return ChatOpenAI(model=config.model_id, temperature=config.temperature)
         elif config.provider == "anthropic":
             return ChatAnthropic(model=config.model_id, temperature=config.temperature)
+        elif config.provider == "google":
+            return ChatGoogleGenerativeAI(
+                model=config.model_id,
+                temperature=config.temperature,
+            )
         elif config.provider == "ollama":
             return ChatOllama(
                 model=config.model_id,
@@ -226,9 +264,13 @@ class ModelBenchmark:
         """Create the extraction chain for a model."""
         llm = self._create_llm(config)
         structured_llm = llm.with_structured_output(KnowledgeGraph)
+        # For thinking models, append /nothink to disable reasoning output
+        human_template = "Text: {text}"
+        if config.disable_thinking:
+            human_template = "Text: {text} /nothink"
         prompt = ChatPromptTemplate.from_messages([
             ("system", self.system_prompt),
-            ("human", "Text: {text}"),
+            ("human", human_template),
         ])
         return prompt | structured_llm
 
@@ -666,6 +708,7 @@ def main():
     parser.add_argument("--skip_local", action="store_true", help="Skip Ollama local models")
     parser.add_argument("--skip_anthropic", action="store_true", help="Skip Anthropic models")
     parser.add_argument("--skip_openai", action="store_true", help="Skip OpenAI models")
+    parser.add_argument("--skip_google", action="store_true", help="Skip Google Gemini models")
     parser.add_argument("--output", type=str, default=None, help="Output file for report")
     parser.add_argument("--no_cache", action="store_true", help="Don't use cached results")
     parser.add_argument("--clear_cache", action="store_true", help="Clear cache before running")
@@ -684,6 +727,8 @@ def main():
         models = [m for m in models if m.provider != "anthropic"]
     if args.skip_openai:
         models = [m for m in models if m.provider != "openai"]
+    if args.skip_google:
+        models = [m for m in models if m.provider != "google"]
     if args.models:
         models = [m for m in models if m.name in args.models]
 

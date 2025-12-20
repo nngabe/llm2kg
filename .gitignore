@@ -2,3 +2,45 @@ neo4j_data
 neo4j_plugins
 benchmarks/*.pkl
 benchmarks/*.txt
+
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Experiment outputs
+experiments/
+external/
+
+# Weights & Biases
+wandb/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Checkpoints and models
+*.pt
+*.pth
+*.ckpt
+checkpoints/
+outputs/
+
+# Logs
+*.log
+logs/

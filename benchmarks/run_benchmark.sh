@@ -18,5 +18,11 @@ if [ -z "$ANTHROPIC_API_KEY" ]; then
     echo "Warning: ANTHROPIC_API_KEY not set - Claude models will fail"
 fi
 
+if [ -z "$GOOGLE_API_KEY" ]; then
+    echo "Warning: GOOGLE_API_KEY not set - Gemini models will fail"
+    echo "  To configure: export GOOGLE_API_KEY=your-api-key"
+    echo "  Get a key at: https://aistudio.google.com/apikey"
+fi
+
 # Run benchmark
 python -m benchmarks.model_comparison "$@"
