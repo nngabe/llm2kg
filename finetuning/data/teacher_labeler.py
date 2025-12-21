@@ -345,3 +345,23 @@ class TeacherLabeler:
             stats["domains"][domain] = domain_stats
 
         return stats
+
+
+def generate_labels_for_domain(
+    domain: str,
+    config: "DataConfig",
+) -> tuple[List[LabeledSample], List[LabeledSample]]:
+    """
+    Generate train and eval labels for a single domain.
+
+    Args:
+        domain: Dataset domain (economics, law, physics)
+        config: DataConfig with generation settings
+
+    Returns:
+        Tuple of (train_samples, eval_samples)
+    """
+    labeler = TeacherLabeler(config)
+    train_samples = labeler.generate_labels(domain, split="train")
+    eval_samples = labeler.generate_labels(domain, split="eval")
+    return train_samples, eval_samples

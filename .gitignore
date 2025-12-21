@@ -46,7 +46,6 @@ outputs/
 logs/
 
 # Fine-tuning data and models
-data/finetuning/
 models/finetuned/
 
 # Google Drive credentials

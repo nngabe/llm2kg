@@ -50,10 +50,11 @@ class DataConfig:
     chunk_overlap: int = 100
     max_chunks_per_doc: int = 3  # Limit chunks to avoid very long documents
 
-    # Paths
-    teacher_labels_dir: str = os.path.join(DATA_DIR, "teacher_labels")
-    train_dir: str = os.path.join(DATA_DIR, "train")
-    eval_dir: str = os.path.join(DATA_DIR, "eval")
+    # Base output directory (paths derived in __post_init__)
+    output_dir: Optional[str] = None
+    teacher_labels_dir: Optional[str] = None
+    train_dir: Optional[str] = None
+    eval_dir: Optional[str] = None
 
     # Teacher model settings
     primary_teacher: str = TeacherModel.GEMINI_FLASH.value
@@ -66,7 +67,22 @@ class DataConfig:
     retry_delay: float = 1.0  # seconds, will use exponential backoff
 
     def __post_init__(self):
-        """Create directories if they don't exist."""
+        """Set up paths and create directories."""
+        # Use provided output_dir or default
+        base_dir = self.output_dir if self.output_dir else DATA_DIR
+
+        # Set derived paths if not explicitly provided
+        if self.teacher_labels_dir is None:
+            self.teacher_labels_dir = os.path.join(base_dir, "teacher_labels")
+        if self.train_dir is None:
+            self.train_dir = os.path.join(base_dir, "train")
+        if self.eval_dir is None:
+            self.eval_dir = os.path.join(base_dir, "eval")
+
+        # Alias for compatibility
+        self.labels_dir = self.teacher_labels_dir
+
+        # Create directories
         for dir_path in [self.teacher_labels_dir, self.train_dir, self.eval_dir]:
             os.makedirs(dir_path, exist_ok=True)
 
@@ -200,11 +216,11 @@ SYSTEM_PROMPT = """You are a Knowledge Graph expert. Extract a semi-structured g
 3. Use consistent IDs.
 
 Output valid JSON matching this schema:
-{
+{{
   "nodes": [
-    {"id": "Entity Name", "type": "Category", "description": "Brief summary"}
+    {{"id": "Entity Name", "type": "Category", "description": "Brief summary"}}
   ],
   "edges": [
-    {"source": "Source Entity", "target": "Target Entity", "relation": "relationship_type", "description": "Context"}
+    {{"source": "Source Entity", "target": "Target Entity", "relation": "relationship_type", "description": "Context"}}
   ]
-}"""
+}}"""

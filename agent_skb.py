@@ -36,6 +36,10 @@ from langgraph.graph.message import add_messages
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Suppress verbose HTTP request logging from httpx/langchain
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("neo4j").setLevel(logging.WARNING)
+
 # --- PERIODIC MAINTENANCE SETTINGS ---
 ENTITY_RESOLUTION_INTERVAL = 100  # Run entity resolution every N documents
 ONTOLOGY_CONSOLIDATION_INTERVAL = 100  # Run ontology consolidation every N documents
@@ -287,11 +291,9 @@ class Neo4jAgentLoader:
         temporal_props = ""
         temporal_params = {}
         if temporal:
-            temporal_props = """
-                n.temporal_period = $temporal_period,
-                n.temporal_certainty = $temporal_certainty,
-                n.temporal_reasoning = $temporal_reasoning,
-            """
+            temporal_props = """temporal_period: $temporal_period,
+            temporal_certainty: $temporal_certainty,
+            temporal_reasoning: $temporal_reasoning,"""
             temporal_params = {
                 "temporal_period": temporal.get("time_period"),
                 "temporal_certainty": temporal.get("certainty"),
@@ -628,7 +630,7 @@ class KnowledgeGraphAgent:
         # Initialize LLM
         if provider == 'local':
             self.llm = ChatOllama(
-                model="qwen3:30b-a3b",
+                model="gemma3:12b-it-qat",
                 temperature=0,
                 base_url="http://host.docker.internal:11434",
             )
