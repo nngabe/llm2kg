@@ -3,10 +3,11 @@
 LangGraph Agent for Semantic Knowledge Base Construction.
 
 This agent performs iterative knowledge graph extraction with:
-- Open extraction ontology that builds into a stricter ontology
+- Open extraction ontology that converges to a strict ontology (5-15 entity types, 5-20 relationship types)
+- Dual labels: open extraction labels kept alongside assigned ontology labels
 - Entity deduplication with description merging
 - Vector embeddings based on node descriptions
-- Temporal information tracking with uncertainty levels
+- Ontology stabilization detection with automatic freezing and node reassignment
 """
 
 import os
@@ -16,22 +17,18 @@ import json
 import argparse
 import logging
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Literal, Annotated
-from enum import Enum
+from typing import List, Dict, Any, Optional
 
 from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from datasets import load_dataset
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from neo4j import GraphDatabase
 
 from langgraph.graph import StateGraph, START, END
-from langgraph.graph.message import add_messages
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -50,30 +47,10 @@ NEO4J_USER = os.getenv("NEO4J_USERNAME", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 
 
-# --- TEMPORAL ONTOLOGY ---
-class TemporalCertainty(str, Enum):
-    """Level of certainty for temporal information."""
-    ABSOLUTELY_CERTAIN = "absolutely_certain"      # Exact date from source
-    HIGHLY_CERTAIN = "highly_certain"              # Clear timeframe, minor ambiguity
-    MODERATELY_CERTAIN = "moderately_certain"      # Approximate, contextual clues
-    SLIGHTLY_CERTAIN = "slightly_certain"          # Inferred from indirect evidence
-    COMPLETELY_UNCERTAIN = "completely_uncertain"  # No temporal information available
-
-
-class TemporalInfo(BaseModel):
-    """Temporal information with uncertainty quantification."""
-    time_period: Optional[str] = Field(
-        default=None,
-        description="Time period or date (e.g., '1905', '1900-1910', 'early 20th century', 'during WWII')"
-    )
-    certainty: TemporalCertainty = Field(
-        default=TemporalCertainty.COMPLETELY_UNCERTAIN,
-        description="Level of certainty for the temporal estimate"
-    )
-    reasoning: Optional[str] = Field(
-        default=None,
-        description="Brief explanation of how the time period was determined"
-    )
+# --- ONTOLOGY CONFIGURATION ---
+TARGET_ENTITY_TYPES = (5, 15)  # min, max entity types for convergence
+TARGET_RELATIONSHIP_TYPES = (5, 20)  # min, max relationship types for convergence
+STABILITY_THRESHOLD = 3  # versions without changes to consider stable
 
 
 # --- ONTOLOGY SCHEMAS ---
@@ -85,24 +62,16 @@ def normalize_entity(name: str) -> str:
 class ExtractedNode(BaseModel):
     """Node extracted from text with open ontology."""
     id: str = Field(description="Unique identifier, e.g., 'Albert Einstein'")
-    type: str = Field(description="Open category, e.g., 'Person', 'Concept', 'Organization'")
+    open_type: str = Field(description="Free-form entity type from extraction, e.g., 'Person', 'Concept', 'Organization'")
     description: str = Field(description="Summary of this entity based on the text context")
-    temporal: Optional[TemporalInfo] = Field(
-        default=None,
-        description="Temporal information about when this entity or description is relevant"
-    )
 
 
 class ExtractedEdge(BaseModel):
     """Edge extracted from text with open ontology."""
     source: str = Field(description="Source node id")
     target: str = Field(description="Target node id")
-    relation: str = Field(description="Open relationship type, e.g., 'developed', 'influenced_by'")
+    open_relation: str = Field(description="Free-form relationship type from extraction, e.g., 'developed', 'influenced_by'")
     description: str = Field(description="Context explaining this relationship")
-    temporal: Optional[TemporalInfo] = Field(
-        default=None,
-        description="Temporal information about when this relationship held"
-    )
 
 
 class ExtractedKnowledgeGraph(BaseModel):
@@ -116,14 +85,55 @@ class OntologyLabel(BaseModel):
     """A canonical label in the strict ontology."""
     canonical_name: str = Field(description="The standardized label name")
     aliases: List[str] = Field(default_factory=list, description="Alternative names that map to this label")
-    description: str = Field(description="Definition of what this label represents")
+    description: str = Field(default="", description="Definition of what this label represents")
     count: int = Field(default=1, description="Number of times this label has been used")
 
 
-class StrictOntology(BaseModel):
-    """Consolidated ontology built from open extractions."""
-    node_types: Dict[str, OntologyLabel] = Field(default_factory=dict)
-    edge_types: Dict[str, OntologyLabel] = Field(default_factory=dict)
+class OntologyState(BaseModel):
+    """Tracks the evolving ontology state with stabilization detection."""
+    entity_types: Dict[str, OntologyLabel] = Field(default_factory=dict)
+    relationship_types: Dict[str, OntologyLabel] = Field(default_factory=dict)
+    is_frozen: bool = Field(default=False, description="Whether the ontology has been frozen")
+    version: int = Field(default=0, description="Current ontology version")
+    last_change_version: int = Field(default=0, description="Version when last change occurred")
+
+    def check_stabilization(self) -> bool:
+        """Check if ontology has stabilized (no changes for STABILITY_THRESHOLD versions)."""
+        if self.version - self.last_change_version >= STABILITY_THRESHOLD:
+            entity_count = len(self.entity_types)
+            rel_count = len(self.relationship_types)
+            if (TARGET_ENTITY_TYPES[0] <= entity_count <= TARGET_ENTITY_TYPES[1] and
+                TARGET_RELATIONSHIP_TYPES[0] <= rel_count <= TARGET_RELATIONSHIP_TYPES[1]):
+                return True
+        return False
+
+    def get_entity_type_names(self) -> List[str]:
+        """Get list of canonical entity type names."""
+        return list(self.entity_types.keys())
+
+    def get_relationship_type_names(self) -> List[str]:
+        """Get list of canonical relationship type names."""
+        return list(self.relationship_types.keys())
+
+
+class OntologyAssignment(BaseModel):
+    """Assignment of an open label to an ontology label."""
+    open_label: str = Field(description="The original open extraction label")
+    ontology_label: str = Field(description="The assigned canonical ontology label")
+    is_new: bool = Field(default=False, description="Whether this is a new ontology label")
+
+
+class OntologyAssignmentBatch(BaseModel):
+    """Batch of ontology assignments for nodes and edges."""
+    node_assignments: List[OntologyAssignment] = Field(default_factory=list)
+    edge_assignments: List[OntologyAssignment] = Field(default_factory=list)
+
+
+class OntologyMergeProposal(BaseModel):
+    """Proposal to merge ontology labels."""
+    merge_from: str = Field(description="Label to merge away")
+    merge_to: str = Field(description="Label to merge into")
+    reason: str = Field(description="Reason for the merge")
 
 
 # --- AGENT STATE ---
@@ -141,9 +151,14 @@ class AgentState(BaseModel):
     nodes_to_merge: List[Dict[str, Any]] = Field(default_factory=list)
     edges_to_create: List[Dict[str, Any]] = Field(default_factory=list)
 
+    # Ontology assignments (open_label -> ontology_label)
+    node_ontology_assignments: Dict[str, str] = Field(default_factory=dict)
+    edge_ontology_assignments: Dict[str, str] = Field(default_factory=dict)
+
     # Ontology building
     new_node_types: List[str] = Field(default_factory=list)
     new_edge_types: List[str] = Field(default_factory=list)
+    new_ontology_labels: List[str] = Field(default_factory=list)
 
     # Processing metadata
     processing_timestamp: str = ""
@@ -220,7 +235,8 @@ class Neo4jAgentLoader:
         """Check if an entity already exists and return its data."""
         query = """
         MATCH (n:Entity {name: $name})
-        RETURN n.name AS name, n.type AS type, n.description AS description,
+        RETURN n.name AS name, n.open_type AS open_type, n.ontology_type AS ontology_type,
+               n.description AS description, n.open_type_history AS open_type_history,
                n.description_history AS history, n.created_at AS created_at,
                n.updated_at AS updated_at
         """
@@ -234,10 +250,16 @@ class Neo4jAgentLoader:
     def create_or_merge_node(
         self,
         node: ExtractedNode,
+        ontology_type: str,
         timestamp: str,
     ) -> tuple[bool, bool]:
         """
         Create a new node or merge with existing.
+
+        Args:
+            node: The extracted node with open_type
+            ontology_type: The assigned ontology label
+            timestamp: Processing timestamp
 
         Returns:
             tuple: (was_created, was_merged)
@@ -245,22 +267,13 @@ class Neo4jAgentLoader:
         normalized_name = normalize_entity(node.id)
         existing = self.get_existing_entity(node.id)
 
-        # Prepare temporal info
-        temporal_data = None
-        if node.temporal:
-            temporal_data = {
-                "time_period": node.temporal.time_period,
-                "certainty": node.temporal.certainty.value,
-                "reasoning": node.temporal.reasoning,
-            }
-
         if existing:
             # Merge: append new description
             return self._merge_node(
                 name=normalized_name,
                 new_description=node.description,
-                new_type=node.type,
-                temporal=temporal_data,
+                open_type=node.open_type,
+                ontology_type=ontology_type,
                 timestamp=timestamp,
                 existing=existing,
             )
@@ -268,68 +281,56 @@ class Neo4jAgentLoader:
             # Create new node
             return self._create_node(
                 name=normalized_name,
-                node_type=node.type,
+                open_type=node.open_type,
+                ontology_type=ontology_type,
                 description=node.description,
-                temporal=temporal_data,
                 timestamp=timestamp,
             )
 
     def _create_node(
         self,
         name: str,
-        node_type: str,
+        open_type: str,
+        ontology_type: str,
         description: str,
-        temporal: Optional[Dict],
         timestamp: str,
     ) -> tuple[bool, bool]:
-        """Create a new entity node."""
+        """Create a new entity node with both open and ontology types."""
         # Generate embedding from description
-        text_to_embed = f"{name} ({node_type}): {description}"
+        text_to_embed = f"{name} ({ontology_type}): {description}"
         vector = self.embedding_model.embed_query(text_to_embed)
 
-        # Build temporal properties
-        temporal_props = ""
-        temporal_params = {}
-        if temporal:
-            temporal_props = """temporal_period: $temporal_period,
-            temporal_certainty: $temporal_certainty,
-            temporal_reasoning: $temporal_reasoning,"""
-            temporal_params = {
-                "temporal_period": temporal.get("time_period"),
-                "temporal_certainty": temporal.get("certainty"),
-                "temporal_reasoning": temporal.get("reasoning"),
-            }
-
-        query = f"""
-        CREATE (n:Entity {{
+        query = """
+        CREATE (n:Entity {
             name: $name,
-            type: $type,
+            open_type: $open_type,
+            ontology_type: $ontology_type,
+            open_type_history: [$open_type],
             description: $description,
             description_history: [$description_entry],
             embedding: $vector,
             created_at: $timestamp,
             updated_at: $timestamp,
-            {temporal_props}
             extraction_count: 1
-        }})
+        })
         """
 
         description_entry = json.dumps({
             "text": description,
             "timestamp": timestamp,
-            "temporal": temporal,
+            "open_type": open_type,
         })
 
         with self.driver.session() as session:
             session.run(
                 query,
                 name=name,
-                type=node_type,
+                open_type=open_type,
+                ontology_type=ontology_type,
                 description=description,
                 description_entry=description_entry,
                 vector=vector,
                 timestamp=timestamp,
-                **temporal_params,
             )
 
         return (True, False)  # created, not merged
@@ -338,8 +339,8 @@ class Neo4jAgentLoader:
         self,
         name: str,
         new_description: str,
-        new_type: str,
-        temporal: Optional[Dict],
+        open_type: str,
+        ontology_type: str,
         timestamp: str,
         existing: Dict[str, Any],
     ) -> tuple[bool, bool]:
@@ -349,40 +350,28 @@ class Neo4jAgentLoader:
         merged_description = f"{existing_desc}\n\n[{timestamp}] {new_description}"
 
         # Generate new embedding from merged description
-        text_to_embed = f"{name} ({new_type}): {merged_description}"
+        text_to_embed = f"{name} ({ontology_type}): {merged_description}"
         vector = self.embedding_model.embed_query(text_to_embed)
 
         # Build description history entry
         description_entry = json.dumps({
             "text": new_description,
             "timestamp": timestamp,
-            "temporal": temporal,
+            "open_type": open_type,
         })
 
-        # Build temporal update if provided
-        temporal_update = ""
-        temporal_params = {}
-        if temporal:
-            temporal_update = """
-                n.temporal_period = $temporal_period,
-                n.temporal_certainty = $temporal_certainty,
-                n.temporal_reasoning = $temporal_reasoning,
-            """
-            temporal_params = {
-                "temporal_period": temporal.get("time_period"),
-                "temporal_certainty": temporal.get("certainty"),
-                "temporal_reasoning": temporal.get("reasoning"),
-            }
-
-        query = f"""
-        MATCH (n:Entity {{name: $name}})
+        query = """
+        MATCH (n:Entity {name: $name})
         SET n.description = $merged_description,
             n.description_history = n.description_history + $description_entry,
+            n.open_type_history = CASE
+                WHEN $open_type IN n.open_type_history THEN n.open_type_history
+                ELSE n.open_type_history + $open_type
+            END,
+            n.ontology_type = $ontology_type,
             n.embedding = $vector,
             n.updated_at = $timestamp,
-            n.extraction_count = n.extraction_count + 1,
-            {temporal_update}
-            n.type = CASE WHEN n.type = $new_type THEN n.type ELSE n.type + '/' + $new_type END
+            n.extraction_count = n.extraction_count + 1
         """
 
         with self.driver.session() as session:
@@ -391,10 +380,10 @@ class Neo4jAgentLoader:
                 name=name,
                 merged_description=merged_description,
                 description_entry=description_entry,
+                open_type=open_type,
+                ontology_type=ontology_type,
                 vector=vector,
                 timestamp=timestamp,
-                new_type=new_type,
-                **temporal_params,
             )
 
         return (False, True)  # not created, was merged
@@ -402,40 +391,33 @@ class Neo4jAgentLoader:
     def create_edge(
         self,
         edge: ExtractedEdge,
+        ontology_relation: str,
         timestamp: str,
     ) -> bool:
-        """Create or update an edge between entities."""
-        rel_type = self.sanitize(edge.relation)
+        """Create or update an edge between entities with both open and ontology relations."""
+        # Use ontology_relation for the relationship type in Neo4j
+        rel_type = self.sanitize(ontology_relation)
         source = normalize_entity(edge.source)
         target = normalize_entity(edge.target)
-
-        # Prepare temporal info
-        temporal_props = ""
-        temporal_params = {}
-        if edge.temporal:
-            temporal_props = """
-                r.temporal_period = $temporal_period,
-                r.temporal_certainty = $temporal_certainty,
-                r.temporal_reasoning = $temporal_reasoning,
-            """
-            temporal_params = {
-                "temporal_period": edge.temporal.time_period,
-                "temporal_certainty": edge.temporal.certainty.value,
-                "temporal_reasoning": edge.temporal.reasoning,
-            }
 
         query = f"""
         MATCH (s:Entity {{name: $source}})
         MATCH (t:Entity {{name: $target}})
         MERGE (s)-[r:{rel_type}]->(t)
         ON CREATE SET
+            r.open_relation = $open_relation,
+            r.ontology_relation = $ontology_relation,
+            r.open_relation_history = [$open_relation],
             r.description = $description,
             r.created_at = $timestamp,
             r.extraction_count = 1,
-            {temporal_props}
             r.updated_at = $timestamp
         ON MATCH SET
             r.description = r.description + ' | ' + $description,
+            r.open_relation_history = CASE
+                WHEN $open_relation IN r.open_relation_history THEN r.open_relation_history
+                ELSE r.open_relation_history + $open_relation
+            END,
             r.extraction_count = r.extraction_count + 1,
             r.updated_at = $timestamp
         """
@@ -446,9 +428,10 @@ class Neo4jAgentLoader:
                     query,
                     source=source,
                     target=target,
+                    open_relation=edge.open_relation,
+                    ontology_relation=ontology_relation,
                     description=edge.description,
                     timestamp=timestamp,
-                    **temporal_params,
                 )
             return True
         except Exception as e:
@@ -621,7 +604,7 @@ class Neo4jAgentLoader:
 
 # --- LANGGRAPH AGENT ---
 class KnowledgeGraphAgent:
-    """LangGraph agent for knowledge graph extraction."""
+    """LangGraph agent for knowledge graph extraction with ontology convergence."""
 
     def __init__(self, provider: str = 'local'):
         self.provider = provider
@@ -643,6 +626,10 @@ class KnowledgeGraphAgent:
 
         self.structured_llm = self.llm.with_structured_output(ExtractedKnowledgeGraph)
 
+        # Ontology state tracking
+        self.ontology_state = OntologyState()
+        self.previous_ontology_state: Optional[OntologyState] = None
+
         # Build the graph
         self.graph = self._build_graph()
 
@@ -654,6 +641,7 @@ class KnowledgeGraphAgent:
 
         # Add nodes
         builder.add_node("extract", self._extract_node)
+        builder.add_node("assign_ontology", self._assign_ontology_node)
         builder.add_node("process_entities", self._process_entities_node)
         builder.add_node("create_edges", self._create_edges_node)
         builder.add_node("update_ontology", self._update_ontology_node)
@@ -664,10 +652,11 @@ class KnowledgeGraphAgent:
             "extract",
             self._should_continue,
             {
-                "continue": "process_entities",
+                "continue": "assign_ontology",
                 "end": END,
             }
         )
+        builder.add_edge("assign_ontology", "process_entities")
         builder.add_edge("process_entities", "create_edges")
         builder.add_edge("create_edges", "update_ontology")
         builder.add_edge("update_ontology", END)
@@ -690,25 +679,15 @@ class KnowledgeGraphAgent:
 
 For each entity (node):
 1. Provide a unique 'id' (the entity name)
-2. Assign a 'type' (e.g., Person, Concept, Organization, Event, Location, Theory, Law)
+2. Assign an 'open_type' - a descriptive category for the entity (e.g., Person, Concept, Organization, Event, Location, Theory, Law, Institution, Process, Phenomenon)
 3. Write a 'description' summarizing who/what the entity is based on the text
-4. If temporal information is available or can be inferred, include it with:
-   - time_period: The date, year, or time range (e.g., "1905", "1900-1910", "early 20th century")
-   - certainty: How certain this temporal info is:
-     * absolutely_certain: Exact date explicitly stated
-     * highly_certain: Clear timeframe with minor ambiguity
-     * moderately_certain: Approximate, from contextual clues
-     * slightly_certain: Inferred from indirect evidence
-     * completely_uncertain: No temporal information available
-   - reasoning: Brief explanation of how the time was determined
 
 For each relationship (edge):
-1. Identify source and target entities
-2. Use descriptive relation types (e.g., 'developed', 'influenced_by', 'occurred_during')
-3. Include a description explaining the relationship context
-4. Include temporal information if the relationship has a specific time frame
+1. Identify source and target entities by their id
+2. Assign an 'open_relation' - a descriptive relationship type (e.g., 'developed', 'influenced_by', 'is_part_of', 'founded', 'created', 'studied', 'opposed')
+3. Include a 'description' explaining the relationship context
 
-Be thorough but precise. Extract all meaningful entities and relationships from the text."""
+Be thorough but precise. Extract all meaningful entities and relationships from the text. Use specific, descriptive types and relations."""
 
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),
@@ -733,8 +712,167 @@ Be thorough but precise. Extract all meaningful entities and relationships from 
                 "error_message": str(e),
             }
 
+    def _assign_ontology_node(self, state: AgentState) -> Dict[str, Any]:
+        """Assign open extraction labels to ontology labels."""
+        if not state.extracted_kg:
+            return {}
+
+        node_assignments = {}
+        edge_assignments = {}
+        new_ontology_labels = []
+
+        # Get current ontology types
+        current_entity_types = self.ontology_state.get_entity_type_names()
+        current_rel_types = self.ontology_state.get_relationship_type_names()
+
+        # Collect unique open types from this extraction
+        unique_node_types = set(node.open_type for node in state.extracted_kg.nodes)
+        unique_edge_types = set(edge.open_relation for edge in state.extracted_kg.edges)
+
+        # Assign node types
+        for open_type in unique_node_types:
+            ontology_type = self._assign_single_label(
+                open_label=open_type,
+                current_ontology=current_entity_types,
+                is_node=True,
+            )
+            node_assignments[open_type] = ontology_type
+            if ontology_type not in current_entity_types:
+                new_ontology_labels.append(f"Entity:{ontology_type}")
+                # Add to ontology state
+                if ontology_type not in self.ontology_state.entity_types:
+                    self.ontology_state.entity_types[ontology_type] = OntologyLabel(
+                        canonical_name=ontology_type,
+                        aliases=[open_type] if open_type != ontology_type else [],
+                        count=1,
+                    )
+                    self.ontology_state.last_change_version = self.ontology_state.version
+
+        # Assign edge types
+        for open_relation in unique_edge_types:
+            ontology_relation = self._assign_single_label(
+                open_label=open_relation,
+                current_ontology=current_rel_types,
+                is_node=False,
+            )
+            edge_assignments[open_relation] = ontology_relation
+            if ontology_relation not in current_rel_types:
+                new_ontology_labels.append(f"Relation:{ontology_relation}")
+                # Add to ontology state
+                if ontology_relation not in self.ontology_state.relationship_types:
+                    self.ontology_state.relationship_types[ontology_relation] = OntologyLabel(
+                        canonical_name=ontology_relation,
+                        aliases=[open_relation] if open_relation != ontology_relation else [],
+                        count=1,
+                    )
+                    self.ontology_state.last_change_version = self.ontology_state.version
+
+        return {
+            "node_ontology_assignments": node_assignments,
+            "edge_ontology_assignments": edge_assignments,
+            "new_ontology_labels": new_ontology_labels,
+        }
+
+    def _assign_single_label(
+        self,
+        open_label: str,
+        current_ontology: List[str],
+        is_node: bool,
+    ) -> str:
+        """Assign a single open label to an ontology label using LLM."""
+        # If ontology is frozen, must map to existing label
+        if self.ontology_state.is_frozen:
+            if not current_ontology:
+                return open_label
+            return self._map_to_existing_label(open_label, current_ontology, is_node)
+
+        # If ontology is not frozen, can propose new label or use existing
+        if not current_ontology:
+            # First label - use a generalized version
+            return self._generalize_label(open_label, is_node)
+
+        # Check if open_label matches or is similar to existing
+        label_type = "entity type" if is_node else "relationship type"
+        target_range = TARGET_ENTITY_TYPES if is_node else TARGET_RELATIONSHIP_TYPES
+
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", f"""You are an ontology expert. Map the extracted {label_type} to an appropriate canonical ontology label.
+
+Current ontology {label_type}s: {current_ontology}
+Target: {target_range[0]}-{target_range[1]} canonical {label_type}s that abstractly represent all extracted types.
+
+Rules:
+1. If an existing ontology label is a good match, use it exactly
+2. If no good match exists, propose a new abstract label that could cover this and similar types
+3. Prefer broader, reusable categories over specific ones
+4. Return ONLY the ontology label, nothing else"""),
+            ("human", f"Extracted {label_type}: {open_label}"),
+        ])
+
+        try:
+            response = (prompt | self.llm).invoke({})
+            ontology_label = response.content.strip().strip('"').strip("'")
+            return ontology_label if ontology_label else open_label
+        except Exception as e:
+            logger.warning(f"Label assignment failed for {open_label}: {e}")
+            return open_label
+
+    def _map_to_existing_label(self, open_label: str, ontology: List[str], is_node: bool) -> str:
+        """Map an open label to the closest existing ontology label (when frozen)."""
+        label_type = "entity type" if is_node else "relationship type"
+
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", f"""The ontology is frozen. Map the extracted {label_type} to the BEST matching existing ontology label.
+You MUST choose from the existing labels only.
+
+Existing ontology {label_type}s: {ontology}
+
+Return ONLY the chosen ontology label, nothing else."""),
+            ("human", f"Extracted {label_type}: {open_label}"),
+        ])
+
+        try:
+            response = (prompt | self.llm).invoke({})
+            ontology_label = response.content.strip().strip('"').strip("'")
+            # Validate it's in the ontology
+            if ontology_label in ontology:
+                return ontology_label
+            # Find closest match
+            for existing in ontology:
+                if existing.lower() == ontology_label.lower():
+                    return existing
+            # Default to first
+            return ontology[0]
+        except Exception as e:
+            logger.warning(f"Label mapping failed for {open_label}: {e}")
+            return ontology[0] if ontology else open_label
+
+    def _generalize_label(self, open_label: str, is_node: bool) -> str:
+        """Generalize an open label to a broader ontology label."""
+        label_type = "entity type" if is_node else "relationship type"
+        target_range = TARGET_ENTITY_TYPES if is_node else TARGET_RELATIONSHIP_TYPES
+
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", f"""You are an ontology expert. Convert this specific {label_type} into a broader, more abstract canonical {label_type}.
+
+The goal is to have {target_range[0]}-{target_range[1]} canonical {label_type}s total that can cover all possible extractions.
+
+Examples for entity types: Person, Organization, Concept, Event, Location, Work, Process
+Examples for relationship types: RELATES_TO, INFLUENCES, CREATES, PART_OF, LOCATED_IN, OCCURS_IN
+
+Return ONLY the generalized label, nothing else."""),
+            ("human", f"Specific {label_type}: {open_label}"),
+        ])
+
+        try:
+            response = (prompt | self.llm).invoke({})
+            return response.content.strip().strip('"').strip("'") or open_label
+        except Exception as e:
+            logger.warning(f"Label generalization failed for {open_label}: {e}")
+            return open_label
+
     def _process_entities_node(self, state: AgentState) -> Dict[str, Any]:
-        """Process extracted entities - create or merge."""
+        """Process extracted entities - create or merge with ontology assignments."""
         if not state.extracted_kg:
             return {}
 
@@ -742,8 +880,12 @@ Be thorough but precise. Extract all meaningful entities and relationships from 
         nodes_merged = 0
 
         for node in state.extracted_kg.nodes:
+            # Get the ontology type from assignments
+            ontology_type = state.node_ontology_assignments.get(node.open_type, node.open_type)
+
             created, merged = self.loader.create_or_merge_node(
                 node=node,
+                ontology_type=ontology_type,
                 timestamp=state.processing_timestamp,
             )
             if created:
@@ -757,15 +899,19 @@ Be thorough but precise. Extract all meaningful entities and relationships from 
         }
 
     def _create_edges_node(self, state: AgentState) -> Dict[str, Any]:
-        """Create edges between entities."""
+        """Create edges between entities with ontology assignments."""
         if not state.extracted_kg:
             return {}
 
         edges_created = 0
 
         for edge in state.extracted_kg.edges:
+            # Get the ontology relation from assignments
+            ontology_relation = state.edge_ontology_assignments.get(edge.open_relation, edge.open_relation)
+
             success = self.loader.create_edge(
                 edge=edge,
+                ontology_relation=ontology_relation,
                 timestamp=state.processing_timestamp,
             )
             if success:
@@ -783,15 +929,18 @@ Be thorough but precise. Extract all meaningful entities and relationships from 
         new_node_types = []
         new_edge_types = []
 
-        # Track node types
+        # Track node types (both open and ontology)
         for node in state.extracted_kg.nodes:
-            self.loader.update_ontology(node.type, node.type, is_node=True)
-            new_node_types.append(node.type)
+            ontology_type = state.node_ontology_assignments.get(node.open_type, node.open_type)
+            # Track the ontology type in Neo4j
+            self.loader.update_ontology(ontology_type, ontology_type, is_node=True)
+            new_node_types.append(ontology_type)
 
-        # Track edge types
+        # Track edge types (both open and ontology)
         for edge in state.extracted_kg.edges:
-            self.loader.update_ontology(edge.relation, edge.relation, is_node=False)
-            new_edge_types.append(edge.relation)
+            ontology_relation = state.edge_ontology_assignments.get(edge.open_relation, edge.open_relation)
+            self.loader.update_ontology(ontology_relation, ontology_relation, is_node=False)
+            new_edge_types.append(ontology_relation)
 
         return {
             "new_node_types": list(set(new_node_types)),
@@ -981,6 +1130,214 @@ Answer in format: YES|canonical_label or NO"""),
         logger.info(f"Ontology consolidation complete: {consolidated}")
         return consolidated
 
+    def run_ontology_convergence(self) -> Dict[str, Any]:
+        """
+        Run ontology convergence to reduce labels toward target sizes.
+        Uses LLM to propose merges when ontology is too large.
+        Returns dict with changes made and stabilization status.
+        """
+        if self.ontology_state.is_frozen:
+            logger.info("Ontology is frozen, skipping convergence")
+            return {"is_frozen": True, "changes": 0}
+
+        # Save previous state for comparison
+        self.previous_ontology_state = self.ontology_state.model_copy(deep=True)
+
+        # Increment version
+        self.ontology_state.version += 1
+
+        # Get current ontology stats from Neo4j
+        stats = self.loader.get_ontology_stats()
+
+        changes_made = 0
+
+        # Process entity types
+        entity_types = [item['name'] for item in stats.get("NodeType", [])]
+        if len(entity_types) > TARGET_ENTITY_TYPES[1]:
+            logger.info(f"Entity types ({len(entity_types)}) exceed target max ({TARGET_ENTITY_TYPES[1]}), running convergence...")
+            merges = self._propose_ontology_merges(entity_types, is_node=True)
+            for merge_from, merge_to in merges.items():
+                self.loader.consolidate_ontology_label(merge_to, merge_from, "NodeType")
+                # Update local state
+                if merge_from in self.ontology_state.entity_types:
+                    if merge_to in self.ontology_state.entity_types:
+                        self.ontology_state.entity_types[merge_to].aliases.append(merge_from)
+                    del self.ontology_state.entity_types[merge_from]
+                changes_made += 1
+                self.ontology_state.last_change_version = self.ontology_state.version
+
+        # Process relationship types
+        rel_types = [item['name'] for item in stats.get("EdgeType", [])]
+        if len(rel_types) > TARGET_RELATIONSHIP_TYPES[1]:
+            logger.info(f"Relationship types ({len(rel_types)}) exceed target max ({TARGET_RELATIONSHIP_TYPES[1]}), running convergence...")
+            merges = self._propose_ontology_merges(rel_types, is_node=False)
+            for merge_from, merge_to in merges.items():
+                self.loader.consolidate_ontology_label(merge_to, merge_from, "EdgeType")
+                # Update local state
+                if merge_from in self.ontology_state.relationship_types:
+                    if merge_to in self.ontology_state.relationship_types:
+                        self.ontology_state.relationship_types[merge_to].aliases.append(merge_from)
+                    del self.ontology_state.relationship_types[merge_from]
+                changes_made += 1
+                self.ontology_state.last_change_version = self.ontology_state.version
+
+        # Check for stabilization
+        is_stable = self.ontology_state.check_stabilization()
+
+        return {
+            "is_frozen": False,
+            "changes": changes_made,
+            "is_stable": is_stable,
+            "version": self.ontology_state.version,
+            "versions_since_change": self.ontology_state.version - self.ontology_state.last_change_version,
+        }
+
+    def _propose_ontology_merges(self, labels: List[str], is_node: bool) -> Dict[str, str]:
+        """Use LLM to propose merges for ontology labels."""
+        label_type = "entity types" if is_node else "relationship types"
+        target_range = TARGET_ENTITY_TYPES if is_node else TARGET_RELATIONSHIP_TYPES
+
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", f"""You are an ontology expert. The current ontology has too many {label_type}.
+Propose merges to consolidate similar or related types into broader canonical types.
+
+Target: {target_range[0]}-{target_range[1]} {label_type}
+
+Rules:
+1. Merge specific types into more abstract parent types
+2. Keep the most general/reusable types
+3. Return a JSON object mapping merge_from -> merge_to
+4. Only propose merges, don't remove types without merging
+5. Return ONLY valid JSON, no explanation
+
+Example output: {{"Economist": "Person", "Scientist": "Person", "developed": "CREATES"}}"""),
+            ("human", f"Current {label_type}: {labels}\n\nPropose merges:"),
+        ])
+
+        try:
+            response = (prompt | self.llm).invoke({})
+            content = response.content.strip()
+            # Try to parse JSON
+            import re
+            json_match = re.search(r'\{[^}]+\}', content)
+            if json_match:
+                return json.loads(json_match.group())
+            return {}
+        except Exception as e:
+            logger.warning(f"Ontology merge proposal failed: {e}")
+            return {}
+
+    def freeze_ontology(self) -> bool:
+        """Freeze the ontology and reassign all nodes to current labels."""
+        if self.ontology_state.is_frozen:
+            logger.info("Ontology already frozen")
+            return False
+
+        logger.info("=" * 60)
+        logger.info("FREEZING ONTOLOGY")
+        logger.info("=" * 60)
+
+        self.ontology_state.is_frozen = True
+
+        # Get final ontology state
+        stats = self.loader.get_ontology_stats()
+        entity_types = [item['name'] for item in stats.get("NodeType", [])]
+        rel_types = [item['name'] for item in stats.get("EdgeType", [])]
+
+        logger.info(f"Final entity types ({len(entity_types)}): {entity_types}")
+        logger.info(f"Final relationship types ({len(rel_types)}): {rel_types}")
+
+        # Reassign all nodes to current ontology
+        reassigned = self._reassign_all_nodes_to_ontology(entity_types, rel_types)
+
+        logger.info(f"Reassigned {reassigned['nodes']} nodes and {reassigned['edges']} edges")
+        logger.info("=" * 60)
+
+        return True
+
+    def _reassign_all_nodes_to_ontology(self, entity_types: List[str], rel_types: List[str]) -> Dict[str, int]:
+        """Reassign all nodes and edges to current frozen ontology labels."""
+        timestamp = datetime.utcnow().isoformat()
+        reassigned = {"nodes": 0, "edges": 0}
+
+        # Get all unique open_types that need reassignment
+        query = """
+        MATCH (n:Entity)
+        WHERE n.ontology_type IS NULL OR NOT n.ontology_type IN $entity_types
+        RETURN DISTINCT n.open_type AS open_type, count(*) AS count
+        """
+
+        with self.loader.driver.session() as session:
+            result = session.run(query, entity_types=entity_types)
+            open_types_to_reassign = [(r["open_type"], r["count"]) for r in result]
+
+        # Map each open_type to the best ontology type
+        for open_type, count in open_types_to_reassign:
+            if not open_type:
+                continue
+            best_type = self._map_to_existing_label(open_type, entity_types, is_node=True)
+
+            # Update all nodes with this open_type
+            update_query = """
+            MATCH (n:Entity)
+            WHERE n.open_type = $open_type
+            SET n.ontology_type = $ontology_type,
+                n.updated_at = $timestamp
+            """
+            with self.loader.driver.session() as session:
+                session.run(update_query, open_type=open_type, ontology_type=best_type, timestamp=timestamp)
+                reassigned["nodes"] += count
+                logger.info(f"  Reassigned {count} nodes: {open_type} -> {best_type}")
+
+        return reassigned
+
+    def get_ontology_change_report(self) -> str:
+        """Generate a report of ontology changes since last convergence."""
+        lines = [
+            "=" * 60,
+            "ONTOLOGY STATUS REPORT",
+            "=" * 60,
+            f"Version: {self.ontology_state.version}",
+            f"Frozen: {self.ontology_state.is_frozen}",
+            f"Versions since last change: {self.ontology_state.version - self.ontology_state.last_change_version}",
+            "",
+        ]
+
+        # Get current stats from Neo4j
+        stats = self.loader.get_ontology_stats()
+
+        entity_count = len(stats.get("NodeType", []))
+        rel_count = len(stats.get("EdgeType", []))
+
+        lines.append(f"ENTITY TYPES ({entity_count}, target: {TARGET_ENTITY_TYPES[0]}-{TARGET_ENTITY_TYPES[1]}):")
+        lines.append("-" * 40)
+        for item in stats.get("NodeType", [])[:15]:
+            lines.append(f"  {item['name']}: {item['count']} occurrences")
+        if entity_count > 15:
+            lines.append(f"  ... and {entity_count - 15} more")
+
+        lines.append("")
+        lines.append(f"RELATIONSHIP TYPES ({rel_count}, target: {TARGET_RELATIONSHIP_TYPES[0]}-{TARGET_RELATIONSHIP_TYPES[1]}):")
+        lines.append("-" * 40)
+        for item in stats.get("EdgeType", [])[:20]:
+            lines.append(f"  {item['name']}: {item['count']} occurrences")
+        if rel_count > 20:
+            lines.append(f"  ... and {rel_count - 20} more")
+
+        # Stabilization status
+        lines.append("")
+        if self.ontology_state.is_frozen:
+            lines.append("STATUS: FROZEN (ontology is locked)")
+        elif self.ontology_state.check_stabilization():
+            lines.append("STATUS: STABLE (ready to freeze)")
+        else:
+            versions_to_stable = STABILITY_THRESHOLD - (self.ontology_state.version - self.ontology_state.last_change_version)
+            lines.append(f"STATUS: EVOLVING ({versions_to_stable} more stable versions needed)")
+
+        lines.append("=" * 60)
+
+        return "\n".join(lines)
+
     def run_periodic_maintenance(self) -> Dict[str, Any]:
         """Run all periodic maintenance tasks."""
         results = {
@@ -1080,7 +1437,8 @@ def run_agent_pipeline(
                     toc = time.time() - tic
                     tic = time.time()
 
-                    print(
+                    # Build status line
+                    status = (
                         f"[{doc_idx + restart_index}/{end_index}][{chunk_idx}] "
                         f"Created: {result.nodes_created} nodes, "
                         f"Merged: {result.nodes_merged} nodes, "
@@ -1088,7 +1446,13 @@ def run_agent_pipeline(
                         f"({toc:.2f}s)"
                     )
 
-                    # Show new ontology labels if any
+                    # Add new ontology labels if any
+                    if result.new_ontology_labels:
+                        status += f" | New: {result.new_ontology_labels}"
+
+                    print(status)
+
+                    # Show detailed type info in debug mode
                     if result.new_node_types:
                         logger.debug(f"  Node types: {result.new_node_types}")
                     if result.new_edge_types:
@@ -1120,20 +1484,34 @@ def run_agent_pipeline(
 
                 print(f"{'=' * 60}\n")
 
-            # --- PERIODIC ONTOLOGY CONSOLIDATION ---
+            # --- PERIODIC ONTOLOGY CONVERGENCE ---
             if docs_since_ontology_consolidation >= ontology_consolidation_interval:
                 print(f"\n{'=' * 60}")
-                print(f"PERIODIC ONTOLOGY CONSOLIDATION (after {docs_since_ontology_consolidation} documents)")
+                print(f"PERIODIC ONTOLOGY CONVERGENCE (after {docs_since_ontology_consolidation} documents)")
                 print(f"{'=' * 60}")
 
                 try:
+                    # Run ontology consolidation (merge similar labels)
                     consolidated = agent.run_ontology_consolidation()
                     total_labels_consolidated["NodeType"] += consolidated["NodeType"]
                     total_labels_consolidated["EdgeType"] += consolidated["EdgeType"]
-                    docs_since_ontology_consolidation = 0
                     print(f"Consolidated {consolidated['NodeType']} node types, {consolidated['EdgeType']} edge types")
+
+                    # Run ontology convergence (reduce toward target size)
+                    convergence_result = agent.run_ontology_convergence()
+
+                    # Print intermediate ontology report
+                    print(agent.get_ontology_change_report())
+
+                    # Check if ontology is stable and should be frozen
+                    if convergence_result.get("is_stable") and not convergence_result.get("is_frozen"):
+                        print("\n*** ONTOLOGY HAS STABILIZED ***")
+                        agent.freeze_ontology()
+                        print("Ontology is now FROZEN. All future extractions will use fixed labels.")
+
+                    docs_since_ontology_consolidation = 0
                 except Exception as e:
-                    logger.error(f"Ontology consolidation failed: {e}")
+                    logger.error(f"Ontology convergence failed: {e}")
 
                 print(f"{'=' * 60}\n")
 
@@ -1151,6 +1529,15 @@ def run_agent_pipeline(
             consolidated = agent.run_ontology_consolidation()
             total_labels_consolidated["NodeType"] += consolidated["NodeType"]
             total_labels_consolidated["EdgeType"] += consolidated["EdgeType"]
+
+            # Final ontology convergence
+            convergence_result = agent.run_ontology_convergence()
+
+            # If not already frozen and stable, freeze now
+            if not agent.ontology_state.is_frozen:
+                print("\nFreezing ontology at end of pipeline...")
+                agent.freeze_ontology()
+
         except Exception as e:
             logger.error(f"Final maintenance failed: {e}")
 
@@ -1166,10 +1553,12 @@ def run_agent_pipeline(
         print(f"Total entities resolved (duplicates): {total_entities_resolved}")
         print(f"Total node types consolidated: {total_labels_consolidated['NodeType']}")
         print(f"Total edge types consolidated: {total_labels_consolidated['EdgeType']}")
+        print(f"Ontology frozen: {agent.ontology_state.is_frozen}")
+        print(f"Ontology version: {agent.ontology_state.version}")
         print("=" * 60)
 
-        # Print ontology report
-        print("\n" + agent.get_ontology_report())
+        # Print final ontology report
+        print("\n" + agent.get_ontology_change_report())
 
     except Exception as e:
         logger.error(f"Pipeline error: {e}")
