@@ -9,6 +9,7 @@ import logging
 from typing import Optional, Dict, Any, List
 
 import torch
+import transformers
 from datasets import DatasetDict
 from transformers import (
     AutoModelForCausalLM,
@@ -26,6 +27,7 @@ except ImportError:
     logging.warning("galore_torch not installed. Install with: pip install galore-torch")
 
 from ..config import QGaloreConfig
+from .callbacks import MetricsCallback
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -157,15 +159,17 @@ class QGaloreTrainer:
             bf16=self.config.bf16,
             gradient_checkpointing=self.config.gradient_checkpointing,
 
-            # Logging
-            logging_steps=self.config.logging_steps,
+            # Logging - log every step to wandb, suppress console dict output
+            logging_steps=1,
             logging_first_step=True,
             report_to="wandb" if self.config.use_wandb else "none",
             run_name=run_name,
+            log_level="warning",
 
             # Evaluation
             eval_strategy="steps",
             eval_steps=self.config.eval_steps,
+            eval_on_start=True,
 
             # Saving
             save_strategy="steps",
@@ -247,7 +251,14 @@ class QGaloreTrainer:
             eval_dataset=tokenized_dataset["eval"],
             data_collator=data_collator,
             optimizers=(optimizer, None),  # Custom optimizer, default scheduler
+            callbacks=[MetricsCallback(print_steps=self.config.logging_steps)],
         )
+
+        # Remove default PrinterCallback to avoid duplicate console output
+        self.trainer.remove_callback(transformers.PrinterCallback)
+
+        # Suppress transformers logging to console (wandb still gets logs)
+        transformers.logging.set_verbosity_warning()
 
         # Train
         train_result = self.trainer.train()

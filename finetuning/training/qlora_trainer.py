@@ -9,6 +9,7 @@ import logging
 from typing import Optional, Dict, Any
 
 import torch
+import transformers
 from datasets import DatasetDict
 from transformers import (
     AutoModelForCausalLM,
@@ -25,6 +26,7 @@ from peft import (
 from trl import SFTTrainer, SFTConfig
 
 from ..config import TrainingConfig
+from .callbacks import MetricsCallback
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -127,15 +129,17 @@ class QLoRATrainer:
             bf16=self.config.bf16,
             gradient_checkpointing=self.config.gradient_checkpointing,
 
-            # Logging
-            logging_steps=self.config.logging_steps,
+            # Logging - log every step to wandb, suppress console dict output
+            logging_steps=1,
             logging_first_step=True,
             report_to="wandb" if self.config.use_wandb else "none",
             run_name=run_name,
+            log_level="warning",
 
             # Evaluation
             eval_strategy="steps",
             eval_steps=self.config.eval_steps,
+            eval_on_start=True,
 
             # Saving
             save_strategy="steps",
@@ -183,7 +187,17 @@ class QLoRATrainer:
             train_dataset=dataset["train"],
             eval_dataset=dataset["eval"],
             processing_class=self.tokenizer,
+            callbacks=[MetricsCallback(print_steps=self.config.logging_steps)],
         )
+
+        # Remove default callbacks that print to console
+        from transformers.trainer_callback import PrinterCallback, ProgressCallback
+        self.trainer.remove_callback(PrinterCallback)
+
+        # Suppress transformers logging to console (wandb still gets logs)
+        transformers.logging.set_verbosity_error()
+        logging.getLogger("transformers").setLevel(logging.ERROR)
+        logging.getLogger("trl").setLevel(logging.ERROR)
 
         # Train
         train_result = self.trainer.train()

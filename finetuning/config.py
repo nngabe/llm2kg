@@ -122,8 +122,8 @@ class TrainingConfig:
     gradient_checkpointing: bool = True
 
     # Logging and saving
-    logging_steps: int = 10
-    eval_steps: int = 50
+    logging_steps: int = 5
+    eval_steps: int = 10
     save_steps: int = 100
     output_dir: str = os.path.join(MODELS_DIR, "qlora")
 

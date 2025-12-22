@@ -87,115 +87,27 @@ def format_teacher_labels(data_dir: str) -> tuple[str, str]:
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Fine-tune models using QLoRA"
-    )
-    parser.add_argument(
-        "--model",
-        type=str,
-        default="google/gemma-3-12b-it",
-        help="HuggingFace model ID to fine-tune",
-    )
-    parser.add_argument(
-        "--data-dir",
-        type=str,
-        default="data/finetuning",
-        help="Directory containing formatted training data",
-    )
-    parser.add_argument(
-        "--output-dir",
-        type=str,
-        default="models/finetuned/qlora",
-        help="Output directory for fine-tuned model",
-    )
-    parser.add_argument(
-        "--lora-r",
-        type=int,
-        default=64,
-        help="LoRA rank",
-    )
-    parser.add_argument(
-        "--lora-alpha",
-        type=int,
-        default=128,
-        help="LoRA alpha",
-    )
-    parser.add_argument(
-        "--lora-dropout",
-        type=float,
-        default=0.05,
-        help="LoRA dropout",
-    )
-    parser.add_argument(
-        "--learning-rate",
-        type=float,
-        default=2e-4,
-        help="Learning rate",
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=4,
-        help="Per-device batch size",
-    )
-    parser.add_argument(
-        "--grad-accum",
-        type=int,
-        default=4,
-        help="Gradient accumulation steps",
-    )
-    parser.add_argument(
-        "--epochs",
-        type=int,
-        default=3,
-        help="Number of training epochs",
-    )
-    parser.add_argument(
-        "--max-seq-length",
-        type=int,
-        default=2048,
-        help="Maximum sequence length",
-    )
-    parser.add_argument(
-        "--wandb-project",
-        type=str,
-        default="kg-finetuning",
-        help="Weights & Biases project name",
-    )
-    parser.add_argument(
-        "--wandb-run",
-        type=str,
-        default=None,
-        help="Weights & Biases run name",
-    )
-    parser.add_argument(
-        "--upload-hf",
-        action="store_true",
-        help="Upload adapter to HuggingFace Hub",
-    )
-    parser.add_argument(
-        "--hf-username",
-        type=str,
-        default=None,
-        help="HuggingFace username for upload",
-    )
-    parser.add_argument(
-        "--upload-gdrive",
-        action="store_true",
-        help="Sync checkpoints to Google Drive",
-    )
-    parser.add_argument(
-        "--gdrive-folder-id",
-        type=str,
-        default=None,
-        help="Google Drive folder ID for checkpoint sync",
-    )
-    parser.add_argument(
-        "--resume-from",
-        type=str,
-        default=None,
-        help="Resume training from checkpoint path",
-    )
+    parser = argparse.ArgumentParser(description="Fine-tune models using QLoRA")
+    parser.add_argument("--model", type=str, default="google/gemma-3-12b-it-qat-q4_0-unquantized" , help="HuggingFace model ID")
+    parser.add_argument("--data_dir", type=str, default="data/finetuning", help="Training data directory")
+    parser.add_argument("--output_dir", type=str, default="models/finetuned/qlora", help="Output directory")
+    parser.add_argument("--lora_r", type=int, default=64, help="LoRA rank")
+    parser.add_argument("--lora_alpha", type=int, default=128, help="LoRA alpha")
+    parser.add_argument("--lora_dropout", type=float, default=0.05, help="LoRA dropout")
+    parser.add_argument("--learning_rate", type=float, default=2e-4, help="Learning rate")
+    parser.add_argument("--batch_size", type=int, default=4, help="Per-device batch size")
+    parser.add_argument("--grad_accum", type=int, default=4, help="Gradient accumulation steps")
+    parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs")
+    parser.add_argument("--max_seq_length", type=int, default=2048, help="Maximum sequence length")
+    parser.add_argument("--optim", type=str, default="adamw_8bit", help="Optimizer (adamw_8bit, paged_adamw_8bit, adamw_torch_fused)")
+    parser.add_argument("--no_gradient_checkpointing", action="store_true", help="Disable gradient checkpointing for faster training")
+    parser.add_argument("--wandb_project", type=str, default="kg-finetuning", help="W&B project name")
+    parser.add_argument("--wandb_run", type=str, default=None, help="W&B run name")
+    parser.add_argument("--upload_hf", action="store_true", help="Upload adapter to HuggingFace Hub")
+    parser.add_argument("--hf_username", type=str, default=None, help="HuggingFace username")
+    parser.add_argument("--upload_gdrive", action="store_true", help="Sync checkpoints to Google Drive")
+    parser.add_argument("--gdrive_folder_id", type=str, default=None, help="Google Drive folder ID")
+    parser.add_argument("--resume_from", type=str, default=None, help="Resume from checkpoint path")
     return parser.parse_args()
 
 
@@ -217,6 +129,8 @@ def main():
         gradient_accumulation_steps=args.grad_accum,
         num_train_epochs=args.epochs,
         max_seq_length=args.max_seq_length,
+        optim=args.optim,
+        gradient_checkpointing=not args.no_gradient_checkpointing,
         wandb_project=args.wandb_project,
         wandb_run_name=run_name,
     )
@@ -228,6 +142,7 @@ def main():
     logger.info(f"LoRA rank: {args.lora_r}, alpha: {args.lora_alpha}")
     logger.info(f"Learning rate: {args.learning_rate}")
     logger.info(f"Batch size: {args.batch_size} x {args.grad_accum} = {args.batch_size * args.grad_accum}")
+    logger.info(f"Optimizer: {args.optim}, gradient_checkpointing: {not args.no_gradient_checkpointing}")
     logger.info(f"Epochs: {args.epochs}")
     logger.info(f"Output: {config.output_dir}")
     logger.info("=" * 60)
