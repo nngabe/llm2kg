@@ -162,9 +162,10 @@ class QGaloreTrainer:
             # Logging - log every step to wandb, suppress console dict output
             logging_steps=1,
             logging_first_step=True,
-            report_to="wandb" if self.config.use_wandb else "none",
+            report_to=["wandb"] if self.config.use_wandb else [],
             run_name=run_name,
-            log_level="warning",
+            log_level="error",
+            disable_tqdm=False,
 
             # Evaluation
             eval_strategy="steps",
@@ -254,11 +255,13 @@ class QGaloreTrainer:
             callbacks=[MetricsCallback(print_steps=self.config.logging_steps)],
         )
 
-        # Remove default PrinterCallback to avoid duplicate console output
-        self.trainer.remove_callback(transformers.PrinterCallback)
+        # Remove default callbacks that print to console
+        from transformers.trainer_callback import PrinterCallback, ProgressCallback
+        self.trainer.remove_callback(PrinterCallback)
 
         # Suppress transformers logging to console (wandb still gets logs)
-        transformers.logging.set_verbosity_warning()
+        transformers.logging.set_verbosity_error()
+        logging.getLogger("transformers").setLevel(logging.ERROR)
 
         # Train
         train_result = self.trainer.train()

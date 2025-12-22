@@ -208,6 +208,82 @@ class StorageConfig:
         return f"{self.hf_username}/{clean_name}-{self.repo_prefix}-{method}"
 
 
+@dataclass
+class AgentSFTConfig(TrainingConfig):
+    """Configuration for Agent SFT (tool-use) training."""
+
+    # Override model for agent training
+    model_id: str = StudentModel.QWEN3_30B_A3B.value
+
+    # Output directory
+    output_dir: str = os.path.join(MODELS_DIR, "agent_sft")
+
+    # Tool-specific settings
+    tool_format: str = "qwen3"  # Tool-calling format: qwen3, openai
+
+    # Training hyperparameters (adjusted for tool-use)
+    per_device_train_batch_size: int = 1
+    gradient_accumulation_steps: int = 16
+    num_train_epochs: int = 3
+    learning_rate: float = 1e-4
+    max_seq_length: int = 8192  # Longer for multi-turn conversations
+
+    # Data paths
+    train_data_path: str = os.path.join(DATA_DIR, "..", "agent_sft", "train.jsonl")
+    eval_data_path: str = os.path.join(DATA_DIR, "..", "agent_sft", "eval.jsonl")
+
+
+@dataclass
+class AgentDPOConfig:
+    """Configuration for Agent DPO (faithfulness) training."""
+
+    # Model settings
+    model_id: str = StudentModel.QWEN3_30B_A3B.value
+    sft_checkpoint: str = ""  # Path to SFT checkpoint
+
+    # Output directory
+    output_dir: str = os.path.join(MODELS_DIR, "agent_dpo")
+
+    # DPO hyperparameters
+    beta: float = 0.1  # KL penalty coefficient
+    learning_rate: float = 5e-6
+    per_device_train_batch_size: int = 1
+    gradient_accumulation_steps: int = 8
+    num_train_epochs: int = 1
+    warmup_ratio: float = 0.1
+    max_seq_length: int = 4096
+
+    # LoRA configuration (applied to SFT checkpoint)
+    lora_r: int = 32
+    lora_alpha: int = 64
+    lora_dropout: float = 0.05
+    target_modules: List[str] = field(default_factory=lambda: [
+        "q_proj", "k_proj", "v_proj", "o_proj",
+        "gate_proj", "up_proj", "down_proj"
+    ])
+
+    # Optimization
+    bf16: bool = True
+    gradient_checkpointing: bool = True
+
+    # Logging
+    logging_steps: int = 5
+    eval_steps: int = 20
+    save_steps: int = 50
+    use_wandb: bool = True
+    wandb_project: str = "llm2kg-agent"
+    wandb_run_name: Optional[str] = None
+
+    # Data paths
+    train_data_path: str = os.path.join(DATA_DIR, "..", "agent_dpo", "train.jsonl")
+    eval_data_path: str = os.path.join(DATA_DIR, "..", "agent_dpo", "eval.jsonl")
+
+    def get_output_dir(self) -> str:
+        """Get model-specific output directory."""
+        model_name = self.model_id.split("/")[-1]
+        return os.path.join(self.output_dir, model_name)
+
+
 # System prompt for KG extraction (used in training data)
 SYSTEM_PROMPT = """You are a Knowledge Graph expert. Extract a semi-structured graph from the text.
 
