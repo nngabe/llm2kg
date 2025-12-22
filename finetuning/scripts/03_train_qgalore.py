@@ -21,15 +21,69 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from finetuning.config import QGaloreConfig, StorageConfig
-from finetuning.data.dataset_builder import prepare_datasets
+from finetuning.config import QGaloreConfig, StorageConfig, DataConfig
+from finetuning.data.dataset_builder import DatasetBuilder
+from finetuning.data.data_formatter import DataFormatter
+from finetuning.data.teacher_labeler import LabeledSample
 from finetuning.training.qgalore_trainer import QGaloreTrainer
+
+import json
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+
+def format_teacher_labels(data_dir: str) -> tuple[str, str]:
+    """
+    Format teacher labels into training format if not already done.
+
+    Returns paths to formatted train and eval files.
+    """
+    labels_dir = os.path.join(data_dir, "teacher_labels")
+    train_dir = os.path.join(data_dir, "train")
+    eval_dir = os.path.join(data_dir, "eval")
+
+    os.makedirs(train_dir, exist_ok=True)
+    os.makedirs(eval_dir, exist_ok=True)
+
+    train_path = os.path.join(train_dir, "all_domains_messages.jsonl")
+    eval_path = os.path.join(eval_dir, "all_domains_messages.jsonl")
+
+    # Check if already formatted
+    if os.path.exists(train_path) and os.path.exists(eval_path):
+        return train_path, eval_path
+
+    logger.info("Formatting teacher labels for training...")
+
+    data_config = DataConfig(output_dir=data_dir)
+    formatter = DataFormatter(data_config)
+
+    train_samples = []
+    eval_samples = []
+
+    for domain in ["economics", "law", "physics"]:
+        for split, samples_list in [("train", train_samples), ("eval", eval_samples)]:
+            label_file = os.path.join(labels_dir, f"{domain}_{split}_labels.jsonl")
+            if os.path.exists(label_file):
+                count = 0
+                with open(label_file, "r") as f:
+                    for line in f:
+                        data = json.loads(line)
+                        sample = LabeledSample.from_dict(data)
+                        formatted = formatter.format_sample(sample)
+                        samples_list.append(formatted)
+                        count += 1
+                logger.info(f"  Loaded {domain}/{split}: {count} samples")
+
+    formatter.save_formatted_data(train_samples, train_path, "messages")
+    formatter.save_formatted_data(eval_samples, eval_path, "messages")
+
+    logger.info(f"Formatted {len(train_samples)} train, {len(eval_samples)} eval samples")
+
+    return train_path, eval_path
 
 
 def parse_args():
@@ -164,7 +218,7 @@ def main():
         num_train_epochs=args.epochs,
         max_seq_length=args.max_seq_length,
         wandb_project=args.wandb_project,
-        run_name=run_name,
+        wandb_run_name=run_name,
     )
 
     logger.info("=" * 60)
@@ -182,41 +236,26 @@ def main():
 
     # Prepare datasets
     logger.info("\nLoading datasets...")
-    train_path = os.path.join(args.data_dir, "train", "formatted_train.jsonl")
-    eval_path = os.path.join(args.data_dir, "eval", "formatted_eval.jsonl")
 
-    if not os.path.exists(train_path):
-        # Try alternative path structure
-        train_path = os.path.join(args.data_dir, "formatted", "train.jsonl")
-        eval_path = os.path.join(args.data_dir, "formatted", "eval.jsonl")
+    # Format teacher labels if needed
+    train_path, eval_path = format_teacher_labels(args.data_dir)
 
-    train_dataset, eval_dataset = prepare_datasets(
-        train_path=train_path,
-        eval_path=eval_path,
-        model_id=args.model,
-        max_seq_length=args.max_seq_length,
-    )
+    builder = DatasetBuilder(config)
+    dataset = builder.build_dataset(train_path, eval_path)
 
-    logger.info(f"Train samples: {len(train_dataset)}")
-    logger.info(f"Eval samples: {len(eval_dataset)}")
-
-    # Initialize trainer
-    trainer = QGaloreTrainer(config)
-    trainer.setup()
+    logger.info(f"Train samples: {len(dataset['train'])}")
+    logger.info(f"Eval samples: {len(dataset['eval'])}")
 
     # Train
     logger.info("\nStarting training...")
-    metrics = trainer.train(
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
-        resume_from_checkpoint=args.resume_from,
-    )
+    trainer = QGaloreTrainer(config)
+    result = trainer.train(dataset=dataset)
 
     logger.info("\n" + "=" * 60)
     logger.info("TRAINING COMPLETE")
     logger.info("=" * 60)
-    logger.info(f"Final metrics: {metrics}")
-    logger.info(f"Model saved to: {config.output_dir}")
+    logger.info(f"Final metrics: {result.get('metrics', {})}")
+    logger.info(f"Model saved to: {result.get('output_dir', config.output_dir)}")
 
     # Upload to HuggingFace Hub
     if args.upload_hf:
@@ -230,9 +269,9 @@ def main():
         uploader = HFUploader(storage_config)
 
         url = uploader.upload_merged_model(
-            model_path=config.output_dir,
+            model_path=result.get("output_dir", config.output_dir),
             training_config=config,
-            metrics=metrics,
+            metrics=result.get("metrics", {}),
             method="qgalore",
         )
         logger.info(f"Uploaded to: {url}")

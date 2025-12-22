@@ -120,7 +120,7 @@ class QLoRATrainer:
             learning_rate=self.config.learning_rate,
             num_train_epochs=self.config.num_train_epochs,
             warmup_ratio=self.config.warmup_ratio,
-            max_seq_length=self.config.max_seq_length,
+            max_length=self.config.max_seq_length,
 
             # Optimization
             optim=self.config.optim,
@@ -182,7 +182,7 @@ class QLoRATrainer:
             args=training_args,
             train_dataset=dataset["train"],
             eval_dataset=dataset["eval"],
-            tokenizer=self.tokenizer,
+            processing_class=self.tokenizer,
         )
 
         # Train
