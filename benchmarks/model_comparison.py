@@ -20,6 +20,7 @@ from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_ollama import ChatOllama
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_huggingface import ChatHuggingFace, HuggingFacePipeline
 from langchain_core.prompts import ChatPromptTemplate
 from datasets import load_dataset
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -50,6 +51,71 @@ def save_cache(results: Dict[str, List[Any]]):
 def normalize_entity(name: str) -> str:
     """Standardize entity naming: 'NEOCLASSICAL_ECONOMICS' -> 'Neoclassical Economics'"""
     return ' '.join(name.replace('_', ' ').split()).title()
+
+
+# Relation normalization mappings - map variations to canonical forms
+RELATION_SYNONYMS = {
+    # Temporal relations
+    'declined_in': 'decreased_during',
+    'declined_during': 'decreased_during',
+    'declined_through': 'decreased_during',
+    'rose_in': 'increased_during',
+    'rose_during': 'increased_during',
+    'increased_in': 'increased_during',
+    'trend': 'changed_during',
+    'observed_in': 'measured_during',
+    # Definitional relations
+    'depicts': 'shows',
+    'displays': 'shows',
+    'illustrates': 'shows',
+    'represents': 'shows',
+    'is_defined_as_percentage_below': 'defined_by',
+    'defined_by_threshold': 'defined_by',
+    'measures_against': 'defined_by',
+    # Compositional relations
+    'measures_share_of': 'percentage_of',
+    'is_percentage_of': 'percentage_of',
+    'is_calculated_from': 'percentage_of',
+    # Causal relations
+    'can_cause': 'causes',
+    'leads_to': 'causes',
+    'results_in': 'causes',
+    # Membership/inclusion
+    'includes': 'contains',
+    'has': 'contains',
+    'include_issue': 'contains',
+    'includes_issue': 'contains',
+    # Association
+    'operates_in': 'associated_with',
+    'involves': 'associated_with',
+    'related_to': 'associated_with',
+    # Comparison
+    'has_not_been_less_than': 'minimum_value',
+    'never_below': 'minimum_value',
+    # Impact
+    'affects': 'impacts',
+    'influences': 'impacts',
+    'harms': 'negatively_impacts',
+    'pulls_down': 'negatively_impacts',
+    'pulls_up': 'positively_impacts',
+}
+
+
+def normalize_relation(relation: str) -> str:
+    """Normalize relation names to canonical forms for better comparison."""
+    # Lowercase and remove underscores/spaces for matching
+    normalized = relation.lower().replace('_', ' ').strip()
+    normalized = ' '.join(normalized.split())  # collapse whitespace
+
+    # Convert back to underscore format
+    key = normalized.replace(' ', '_')
+
+    # Check if we have a mapping
+    if key in RELATION_SYNONYMS:
+        return RELATION_SYNONYMS[key]
+
+    # Return cleaned version
+    return key
 
 
 class Node(BaseModel):
@@ -117,28 +183,28 @@ BENCHMARK_MODELS = [
         provider="ollama",
         model_id="gemma3:27b-it-qat",
         is_gold_standard=False,
-        base_url="http://localhost:11434",
+        base_url="http://host.docker.internal:11434",
     ),
     ModelConfig(
         name="Gemma3 12B IT QAT (Local)",
         provider="ollama",
         model_id="gemma3:12b-it-qat",
         is_gold_standard=False,
-        base_url="http://localhost:11434",
+        base_url="http://host.docker.internal:11434",
     ),
     ModelConfig(
         name="Gemma3 12B (Local)",
         provider="ollama",
         model_id="gemma3:12b",
         is_gold_standard=False,
-        base_url="http://localhost:11434",
+        base_url="http://host.docker.internal:11434",
     ),
     ModelConfig(
         name="Gemma3 27B (Local)",
         provider="ollama",
         model_id="gemma3:27b",
         is_gold_standard=False,
-        base_url="http://localhost:11434",
+        base_url="http://host.docker.internal:11434",
     ),
     # Local Ollama models - Qwen variants
     ModelConfig(
@@ -146,14 +212,14 @@ BENCHMARK_MODELS = [
         provider="ollama",
         model_id="qwen3:30b-a3b",
         is_gold_standard=False,
-        base_url="http://localhost:11434",
+        base_url="http://host.docker.internal:11434",
     ),
     ModelConfig(
         name="Qwen3 14B (Local)",
         provider="ollama",
         model_id="qwen3:14b",
         is_gold_standard=False,
-        base_url="http://localhost:11434",
+        base_url="http://host.docker.internal:11434",
     ),
     # Note: Thinking models (like qwen3-next:80b-a3b-thinking) are incompatible with
     # LangChain's structured output because they output reasoning tokens before JSON.
@@ -163,7 +229,68 @@ BENCHMARK_MODELS = [
         provider="ollama",
         model_id="qwen3:32b",
         is_gold_standard=False,
-        base_url="http://localhost:11434",
+        base_url="http://host.docker.internal:11434",
+    ),
+    # Local Ollama models - Ministral variants
+    ModelConfig(
+        name="Ministral-3 3B (Local)",
+        provider="ollama",
+        model_id="ministral-3:3b",
+        is_gold_standard=False,
+        base_url="http://host.docker.internal:11434",
+    ),
+    ModelConfig(
+        name="Ministral-3 8B (Local)",
+        provider="ollama",
+        model_id="ministral-3:8b",
+        is_gold_standard=False,
+        base_url="http://host.docker.internal:11434",
+    ),
+    ModelConfig(
+        name="Ministral-3 14B (Local)",
+        provider="ollama",
+        model_id="ministral-3:14b",
+        is_gold_standard=False,
+        base_url="http://host.docker.internal:11434",
+    ),
+    # HuggingFace fine-tuned models
+    ModelConfig(
+        name="Gemma3 12B KG Extraction (HuggingFace)",
+        provider="huggingface",
+        model_id="ngabr/gemma-3-12b-kg-extraction-merged",
+        is_gold_standard=False,
+    ),
+    # Fine-tuned model via Ollama (converted from HuggingFace) - Q8 quantized
+    ModelConfig(
+        name="Gemma3 12B KG Extraction Q8 (Ollama)",
+        provider="ollama",
+        model_id="gemma-3-12b-kg:latest",
+        is_gold_standard=False,
+        base_url="http://host.docker.internal:11434",
+    ),
+    # Fine-tuned model via Ollama - Q4 quantized (smallest, fastest)
+    ModelConfig(
+        name="Gemma3 12B KG Extraction Q4 (Ollama)",
+        provider="ollama",
+        model_id="gemma-3-12b-kg:q4",
+        is_gold_standard=False,
+        base_url="http://host.docker.internal:11434",
+    ),
+    # Fine-tuned model via Ollama - BF16 full precision
+    ModelConfig(
+        name="Gemma3 12B KG Extraction BF16 (Ollama)",
+        provider="ollama",
+        model_id="gemma-3-12b-kg:bf16",
+        is_gold_standard=False,
+        base_url="http://host.docker.internal:11434",
+    ),
+    # GPT-OSS (Open Source GPT variant)
+    ModelConfig(
+        name="GPT-OSS 20B (Local)",
+        provider="ollama",
+        model_id="gpt-oss:20b",
+        is_gold_standard=False,
+        base_url="http://host.docker.internal:11434",
     ),
     # Note: Kimi Linear 48B requires vLLM with CUDA (NVIDIA GPU).
     # Uncomment below if running on a CUDA-capable system:
@@ -225,9 +352,14 @@ class ModelBenchmark:
         )
         self.system_prompt = """You are a Knowledge Graph expert. Extract a semi-structured graph from the text.
 
-1. Identify Entities (Nodes): Include a 'description' summarizing who/what the entity is.
-2. Identify Relationships (Edges): Include a 'description' explaining the context of the link.
-3. Use consistent IDs."""
+1. Identify Entities (Nodes):
+   - The 'id' MUST be a meaningful, human-readable name extracted from the text (e.g., "U.S. Poverty Rate", "Albert Einstein", "New York City")
+   - NEVER use abstract identifiers like "N1", "N2", "Entity1", etc.
+   - Include a 'description' summarizing who/what the entity is.
+2. Identify Relationships (Edges):
+   - Use the exact entity names from your nodes as 'source' and 'target'
+   - Include a 'description' explaining the context of the link.
+3. Be consistent: if you mention an entity multiple times, use the exact same ID each time."""
 
     def _create_llm(self, config: ModelConfig):
         """Create the appropriate LLM based on configuration."""
@@ -257,12 +389,40 @@ class ModelBenchmark:
                 temperature=config.temperature,
                 base_url=config.base_url,
             )
+        elif config.provider == "huggingface":
+            from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+            import torch
+
+            # Load model with appropriate settings for inference
+            tokenizer = AutoTokenizer.from_pretrained(config.model_id)
+            model = AutoModelForCausalLM.from_pretrained(
+                config.model_id,
+                torch_dtype=torch.bfloat16,
+                device_map="auto",
+            )
+
+            pipe = pipeline(
+                "text-generation",
+                model=model,
+                tokenizer=tokenizer,
+                max_new_tokens=2048,
+                temperature=config.temperature if config.temperature > 0 else None,
+                do_sample=config.temperature > 0,
+            )
+
+            llm = HuggingFacePipeline(pipeline=pipe)
+            return ChatHuggingFace(llm=llm)
         else:
             raise ValueError(f"Unknown provider: {config.provider}")
 
     def _create_chain(self, config: ModelConfig):
         """Create the extraction chain for a model."""
         llm = self._create_llm(config)
+
+        # HuggingFace models don't support with_structured_output, so we handle them separately
+        if config.provider == "huggingface":
+            return None  # Will use manual extraction method
+
         structured_llm = llm.with_structured_output(KnowledgeGraph)
         # For thinking models, append /nothink to disable reasoning output
         human_template = "Text: {text}"
@@ -274,14 +434,75 @@ class ModelBenchmark:
         ])
         return prompt | structured_llm
 
+    def _extract_with_huggingface(self, config: ModelConfig, chunk: str) -> KnowledgeGraph:
+        """Extract knowledge graph using HuggingFace model with manual JSON parsing."""
+        import re
+
+        llm = self._create_llm(config)
+
+        # Note: Double curly braces are escaped in ChatPromptTemplate
+        # so we use a simple string concatenation approach instead
+        system_prompt = """You are a Knowledge Graph expert. Extract a semi-structured graph from the text.
+
+1. Identify Entities (Nodes): Include a 'description' summarizing who/what the entity is.
+2. Identify Relationships (Edges): Include a 'description' explaining the context of the link.
+3. Use consistent IDs.
+
+IMPORTANT: Respond ONLY with valid JSON in this exact format:
+{{
+  "nodes": [
+    {{"id": "Entity Name", "type": "Category", "description": "Brief description"}}
+  ],
+  "edges": [
+    {{"source": "Source Entity", "target": "Target Entity", "relation": "relationship_type", "description": "Context"}}
+  ]
+}}
+
+Do not include any text before or after the JSON."""
+
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", system_prompt),
+            ("human", "Text: {text}"),
+        ])
+
+        chain = prompt | llm
+        response = chain.invoke({"text": chunk})
+
+        # Extract the content from the response
+        if hasattr(response, 'content'):
+            content = response.content
+        else:
+            content = str(response)
+
+        # Try to find JSON in the response
+        # First try to find a JSON block
+        json_match = re.search(r'\{[\s\S]*\}', content)
+        if not json_match:
+            raise ValueError(f"No JSON found in response: {content[:200]}")
+
+        json_str = json_match.group()
+        data = json.loads(json_str)
+
+        # Parse into KnowledgeGraph
+        nodes = [Node(**n) for n in data.get("nodes", [])]
+        edges = [Edge(**e) for e in data.get("edges", [])]
+
+        return KnowledgeGraph(nodes=nodes, edges=edges)
+
     def extract_from_chunk(
         self, config: ModelConfig, chunk: str, chunk_id: str
     ) -> ExtractionResult:
         """Extract knowledge graph from a single chunk using the specified model."""
         try:
-            chain = self._create_chain(config)
             start_time = time.time()
-            data = chain.invoke({"text": chunk})
+
+            # Use different extraction method for HuggingFace models
+            if config.provider == "huggingface":
+                data = self._extract_with_huggingface(config, chunk)
+            else:
+                chain = self._create_chain(config)
+                data = chain.invoke({"text": chunk})
+
             latency = time.time() - start_time
 
             # Normalize entity names for consistency across models
@@ -311,6 +532,7 @@ class ModelBenchmark:
         subject: str = "economics",
         num_docs: int = 3,
         models_to_run: List[str] = None,
+        start_doc: int = 0,
     ) -> Dict[str, List[ExtractionResult]]:
         """
         Run the benchmark on specified documents.
@@ -319,6 +541,7 @@ class ModelBenchmark:
             subject: Dataset subject ('economics', 'law', 'physics')
             num_docs: Number of documents to process
             models_to_run: List of model names to run (None = all)
+            start_doc: Starting document index (default 0)
         """
         logger.info(f"Loading {subject} dataset...")
 
@@ -337,21 +560,24 @@ class ModelBenchmark:
         else:
             raise ValueError(f"Unknown subject: {subject}")
 
-        # Select documents
-        dataset = dataset.select(range(min(num_docs, len(dataset))))
+        # Select documents with offset
+        end_doc = min(start_doc + num_docs, len(dataset))
+        dataset = dataset.select(range(start_doc, end_doc))
+        logger.info(f"Selected documents {start_doc} to {end_doc - 1}")
 
         # Prepare chunks from documents
         all_chunks = []
         for doc_idx, entry in enumerate(dataset):
+            actual_doc_idx = start_doc + doc_idx
             text = entry["text"]
             if len(text.strip()) < 50:
                 continue
             chunks = self.text_splitter.split_text(text)
             for chunk_idx, chunk in enumerate(chunks[:3]):  # Limit chunks per doc
                 all_chunks.append({
-                    "id": f"doc{doc_idx}_chunk{chunk_idx}",
+                    "id": f"doc{actual_doc_idx}_chunk{chunk_idx}",
                     "text": chunk,
-                    "doc_idx": doc_idx,
+                    "doc_idx": actual_doc_idx,
                 })
 
         logger.info(f"Processing {len(all_chunks)} chunks across {num_docs} documents")
@@ -363,16 +589,24 @@ class ModelBenchmark:
 
         # Run each model on all chunks
         for config in models_to_test:
-            # Skip if already cached
-            if config.name in self.results and len(self.results[config.name]) >= len(all_chunks):
-                logger.info(f"Skipping {config.name} (cached with {len(self.results[config.name])} results)")
+            # Get cached chunk IDs for this model
+            cached_chunk_ids = set()
+            if config.name in self.results:
+                cached_chunk_ids = {r.chunk_id for r in self.results[config.name]}
+
+            # Find chunks that need processing (not already cached)
+            chunks_to_process = [c for c in all_chunks if c["id"] not in cached_chunk_ids]
+
+            if not chunks_to_process:
+                logger.info(f"Skipping {config.name} (all {len(all_chunks)} chunks already cached)")
                 continue
 
             logger.info(f"\n{'='*60}")
             logger.info(f"Testing model: {config.name}")
             logger.info(f"{'='*60}")
+            logger.info(f"  {len(cached_chunk_ids)} chunks cached, {len(chunks_to_process)} chunks to process")
 
-            for chunk_data in all_chunks:
+            for chunk_data in chunks_to_process:
                 logger.info(f"  Processing {chunk_data['id']}...")
                 result = self.extract_from_chunk(
                     config, chunk_data["text"], chunk_data["id"]
@@ -433,9 +667,11 @@ class ModelBenchmark:
                 for result in successful_results:
                     gold = gold_standard_results.get(result.chunk_id)
                     if gold and gold.parse_success:
-                        # Compare node IDs (normalized)
-                        result_node_ids = {n["id"].lower().strip() for n in result.nodes}
-                        gold_node_ids = {n["id"].lower().strip() for n in gold.nodes}
+                        # Compare node IDs (normalized - remove spaces/dots for matching)
+                        def normalize_node_id(n):
+                            return n["id"].lower().replace(' ', '').replace('.', '').strip()
+                        result_node_ids = {normalize_node_id(n) for n in result.nodes}
+                        gold_node_ids = {normalize_node_id(n) for n in gold.nodes}
 
                         if gold_node_ids:
                             overlap = len(result_node_ids & gold_node_ids) / len(
@@ -449,15 +685,15 @@ class ModelBenchmark:
                             m.missing_entities.extend(list(missing)[:5])
                             m.extra_entities.extend(list(extra)[:5])
 
-                        # Compare edges
-                        result_edges = {
-                            (e["source"].lower(), e["relation"].lower(), e["target"].lower())
-                            for e in result.edges
-                        }
-                        gold_edges = {
-                            (e["source"].lower(), e["relation"].lower(), e["target"].lower())
-                            for e in gold.edges
-                        }
+                        # Compare edges (with normalized relations)
+                        def normalize_edge(e):
+                            src = e["source"].lower().replace(' ', '').replace('.', '').strip()
+                            tgt = e["target"].lower().replace(' ', '').replace('.', '').strip()
+                            rel = normalize_relation(e["relation"])
+                            return (src, rel, tgt)
+
+                        result_edges = {normalize_edge(e) for e in result.edges}
+                        gold_edges = {normalize_edge(e) for e in gold.edges}
 
                         if gold_edges:
                             edge_overlap = len(result_edges & gold_edges) / len(gold_edges)
@@ -704,6 +940,7 @@ def main():
     parser = argparse.ArgumentParser(description="Benchmark multiple models for KG extraction")
     parser.add_argument("--subject", type=str, default="economics", choices=["economics", "law", "physics"])
     parser.add_argument("--num_docs", type=int, default=3)
+    parser.add_argument("--start_doc", type=int, default=0, help="Starting document index")
     parser.add_argument("--models", type=str, nargs="+", help="Specific models to test")
     parser.add_argument("--skip_local", action="store_true", help="Skip Ollama local models")
     parser.add_argument("--skip_anthropic", action="store_true", help="Skip Anthropic models")
@@ -738,7 +975,7 @@ def main():
     benchmark = ModelBenchmark(models=models, use_cache=not args.no_cache)
 
     try:
-        benchmark.run_benchmark(subject=args.subject, num_docs=args.num_docs)
+        benchmark.run_benchmark(subject=args.subject, num_docs=args.num_docs, start_doc=args.start_doc)
         report = benchmark.generate_report()
         print(report)
 

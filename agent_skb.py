@@ -179,16 +179,19 @@ class Neo4jAgentLoader:
         self.provider = provider
 
         if provider == 'local':
+            self.embedding_model_name = "qwen3-embedding:8b"
             self.embedding_model = OllamaEmbeddings(
                 base_url="http://host.docker.internal:11434",
-                model="qwen3-embedding:8b",
+                model=self.embedding_model_name,
             )
             self.embedding_dim = 4096
         elif provider == 'openai':
-            self.embedding_model = OpenAIEmbeddings(model="text-embedding-3-small")
+            self.embedding_model_name = "text-embedding-3-small"
+            self.embedding_model = OpenAIEmbeddings(model=self.embedding_model_name)
             self.embedding_dim = 1536
         else:
-            self.embedding_model = OpenAIEmbeddings(model="text-embedding-3-small")
+            self.embedding_model_name = "text-embedding-3-small"
+            self.embedding_model = OpenAIEmbeddings(model=self.embedding_model_name)
             self.embedding_dim = 1536
 
     def close(self):
@@ -606,23 +609,34 @@ class Neo4jAgentLoader:
 class KnowledgeGraphAgent:
     """LangGraph agent for knowledge graph extraction with ontology convergence."""
 
-    def __init__(self, provider: str = 'local'):
+    def __init__(self, provider: str = 'local', model: str = None, utility_model: str = None):
         self.provider = provider
         self.loader = Neo4jAgentLoader(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, provider)
 
-        # Initialize LLM
+        # Initialize extraction LLM (fine-tuned for KG extraction)
         if provider == 'local':
+            extraction_model = model or "gpt-oss:20b"
             self.llm = ChatOllama(
-                model="gemma3:12b-it-qat",
+                model=extraction_model,
+                temperature=0,
+                base_url="http://host.docker.internal:11434",
+            )
+            # Utility LLM for ontology assignment and entity checking
+            util_model = utility_model or "gpt-oss:20b"
+            self.utility_llm = ChatOllama(
+                model=util_model,
                 temperature=0,
                 base_url="http://host.docker.internal:11434",
             )
         elif provider == 'openai':
-            self.llm = ChatOpenAI(model="gpt-4o", temperature=0)
+            self.llm = ChatOpenAI(model=model or "gpt-4o", temperature=0)
+            self.utility_llm = self.llm  # Use same model for non-local
         elif provider == 'google':
-            self.llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0)
+            self.llm = ChatGoogleGenerativeAI(model=model or "gemini-2.5-flash", temperature=0)
+            self.utility_llm = self.llm  # Use same model for non-local
         else:
-            self.llm = ChatOpenAI(model="gpt-4o", temperature=0)
+            self.llm = ChatOpenAI(model=model or "gpt-4o", temperature=0)
+            self.utility_llm = self.llm
 
         self.structured_llm = self.llm.with_structured_output(ExtractedKnowledgeGraph)
 
@@ -680,12 +694,12 @@ class KnowledgeGraphAgent:
 For each entity (node):
 1. Provide a unique 'id' (the entity name)
 2. Assign an 'open_type' - a descriptive category for the entity (e.g., Person, Concept, Organization, Event, Location, Theory, Law, Institution, Process, Phenomenon)
-3. Write a 'description' summarizing who/what the entity is based on the text
+3. Write a 'description' summarizing who/what the entity is based on the text 
 
 For each relationship (edge):
 1. Identify source and target entities by their id
 2. Assign an 'open_relation' - a descriptive relationship type (e.g., 'developed', 'influenced_by', 'is_part_of', 'founded', 'created', 'studied', 'opposed')
-3. Include a 'description' explaining the relationship context
+3. Include a 'description' explaining the relationship context 
 
 Be thorough but precise. Extract all meaningful entities and relationships from the text. Use specific, descriptive types and relations."""
 
@@ -810,7 +824,7 @@ Rules:
         ])
 
         try:
-            response = (prompt | self.llm).invoke({})
+            response = (prompt | self.utility_llm).invoke({})
             ontology_label = response.content.strip().strip('"').strip("'")
             return ontology_label if ontology_label else open_label
         except Exception as e:
@@ -832,7 +846,7 @@ Return ONLY the chosen ontology label, nothing else."""),
         ])
 
         try:
-            response = (prompt | self.llm).invoke({})
+            response = (prompt | self.utility_llm).invoke({})
             ontology_label = response.content.strip().strip('"').strip("'")
             # Validate it's in the ontology
             if ontology_label in ontology:
@@ -865,7 +879,7 @@ Return ONLY the generalized label, nothing else."""),
         ])
 
         try:
-            response = (prompt | self.llm).invoke({})
+            response = (prompt | self.utility_llm).invoke({})
             return response.content.strip().strip('"').strip("'") or open_label
         except Exception as e:
             logger.warning(f"Label generalization failed for {open_label}: {e}")
@@ -1006,7 +1020,7 @@ Description: {desc2}
 Are these likely the same entity? Answer ONLY with 'YES' or 'NO'."""),
         ])
 
-        chain = prompt | self.llm
+        chain = prompt | self.utility_llm
         try:
             response = chain.invoke({
                 "name1": name1, "desc1": desc1 or "No description",
@@ -1029,7 +1043,7 @@ Are these the same concept? If YES, which label is more canonical?
 Answer in format: YES|canonical_label or NO"""),
         ])
 
-        chain = prompt | self.llm
+        chain = prompt | self.utility_llm
         try:
             response = chain.invoke({"label1": label1, "label2": label2}).content.strip()
             if response.upper().startswith("YES"):
@@ -1215,7 +1229,7 @@ Example output: {{"Economist": "Person", "Scientist": "Person", "developed": "CR
         ])
 
         try:
-            response = (prompt | self.llm).invoke({})
+            response = (prompt | self.utility_llm).invoke({})
             content = response.content.strip()
             # Try to parse JSON
             import re
@@ -1359,8 +1373,25 @@ Example output: {{"Economist": "Person", "Scientist": "Person", "developed": "CR
 
 
 # --- PIPELINE EXECUTION ---
+def load_subject_dataset(subject: str, restart_index: int = 0, limit_docs: int = 0):
+    """Load a dataset for a specific subject."""
+    if subject == 'economics':
+        dataset = load_dataset("cais/wmdp-mmlu-auxiliary-corpora", "economics-corpus", split='train')
+    elif subject == 'law':
+        dataset = load_dataset("cais/wmdp-mmlu-auxiliary-corpora", "law-corpus", split='train')
+    elif subject == 'physics':
+        dataset = load_dataset("cais/wmdp-mmlu-auxiliary-corpora", "physics-corpus", split='train')
+    else:
+        raise ValueError(f"Unknown subject: {subject}")
+
+    end_index = restart_index + limit_docs if limit_docs > 0 else len(dataset)
+    return dataset.select(range(restart_index, min(end_index, len(dataset))))
+
+
 def run_agent_pipeline(
     provider: str = 'local',
+    model: str = None,
+    utility_model: str = None,
     limit_docs: int = 5,
     restart_index: int = 0,
     subject: str = 'economics',
@@ -1369,32 +1400,22 @@ def run_agent_pipeline(
 ):
     """Run the knowledge graph extraction agent pipeline."""
 
-    agent = KnowledgeGraphAgent(provider=provider)
+    agent = KnowledgeGraphAgent(provider=provider, model=model, utility_model=utility_model)
+
+    # Determine which subjects to process
+    if subject == 'all':
+        subjects = ['economics', 'law', 'physics']
+    else:
+        subjects = [subject]
 
     try:
         # Initialize indices
         agent.loader.init_indices()
 
-        print("Loading Data...")
-
-        # Load dataset
-        if subject == 'economics':
-            dataset = load_dataset("cais/wmdp-mmlu-auxiliary-corpora", "economics-corpus", split='train')
-        elif subject == 'law':
-            dataset = load_dataset("cais/wmdp-mmlu-auxiliary-corpora", "law-corpus", split='train')
-        elif subject == 'physics':
-            dataset = load_dataset("cais/wmdp-mmlu-auxiliary-corpora", "physics-corpus", split='train')
-        else:
-            raise ValueError(f"Unknown subject: {subject}")
-
-        end_index = restart_index + limit_docs if limit_docs > 0 else len(dataset)
-        dataset = dataset.select(range(restart_index, min(end_index, len(dataset))))
-
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
 
-        print(f"\n[doc/total_docs][chunk] Processing {len(dataset)} documents\n")
         print(f"Periodic maintenance: entity resolution every {entity_resolution_interval} docs, "
-              f"ontology consolidation every {ontology_consolidation_interval} docs\n")
+              f"ontology consolidation every {ontology_consolidation_interval} docs\n", flush=True)
 
         total_nodes_created = 0
         total_nodes_merged = 0
@@ -1402,123 +1423,140 @@ def run_agent_pipeline(
         total_entities_resolved = 0
         total_labels_consolidated = {"NodeType": 0, "EdgeType": 0}
 
-        # Track documents processed for periodic maintenance
+        # Track documents processed for periodic maintenance (across all subjects)
         docs_since_entity_resolution = 0
         docs_since_ontology_consolidation = 0
+        global_doc_idx = 0
 
-        for doc_idx, entry in enumerate(dataset):
-            text = entry['text']
-            if len(text.strip()) < 50:
-                continue
+        # Process each subject
+        for subj_idx, current_subject in enumerate(subjects):
+            print(f"\n{'=' * 60}", flush=True)
+            print(f"PROCESSING SUBJECT: {current_subject.upper()} ({subj_idx + 1}/{len(subjects)})", flush=True)
+            print(f"{'=' * 60}", flush=True)
 
-            chunks = text_splitter.split_text(text)
+            print(f"Loading {current_subject} dataset...", flush=True)
+            dataset = load_subject_dataset(current_subject, restart_index, limit_docs)
+            end_index = restart_index + len(dataset)
 
-            tic = time.time()
-            for chunk_idx, chunk in enumerate(chunks):
-                try:
-                    # Process through agent
-                    result = agent.process_chunk(
-                        text=chunk,
-                        chunk_index=chunk_idx,
-                        doc_index=doc_idx + restart_index,
-                    )
+            print(f"Processing {len(dataset)} documents from {current_subject}\n", flush=True)
 
-                    if result.error_message:
-                        logger.warning(
-                            f"[{doc_idx + restart_index}/{end_index}][{chunk_idx}] "
-                            f"Error: {result.error_message[:100]}"
+            for doc_idx, entry in enumerate(dataset):
+                text = entry['text']
+                if len(text.strip()) < 50:
+                    continue
+
+                chunks = text_splitter.split_text(text)
+
+                tic = time.time()
+                for chunk_idx, chunk in enumerate(chunks):
+                    try:
+                        # Process through agent
+                        result = agent.process_chunk(
+                            text=chunk,
+                            chunk_index=chunk_idx,
+                            doc_index=global_doc_idx,
                         )
-                        continue
 
-                    total_nodes_created += result.nodes_created
-                    total_nodes_merged += result.nodes_merged
-                    total_edges_created += result.edges_created
+                        if result.error_message:
+                            logger.warning(
+                                f"[{current_subject}][{doc_idx + restart_index}/{end_index}][{chunk_idx}] "
+                                f"Error: {result.error_message[:100]}"
+                            )
+                            continue
 
-                    toc = time.time() - tic
-                    tic = time.time()
+                        total_nodes_created += result.nodes_created
+                        total_nodes_merged += result.nodes_merged
+                        total_edges_created += result.edges_created
 
-                    # Build status line
-                    status = (
-                        f"[{doc_idx + restart_index}/{end_index}][{chunk_idx}] "
-                        f"Created: {result.nodes_created} nodes, "
-                        f"Merged: {result.nodes_merged} nodes, "
-                        f"Edges: {result.edges_created} "
-                        f"({toc:.2f}s)"
-                    )
+                        toc = time.time() - tic
+                        tic = time.time()
 
-                    # Add new ontology labels if any
-                    if result.new_ontology_labels:
-                        status += f" | New: {result.new_ontology_labels}"
+                        # Build status line
+                        status = (
+                            f"[{current_subject}][{doc_idx + restart_index}/{end_index}][{chunk_idx}] "
+                            f"Created: {result.nodes_created} nodes, "
+                            f"Merged: {result.nodes_merged} nodes, "
+                            f"Edges: {result.edges_created} "
+                            f"({toc:.2f}s)"
+                        )
 
-                    print(status)
+                        # Add new ontology labels if any
+                        if result.new_ontology_labels:
+                            status += f" | New: {result.new_ontology_labels}"
 
-                    # Show detailed type info in debug mode
-                    if result.new_node_types:
-                        logger.debug(f"  Node types: {result.new_node_types}")
-                    if result.new_edge_types:
-                        logger.debug(f"  Edge types: {result.new_edge_types}")
+                        print(status, flush=True)
 
-                except Exception as e:
-                    logger.error(
-                        f"[{doc_idx + restart_index}/{end_index}][{chunk_idx}] "
-                        f"Unexpected error: {e}"
-                    )
+                        # Show detailed type info in debug mode
+                        if result.new_node_types:
+                            logger.debug(f"  Node types: {result.new_node_types}")
+                        if result.new_edge_types:
+                            logger.debug(f"  Edge types: {result.new_edge_types}")
 
-            # Increment document counters
-            docs_since_entity_resolution += 1
-            docs_since_ontology_consolidation += 1
+                    except Exception as e:
+                        logger.error(
+                            f"[{current_subject}][{doc_idx + restart_index}/{end_index}][{chunk_idx}] "
+                            f"Unexpected error: {e}"
+                        )
 
-            # --- PERIODIC ENTITY RESOLUTION ---
-            if docs_since_entity_resolution >= entity_resolution_interval:
-                print(f"\n{'=' * 60}")
-                print(f"PERIODIC ENTITY RESOLUTION (after {docs_since_entity_resolution} documents)")
-                print(f"{'=' * 60}")
+                # Increment document counters
+                docs_since_entity_resolution += 1
+                docs_since_ontology_consolidation += 1
+                global_doc_idx += 1
 
-                try:
-                    merged = agent.run_entity_resolution()
-                    total_entities_resolved += merged
-                    docs_since_entity_resolution = 0
-                    print(f"Resolved {merged} duplicate entities")
-                except Exception as e:
-                    logger.error(f"Entity resolution failed: {e}")
+                # --- PERIODIC ENTITY RESOLUTION ---
+                if docs_since_entity_resolution >= entity_resolution_interval:
+                    print(f"\n{'=' * 60}", flush=True)
+                    print(f"PERIODIC ENTITY RESOLUTION (after {docs_since_entity_resolution} documents)", flush=True)
+                    print(f"{'=' * 60}", flush=True)
 
-                print(f"{'=' * 60}\n")
+                    try:
+                        merged = agent.run_entity_resolution()
+                        total_entities_resolved += merged
+                        docs_since_entity_resolution = 0
+                        print(f"Resolved {merged} duplicate entities", flush=True)
+                    except Exception as e:
+                        logger.error(f"Entity resolution failed: {e}")
 
-            # --- PERIODIC ONTOLOGY CONVERGENCE ---
-            if docs_since_ontology_consolidation >= ontology_consolidation_interval:
-                print(f"\n{'=' * 60}")
-                print(f"PERIODIC ONTOLOGY CONVERGENCE (after {docs_since_ontology_consolidation} documents)")
-                print(f"{'=' * 60}")
+                    print(f"{'=' * 60}\n", flush=True)
 
-                try:
-                    # Run ontology consolidation (merge similar labels)
-                    consolidated = agent.run_ontology_consolidation()
-                    total_labels_consolidated["NodeType"] += consolidated["NodeType"]
-                    total_labels_consolidated["EdgeType"] += consolidated["EdgeType"]
-                    print(f"Consolidated {consolidated['NodeType']} node types, {consolidated['EdgeType']} edge types")
+                # --- PERIODIC ONTOLOGY CONVERGENCE ---
+                if docs_since_ontology_consolidation >= ontology_consolidation_interval:
+                    print(f"\n{'=' * 60}", flush=True)
+                    print(f"PERIODIC ONTOLOGY CONVERGENCE (after {docs_since_ontology_consolidation} documents)", flush=True)
+                    print(f"{'=' * 60}", flush=True)
 
-                    # Run ontology convergence (reduce toward target size)
-                    convergence_result = agent.run_ontology_convergence()
+                    try:
+                        # Run ontology consolidation (merge similar labels)
+                        consolidated = agent.run_ontology_consolidation()
+                        total_labels_consolidated["NodeType"] += consolidated["NodeType"]
+                        total_labels_consolidated["EdgeType"] += consolidated["EdgeType"]
+                        print(f"Consolidated {consolidated['NodeType']} node types, {consolidated['EdgeType']} edge types", flush=True)
 
-                    # Print intermediate ontology report
-                    print(agent.get_ontology_change_report())
+                        # Run ontology convergence (reduce toward target size)
+                        convergence_result = agent.run_ontology_convergence()
 
-                    # Check if ontology is stable and should be frozen
-                    if convergence_result.get("is_stable") and not convergence_result.get("is_frozen"):
-                        print("\n*** ONTOLOGY HAS STABILIZED ***")
-                        agent.freeze_ontology()
-                        print("Ontology is now FROZEN. All future extractions will use fixed labels.")
+                        # Print intermediate ontology report
+                        print(agent.get_ontology_change_report(), flush=True)
 
-                    docs_since_ontology_consolidation = 0
-                except Exception as e:
-                    logger.error(f"Ontology convergence failed: {e}")
+                        # Check if ontology is stable and should be frozen
+                        if convergence_result.get("is_stable") and not convergence_result.get("is_frozen"):
+                            print("\n*** ONTOLOGY HAS STABILIZED ***", flush=True)
+                            agent.freeze_ontology()
+                            print("Ontology is now FROZEN. All future extractions will use fixed labels.", flush=True)
 
-                print(f"{'=' * 60}\n")
+                        docs_since_ontology_consolidation = 0
+                    except Exception as e:
+                        logger.error(f"Ontology convergence failed: {e}")
+
+                    print(f"{'=' * 60}\n", flush=True)
+
+            # Print subject completion summary
+            print(f"\n[{current_subject.upper()}] Completed: {len(dataset)} documents processed", flush=True)
 
         # --- FINAL MAINTENANCE RUN ---
-        print(f"\n{'=' * 60}")
-        print("FINAL MAINTENANCE RUN")
-        print(f"{'=' * 60}")
+        print(f"\n{'=' * 60}", flush=True)
+        print("FINAL MAINTENANCE RUN", flush=True)
+        print(f"{'=' * 60}", flush=True)
 
         try:
             # Final entity resolution
@@ -1535,30 +1573,30 @@ def run_agent_pipeline(
 
             # If not already frozen and stable, freeze now
             if not agent.ontology_state.is_frozen:
-                print("\nFreezing ontology at end of pipeline...")
+                print("\nFreezing ontology at end of pipeline...", flush=True)
                 agent.freeze_ontology()
 
         except Exception as e:
             logger.error(f"Final maintenance failed: {e}")
 
-        print(f"{'=' * 60}\n")
+        print(f"{'=' * 60}\n", flush=True)
 
         # Print summary
-        print("\n" + "=" * 60)
-        print("PIPELINE COMPLETE")
-        print("=" * 60)
-        print(f"Total nodes created: {total_nodes_created}")
-        print(f"Total nodes merged (same name): {total_nodes_merged}")
-        print(f"Total edges created: {total_edges_created}")
-        print(f"Total entities resolved (duplicates): {total_entities_resolved}")
-        print(f"Total node types consolidated: {total_labels_consolidated['NodeType']}")
-        print(f"Total edge types consolidated: {total_labels_consolidated['EdgeType']}")
-        print(f"Ontology frozen: {agent.ontology_state.is_frozen}")
-        print(f"Ontology version: {agent.ontology_state.version}")
-        print("=" * 60)
+        print("\n" + "=" * 60, flush=True)
+        print("PIPELINE COMPLETE", flush=True)
+        print("=" * 60, flush=True)
+        print(f"Total nodes created: {total_nodes_created}", flush=True)
+        print(f"Total nodes merged (same name): {total_nodes_merged}", flush=True)
+        print(f"Total edges created: {total_edges_created}", flush=True)
+        print(f"Total entities resolved (duplicates): {total_entities_resolved}", flush=True)
+        print(f"Total node types consolidated: {total_labels_consolidated['NodeType']}", flush=True)
+        print(f"Total edge types consolidated: {total_labels_consolidated['EdgeType']}", flush=True)
+        print(f"Ontology frozen: {agent.ontology_state.is_frozen}", flush=True)
+        print(f"Ontology version: {agent.ontology_state.version}", flush=True)
+        print("=" * 60, flush=True)
 
         # Print final ontology report
-        print("\n" + agent.get_ontology_change_report())
+        print("\n" + agent.get_ontology_change_report(), flush=True)
 
     except Exception as e:
         logger.error(f"Pipeline error: {e}")
@@ -1581,6 +1619,18 @@ if __name__ == "__main__":
         help="LLM provider to use",
     )
     parser.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        help="Extraction model (default: gemma-3-12b-kg:latest for local, gpt-4o for openai)",
+    )
+    parser.add_argument(
+        "--utility_model",
+        type=str,
+        default=None,
+        help="Utility model for ontology/entity tasks (default: gemma3:12b-it-qat for local)",
+    )
+    parser.add_argument(
         "--limit_docs",
         type=int,
         default=5,
@@ -1596,8 +1646,8 @@ if __name__ == "__main__":
         "--subject",
         type=str,
         default='economics',
-        choices=['economics', 'law', 'physics'],
-        help="Subject corpus to use",
+        choices=['economics', 'law', 'physics', 'all'],
+        help="Subject corpus to use ('all' processes limit_docs from each subject)",
     )
     parser.add_argument(
         "--entity_resolution_interval",
@@ -1614,16 +1664,24 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    print(f"\nConfiguration:")
-    print(f"  Provider: {args.provider}")
-    print(f"  Subject: {args.subject}")
-    print(f"  Documents: {args.limit_docs} starting from {args.restart_index}")
-    print(f"  Entity resolution interval: {args.entity_resolution_interval} docs")
-    print(f"  Ontology consolidation interval: {args.ontology_consolidation_interval} docs")
-    print(f"\nBuilding {args.subject} KG with LangGraph agent...\n")
+    print(f"\nConfiguration:", flush=True)
+    print(f"  Provider: {args.provider}", flush=True)
+    print(f"  Extraction model: {args.model or 'gemma-3-12b-kg:latest'}", flush=True)
+    print(f"  Utility model: {args.utility_model or 'gemma3:12b-it-qat'}", flush=True)
+    print(f"  Embedding model: {'qwen3-embedding:8b' if args.provider == 'local' else 'text-embedding-3-small'}", flush=True)
+    print(f"  Subject: {args.subject}", flush=True)
+    if args.subject == 'all':
+        print(f"  Documents: {args.limit_docs} per subject (economics, law, physics) = {args.limit_docs * 3} total", flush=True)
+    else:
+        print(f"  Documents: {args.limit_docs} starting from {args.restart_index}", flush=True)
+    print(f"  Entity resolution interval: {args.entity_resolution_interval} docs", flush=True)
+    print(f"  Ontology consolidation interval: {args.ontology_consolidation_interval} docs", flush=True)
+    print(f"\nBuilding KG with LangGraph agent...\n", flush=True)
 
     run_agent_pipeline(
         provider=args.provider,
+        model=args.model,
+        utility_model=args.utility_model,
         limit_docs=args.limit_docs,
         restart_index=args.restart_index,
         subject=args.subject,
