@@ -30,6 +30,17 @@ from neo4j import GraphDatabase
 
 from langgraph.graph import StateGraph, START, END
 
+from prompts import (
+    KG_EXTRACTION_PROMPT,
+    get_extraction_prompt,
+    ONTOLOGY_MAPPING_PROMPT_TEMPLATE,
+    FROZEN_ONTOLOGY_MAPPING_PROMPT_TEMPLATE,
+    LABEL_GENERALIZATION_PROMPT_TEMPLATE,
+    ENTITY_VERIFICATION_PROMPT,
+    LABEL_VERIFICATION_PROMPT_TEMPLATE,
+    ONTOLOGY_MERGE_PROMPT_TEMPLATE,
+)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -59,25 +70,60 @@ def normalize_entity(name: str) -> str:
     return ' '.join(name.replace('_', ' ').split()).title()
 
 
-class ExtractedNode(BaseModel):
-    """Node extracted from text with open ontology."""
-    id: str = Field(description="Unique identifier, e.g., 'Albert Einstein'")
-    open_type: str = Field(description="Free-form entity type from extraction, e.g., 'Person', 'Concept', 'Organization'")
+class NodeProperties(BaseModel):
+    """Properties attached to a node."""
     description: str = Field(description="Summary of this entity based on the text context")
 
 
-class ExtractedEdge(BaseModel):
-    """Edge extracted from text with open ontology."""
+class RelationshipProperties(BaseModel):
+    """Properties attached to a relationship."""
+    description: str = Field(description="Detailed explanation of the relationship")
+
+
+class ExtractedNode(BaseModel):
+    """Node extracted from text with open ontology."""
+    id: str = Field(description="Unique identifier using canonical name, e.g., 'Albert Einstein'")
+    labels: List[str] = Field(description="PascalCase entity types, e.g., ['Person', 'Scientist']")
+    properties: NodeProperties = Field(description="Node properties including description")
+
+    @property
+    def open_type(self) -> str:
+        """Get first label for backward compatibility."""
+        return self.labels[0] if self.labels else "Unknown"
+
+    @property
+    def description(self) -> str:
+        """Get description for backward compatibility."""
+        return self.properties.description
+
+
+class ExtractedRelationship(BaseModel):
+    """Relationship extracted from text with open ontology."""
     source: str = Field(description="Source node id")
     target: str = Field(description="Target node id")
-    open_relation: str = Field(description="Free-form relationship type from extraction, e.g., 'developed', 'influenced_by'")
-    description: str = Field(description="Context explaining this relationship")
+    type: str = Field(description="SCREAMING_SNAKE_CASE relationship type, e.g., 'DEVELOPED', 'INFLUENCED_BY'")
+    properties: RelationshipProperties = Field(description="Relationship properties including description")
+
+    @property
+    def open_relation(self) -> str:
+        """Get type for backward compatibility."""
+        return self.type
+
+    @property
+    def description(self) -> str:
+        """Get description for backward compatibility."""
+        return self.properties.description
 
 
 class ExtractedKnowledgeGraph(BaseModel):
     """Knowledge graph extracted from a single text chunk."""
-    nodes: List[ExtractedNode]
-    edges: List[ExtractedEdge]
+    nodes: List[ExtractedNode] = Field(default_factory=list)
+    relationships: List[ExtractedRelationship] = Field(default_factory=list)
+
+    @property
+    def edges(self) -> List[ExtractedRelationship]:
+        """Alias for backward compatibility."""
+        return self.relationships
 
 
 # --- ONTOLOGY CONSOLIDATION ---
@@ -393,7 +439,7 @@ class Neo4jAgentLoader:
 
     def create_edge(
         self,
-        edge: ExtractedEdge,
+        edge: ExtractedRelationship,
         ontology_relation: str,
         timestamp: str,
     ) -> bool:
@@ -618,8 +664,11 @@ class KnowledgeGraphAgent:
             extraction_model = model or "gpt-oss:20b"
             self.llm = ChatOllama(
                 model=extraction_model,
-                temperature=0,
+                temperature=0.0,  # Slight temperature to avoid empty responses
                 base_url="http://host.docker.internal:11434",
+                num_ctx=16384,  # Increase context window for long prompts + output
+                num_predict=8192,  # Limit tokens for KG extraction
+                format="json",  # Enable JSON mode for structured output
             )
             # Utility LLM for ontology assignment and entity checking
             util_model = utility_model or "gpt-oss:20b"
@@ -627,6 +676,7 @@ class KnowledgeGraphAgent:
                 model=util_model,
                 temperature=0,
                 base_url="http://host.docker.internal:11434",
+                num_predict=256,  # Limit tokens for label assignment
             )
         elif provider == 'openai':
             self.llm = ChatOpenAI(model=model or "gpt-4o", temperature=0)
@@ -689,22 +739,12 @@ class KnowledgeGraphAgent:
         """Extract knowledge graph from text chunk."""
         timestamp = datetime.utcnow().isoformat()
 
-        system_prompt = """You are a Knowledge Graph expert. Extract a semi-structured graph from the text.
-
-For each entity (node):
-1. Provide a unique 'id' (the entity name)
-2. Assign an 'open_type' - a descriptive category for the entity (e.g., Person, Concept, Organization, Event, Location, Theory, Law, Institution, Process, Phenomenon)
-3. Write a 'description' summarizing who/what the entity is based on the text 
-
-For each relationship (edge):
-1. Identify source and target entities by their id
-2. Assign an 'open_relation' - a descriptive relationship type (e.g., 'developed', 'influenced_by', 'is_part_of', 'founded', 'created', 'studied', 'opposed')
-3. Include a 'description' explaining the relationship context 
-
-Be thorough but precise. Extract all meaningful entities and relationships from the text. Use specific, descriptive types and relations."""
+        # Use adaptive prompt selection based on text length
+        text_length = len(state.text_chunk)
+        extraction_prompt = get_extraction_prompt(text_length)
 
         prompt = ChatPromptTemplate.from_messages([
-            ("system", system_prompt),
+            ("system", extraction_prompt),
             ("human", "Text: {text}"),
         ])
 
@@ -809,17 +849,14 @@ Be thorough but precise. Extract all meaningful entities and relationships from 
         label_type = "entity type" if is_node else "relationship type"
         target_range = TARGET_ENTITY_TYPES if is_node else TARGET_RELATIONSHIP_TYPES
 
+        system_msg = ONTOLOGY_MAPPING_PROMPT_TEMPLATE.format(
+            label_type=label_type,
+            current_ontology=current_ontology,
+            target_min=target_range[0],
+            target_max=target_range[1],
+        )
         prompt = ChatPromptTemplate.from_messages([
-            ("system", f"""You are an ontology expert. Map the extracted {label_type} to an appropriate canonical ontology label.
-
-Current ontology {label_type}s: {current_ontology}
-Target: {target_range[0]}-{target_range[1]} canonical {label_type}s that abstractly represent all extracted types.
-
-Rules:
-1. If an existing ontology label is a good match, use it exactly
-2. If no good match exists, propose a new abstract label that could cover this and similar types
-3. Prefer broader, reusable categories over specific ones
-4. Return ONLY the ontology label, nothing else"""),
+            ("system", system_msg),
             ("human", f"Extracted {label_type}: {open_label}"),
         ])
 
@@ -835,13 +872,12 @@ Rules:
         """Map an open label to the closest existing ontology label (when frozen)."""
         label_type = "entity type" if is_node else "relationship type"
 
+        system_msg = FROZEN_ONTOLOGY_MAPPING_PROMPT_TEMPLATE.format(
+            label_type=label_type,
+            ontology=ontology,
+        )
         prompt = ChatPromptTemplate.from_messages([
-            ("system", f"""The ontology is frozen. Map the extracted {label_type} to the BEST matching existing ontology label.
-You MUST choose from the existing labels only.
-
-Existing ontology {label_type}s: {ontology}
-
-Return ONLY the chosen ontology label, nothing else."""),
+            ("system", system_msg),
             ("human", f"Extracted {label_type}: {open_label}"),
         ])
 
@@ -866,15 +902,13 @@ Return ONLY the chosen ontology label, nothing else."""),
         label_type = "entity type" if is_node else "relationship type"
         target_range = TARGET_ENTITY_TYPES if is_node else TARGET_RELATIONSHIP_TYPES
 
+        system_msg = LABEL_GENERALIZATION_PROMPT_TEMPLATE.format(
+            label_type=label_type,
+            target_min=target_range[0],
+            target_max=target_range[1],
+        )
         prompt = ChatPromptTemplate.from_messages([
-            ("system", f"""You are an ontology expert. Convert this specific {label_type} into a broader, more abstract canonical {label_type}.
-
-The goal is to have {target_range[0]}-{target_range[1]} canonical {label_type}s total that can cover all possible extractions.
-
-Examples for entity types: Person, Organization, Concept, Event, Location, Work, Process
-Examples for relationship types: RELATES_TO, INFLUENCES, CREATES, PART_OF, LOCATED_IN, OCCURS_IN
-
-Return ONLY the generalized label, nothing else."""),
+            ("system", system_msg),
             ("human", f"Specific {label_type}: {open_label}"),
         ])
 
@@ -1009,8 +1043,7 @@ Return ONLY the generalized label, nothing else."""),
     def _llm_check_same_entity(self, name1: str, desc1: str, name2: str, desc2: str) -> bool:
         """Use LLM to verify if two entities are the same."""
         prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are a data cleaning expert. Determine if two entities refer to the same real-world object.
-Consider both the names and descriptions when making your decision."""),
+            ("system", ENTITY_VERIFICATION_PROMPT),
             ("human", """Entity 1: {name1}
 Description: {desc1}
 
@@ -1033,9 +1066,9 @@ Are these likely the same entity? Answer ONLY with 'YES' or 'NO'."""),
 
     def _llm_check_same_label(self, label1: str, label2: str, category: str) -> tuple[bool, str]:
         """Use LLM to verify if two ontology labels are the same and pick canonical."""
+        system_msg = LABEL_VERIFICATION_PROMPT_TEMPLATE.format(category=category)
         prompt = ChatPromptTemplate.from_messages([
-            ("system", f"""You are an ontology expert. Determine if two {category} labels refer to the same concept.
-If they are the same, pick the more standard/canonical label."""),
+            ("system", system_msg),
             ("human", """Label 1: {label1}
 Label 2: {label2}
 
@@ -1211,20 +1244,13 @@ Answer in format: YES|canonical_label or NO"""),
         label_type = "entity types" if is_node else "relationship types"
         target_range = TARGET_ENTITY_TYPES if is_node else TARGET_RELATIONSHIP_TYPES
 
+        system_msg = ONTOLOGY_MERGE_PROMPT_TEMPLATE.format(
+            label_type=label_type,
+            target_min=target_range[0],
+            target_max=target_range[1],
+        )
         prompt = ChatPromptTemplate.from_messages([
-            ("system", f"""You are an ontology expert. The current ontology has too many {label_type}.
-Propose merges to consolidate similar or related types into broader canonical types.
-
-Target: {target_range[0]}-{target_range[1]} {label_type}
-
-Rules:
-1. Merge specific types into more abstract parent types
-2. Keep the most general/reusable types
-3. Return a JSON object mapping merge_from -> merge_to
-4. Only propose merges, don't remove types without merging
-5. Return ONLY valid JSON, no explanation
-
-Example output: {{"Economist": "Person", "Scientist": "Person", "developed": "CREATES"}}"""),
+            ("system", system_msg),
             ("human", f"Current {label_type}: {labels}\n\nPropose merges:"),
         ])
 
@@ -1666,8 +1692,8 @@ if __name__ == "__main__":
 
     print(f"\nConfiguration:", flush=True)
     print(f"  Provider: {args.provider}", flush=True)
-    print(f"  Extraction model: {args.model or 'gemma-3-12b-kg:latest'}", flush=True)
-    print(f"  Utility model: {args.utility_model or 'gemma3:12b-it-qat'}", flush=True)
+    print(f"  Extraction model: {args.model or 'gpt-oss:20b'}", flush=True)
+    print(f"  Utility model: {args.utility_model or 'gpt-oss:20b'}", flush=True)
     print(f"  Embedding model: {'qwen3-embedding:8b' if args.provider == 'local' else 'text-embedding-3-small'}", flush=True)
     print(f"  Subject: {args.subject}", flush=True)
     if args.subject == 'all':

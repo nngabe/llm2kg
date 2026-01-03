@@ -3,13 +3,16 @@ Tool definitions for agent fine-tuning.
 
 Defines 4 tools for GraphRAG agent:
 - graph_lookup: Entity/relationship lookup from knowledge graph
-- web_search: External search fallback
+- web_search: External search fallback (now with Tavily implementation)
 - cypher_query: Direct Cypher query execution
 - entity_resolve: Entity disambiguation
 """
 
 from dataclasses import dataclass, field
 from typing import Dict, List, Any, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -264,3 +267,384 @@ TOOL_CALL_EXAMPLES = {
         }
     }
 }
+
+
+# =============================================================================
+# Tool Executor Classes
+# =============================================================================
+
+class WebSearchTool:
+    """
+    Executor for web_search tool using Tavily API.
+
+    Provides actual web search functionality with trusted source filtering.
+    """
+
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        trusted_sources_config: Optional[str] = None,
+        filter_trusted_only: bool = True,
+    ):
+        """
+        Initialize the web search tool.
+
+        Args:
+            api_key: Tavily API key. If None, uses TAVILY_API_KEY env var.
+            trusted_sources_config: Path to trusted sources YAML config.
+            filter_trusted_only: Whether to filter results to trusted sources.
+        """
+        self.filter_trusted_only = filter_trusted_only
+        self._client = None
+        self._source_manager = None
+        self._api_key = api_key
+        self._config_path = trusted_sources_config
+
+    def _ensure_initialized(self):
+        """Lazy initialization of client and source manager."""
+        if self._client is None:
+            from web_search import WebSearchClient, TrustedSourceManager
+            self._client = WebSearchClient(api_key=self._api_key)
+            self._source_manager = TrustedSourceManager(
+                config_path=self._config_path,
+                auto_load=True,
+            )
+
+    def execute(
+        self,
+        query: str,
+        num_results: int = 5,
+    ) -> Dict[str, Any]:
+        """
+        Execute a web search.
+
+        Args:
+            query: Search query string.
+            num_results: Number of results to return.
+
+        Returns:
+            Dictionary with search results.
+        """
+        self._ensure_initialized()
+
+        try:
+            if self.filter_trusted_only:
+                trusted_domains = self._source_manager.get_trusted_domains()
+                results = self._client.search_trusted_only(
+                    query=query,
+                    trusted_domains=trusted_domains,
+                    num_results=num_results,
+                )
+            else:
+                results = self._client.search(
+                    query=query,
+                    num_results=num_results,
+                )
+
+            return {
+                "status": "success",
+                "query": query,
+                "num_results": len(results),
+                "results": [
+                    {
+                        "title": r.title,
+                        "url": r.url,
+                        "snippet": r.content,
+                        "domain": r.domain,
+                        "score": r.score,
+                        "trust_level": (
+                            self._source_manager.get_trust_level(r.url).value
+                            if self._source_manager.get_trust_level(r.url)
+                            else "unknown"
+                        ),
+                    }
+                    for r in results
+                ],
+            }
+        except Exception as e:
+            logger.error(f"Web search error: {e}")
+            return {
+                "status": "error",
+                "query": query,
+                "error": str(e),
+                "results": [],
+            }
+
+    def fetch_content(self, url: str) -> Dict[str, Any]:
+        """
+        Fetch full content from a URL.
+
+        Args:
+            url: URL to fetch.
+
+        Returns:
+            Dictionary with document content.
+        """
+        self._ensure_initialized()
+
+        try:
+            content = self._client.fetch_content(url)
+            if content:
+                return {
+                    "status": "success",
+                    "url": url,
+                    "title": content.title,
+                    "content": content.content,
+                    "domain": content.domain,
+                    "word_count": content.word_count,
+                    "trust_level": (
+                        self._source_manager.get_trust_level(url).value
+                        if self._source_manager.get_trust_level(url)
+                        else "unknown"
+                    ),
+                }
+            else:
+                return {
+                    "status": "error",
+                    "url": url,
+                    "error": "Failed to extract content",
+                }
+        except Exception as e:
+            logger.error(f"Content fetch error: {e}")
+            return {
+                "status": "error",
+                "url": url,
+                "error": str(e),
+            }
+
+
+class ToolExecutor:
+    """
+    Unified executor for all agent tools.
+
+    Provides a single interface to execute any defined tool.
+    """
+
+    def __init__(
+        self,
+        neo4j_uri: Optional[str] = None,
+        neo4j_user: Optional[str] = None,
+        neo4j_password: Optional[str] = None,
+        tavily_api_key: Optional[str] = None,
+        trusted_sources_config: Optional[str] = None,
+    ):
+        """
+        Initialize the tool executor.
+
+        Args:
+            neo4j_uri: Neo4j connection URI.
+            neo4j_user: Neo4j username.
+            neo4j_password: Neo4j password.
+            tavily_api_key: Tavily API key for web search.
+            trusted_sources_config: Path to trusted sources config.
+        """
+        import os
+        self.neo4j_uri = neo4j_uri or os.environ.get("NEO4J_URI", "neo4j://localhost:7687")
+        self.neo4j_user = neo4j_user or os.environ.get("NEO4J_USERNAME", "neo4j")
+        self.neo4j_password = neo4j_password or os.environ.get("NEO4J_PASSWORD", "password")
+
+        self._web_search = WebSearchTool(
+            api_key=tavily_api_key,
+            trusted_sources_config=trusted_sources_config,
+        )
+        self._neo4j_driver = None
+
+    def _ensure_neo4j(self):
+        """Lazy initialization of Neo4j driver."""
+        if self._neo4j_driver is None:
+            from neo4j import GraphDatabase
+            self._neo4j_driver = GraphDatabase.driver(
+                self.neo4j_uri,
+                auth=(self.neo4j_user, self.neo4j_password),
+            )
+
+    def execute(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute a tool by name.
+
+        Args:
+            tool_name: Name of the tool to execute.
+            arguments: Tool arguments.
+
+        Returns:
+            Tool execution result.
+        """
+        if tool_name == "web_search":
+            return self._web_search.execute(
+                query=arguments.get("query", ""),
+                num_results=arguments.get("num_results", 5),
+            )
+        elif tool_name == "graph_lookup":
+            return self._execute_graph_lookup(arguments)
+        elif tool_name == "cypher_query":
+            return self._execute_cypher_query(arguments)
+        elif tool_name == "entity_resolve":
+            return self._execute_entity_resolve(arguments)
+        else:
+            return {
+                "status": "error",
+                "error": f"Unknown tool: {tool_name}",
+            }
+
+    def _execute_graph_lookup(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute graph_lookup tool."""
+        self._ensure_neo4j()
+
+        entity_name = arguments.get("entity_name", "")
+        include_rels = arguments.get("include_relationships", True)
+        max_hops = arguments.get("max_hops", 1)
+        rel_types = arguments.get("relationship_types", [])
+
+        try:
+            with self._neo4j_driver.session() as session:
+                # Find entity
+                entity_query = """
+                MATCH (e)
+                WHERE toLower(e.name) = toLower($name) OR toLower(e.id) = toLower($name)
+                RETURN e, labels(e) as labels
+                LIMIT 1
+                """
+                result = session.run(entity_query, name=entity_name)
+                record = result.single()
+
+                if not record:
+                    return {
+                        "status": "not_found",
+                        "entity_name": entity_name,
+                        "message": f"Entity '{entity_name}' not found in knowledge graph",
+                    }
+
+                entity = dict(record["e"])
+                entity["labels"] = record["labels"]
+
+                relationships = []
+                if include_rels:
+                    # Get relationships
+                    rel_query = """
+                    MATCH (e)-[r]->(t)
+                    WHERE toLower(e.name) = toLower($name) OR toLower(e.id) = toLower($name)
+                    RETURN type(r) as rel_type, r, t, labels(t) as target_labels
+                    LIMIT 50
+                    """
+                    rel_result = session.run(rel_query, name=entity_name)
+
+                    for rec in rel_result:
+                        rel_type = rec["rel_type"]
+                        if rel_types and rel_type not in rel_types:
+                            continue
+                        relationships.append({
+                            "type": rel_type,
+                            "properties": dict(rec["r"]) if rec["r"] else {},
+                            "target": dict(rec["t"]),
+                            "target_labels": rec["target_labels"],
+                        })
+
+                return {
+                    "status": "success",
+                    "entity": entity,
+                    "relationships": relationships,
+                }
+
+        except Exception as e:
+            logger.error(f"Graph lookup error: {e}")
+            return {
+                "status": "error",
+                "entity_name": entity_name,
+                "error": str(e),
+            }
+
+    def _execute_cypher_query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute cypher_query tool."""
+        self._ensure_neo4j()
+
+        query = arguments.get("query", "")
+        params = arguments.get("params", {})
+
+        try:
+            with self._neo4j_driver.session() as session:
+                result = session.run(query, **params)
+                records = [dict(record) for record in result]
+
+                return {
+                    "status": "success",
+                    "query": query,
+                    "num_records": len(records),
+                    "records": records[:100],  # Limit to 100 records
+                }
+
+        except Exception as e:
+            logger.error(f"Cypher query error: {e}")
+            return {
+                "status": "error",
+                "query": query,
+                "error": str(e),
+            }
+
+    def _execute_entity_resolve(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute entity_resolve tool."""
+        self._ensure_neo4j()
+
+        entity_name = arguments.get("entity_name", "")
+        context = arguments.get("context", "")
+        entity_type = arguments.get("entity_type", "")
+        max_candidates = arguments.get("max_candidates", 5)
+
+        try:
+            with self._neo4j_driver.session() as session:
+                # Search for candidates
+                query = """
+                MATCH (e)
+                WHERE toLower(e.name) CONTAINS toLower($name)
+                   OR toLower(e.id) CONTAINS toLower($name)
+                RETURN e, labels(e) as labels
+                LIMIT $limit
+                """
+                result = session.run(query, name=entity_name, limit=max_candidates * 2)
+
+                candidates = []
+                for record in result:
+                    entity = dict(record["e"])
+                    entity["labels"] = record["labels"]
+
+                    # Filter by type if specified
+                    if entity_type and entity_type not in record["labels"]:
+                        continue
+
+                    # Simple scoring based on name match
+                    name = entity.get("name", entity.get("id", "")).lower()
+                    score = 1.0 if name == entity_name.lower() else 0.5
+
+                    # Boost score if context appears in description
+                    desc = entity.get("description", "").lower()
+                    if context and context.lower() in desc:
+                        score += 0.3
+
+                    candidates.append({
+                        "entity": entity,
+                        "score": min(score, 1.0),
+                    })
+
+                # Sort by score
+                candidates.sort(key=lambda x: x["score"], reverse=True)
+                candidates = candidates[:max_candidates]
+
+                return {
+                    "status": "success",
+                    "entity_name": entity_name,
+                    "num_candidates": len(candidates),
+                    "candidates": candidates,
+                    "best_match": candidates[0] if candidates else None,
+                }
+
+        except Exception as e:
+            logger.error(f"Entity resolve error: {e}")
+            return {
+                "status": "error",
+                "entity_name": entity_name,
+                "error": str(e),
+            }
+
+    def close(self):
+        """Close connections."""
+        if self._neo4j_driver:
+            self._neo4j_driver.close()

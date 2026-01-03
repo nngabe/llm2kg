@@ -284,6 +284,29 @@ class AgentDPOConfig:
         return os.path.join(self.output_dir, model_name)
 
 
+@dataclass
+class ReActDPOConfig(AgentDPOConfig):
+    """Configuration for ReAct DPO (faithful reasoning) training."""
+
+    # Output directory
+    output_dir: str = os.path.join(MODELS_DIR, "react_dpo")
+
+    # ReAct-specific settings
+    max_react_steps: int = 10
+    include_tool_calls: bool = True
+
+    # Training hyperparameters (adjusted for longer ReAct traces)
+    max_seq_length: int = 8192
+    num_train_epochs: int = 2
+
+    # Data paths
+    train_data_path: str = os.path.join(DATA_DIR, "..", "react_dpo", "train.jsonl")
+    eval_data_path: str = os.path.join(DATA_DIR, "..", "react_dpo", "eval.jsonl")
+
+    # Logging
+    wandb_project: str = "llm2kg-react"
+
+
 # System prompt for KG extraction (used in training data)
 SYSTEM_PROMPT = """You are a Knowledge Graph expert. Extract a semi-structured graph from the text.
 

@@ -1,0 +1,130 @@
+# Trusted Sources Configuration
+# Defines domains that are considered reliable for web search results.
+
+trusted_sources:
+  # Academic sources - peer-reviewed and scholarly content
+  academic:
+    - domain: "arxiv.org"
+      trust_level: "high"
+      description: "Open access preprint server for physics, mathematics, computer science"
+
+    - domain: "scholar.google.com"
+      trust_level: "high"
+      description: "Google Scholar - academic paper search engine"
+
+    - domain: "pubmed.gov"
+      trust_level: "high"
+      description: "National Library of Medicine - biomedical literature"
+
+    - domain: "semanticscholar.org"
+      trust_level: "high"
+      description: "AI-powered research tool for scientific literature"
+
+    - domain: "nature.com"
+      trust_level: "high"
+      description: "Nature Publishing Group - scientific journals"
+
+    - domain: "sciencedirect.com"
+      trust_level: "high"
+      description: "Elsevier - scientific and medical publications"
+
+    - domain: "jstor.org"
+      trust_level: "high"
+      description: "Digital library of academic journals"
+
+    - domain: "springer.com"
+      trust_level: "high"
+      description: "Springer Nature - scientific publishing"
+
+  # Reference sources - encyclopedias and educational content
+  reference:
+    - domain: "wikipedia.org"
+      trust_level: "medium"
+      description: "Free encyclopedia - good for overview, verify claims"
+
+    - domain: "britannica.com"
+      trust_level: "high"
+      description: "Encyclopedia Britannica - expert-curated content"
+
+    - domain: "stanford.edu"
+      trust_level: "high"
+      description: "Stanford University - academic resources"
+
+    - domain: "mit.edu"
+      trust_level: "high"
+      description: "MIT - academic resources and OpenCourseWare"
+
+    - domain: "harvard.edu"
+      trust_level: "high"
+      description: "Harvard University - academic resources"
+
+    - domain: "ox.ac.uk"
+      trust_level: "high"
+      description: "University of Oxford - academic resources"
+
+    - domain: "cam.ac.uk"
+      trust_level: "high"
+      description: "University of Cambridge - academic resources"
+
+  # News sources - reputable journalism
+  news:
+    - domain: "reuters.com"
+      trust_level: "high"
+      description: "Reuters - international news agency"
+
+    - domain: "apnews.com"
+      trust_level: "high"
+      description: "Associated Press - news agency"
+
+    - domain: "bbc.com"
+      trust_level: "medium"
+      description: "BBC News - British public broadcaster"
+
+    - domain: "npr.org"
+      trust_level: "medium"
+      description: "National Public Radio - US public radio"
+
+    - domain: "pbs.org"
+      trust_level: "medium"
+      description: "PBS - US public broadcasting"
+
+  # Government sources - official government information
+  government:
+    - domain: ".gov"
+      trust_level: "high"
+      match_type: "suffix"
+      description: "US government domains"
+
+    - domain: ".gov.uk"
+      trust_level: "high"
+      match_type: "suffix"
+      description: "UK government domains"
+
+    - domain: "who.int"
+      trust_level: "high"
+      description: "World Health Organization"
+
+    - domain: "un.org"
+      trust_level: "high"
+      description: "United Nations"
+
+    - domain: "europa.eu"
+      trust_level: "high"
+      description: "European Union official site"
+
+    - domain: "nih.gov"
+      trust_level: "high"
+      description: "National Institutes of Health"
+
+    - domain: "cdc.gov"
+      trust_level: "high"
+      description: "Centers for Disease Control and Prevention"
+
+    - domain: "fda.gov"
+      trust_level: "high"
+      description: "Food and Drug Administration"
+
+# Domains to never include in search results
+blocked_domains:
+  - "example-unreliable-site.com"
+  # Add domains known for misinformation here
