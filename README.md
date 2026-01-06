@@ -154,15 +154,21 @@ Tests impact of each agent feature:
 llm2kg/
 ├── agent_skb.py          # Knowledge graph construction agent
 ├── agent_qa.py           # ReAct QA agent
-├── build_skb.py          # Legacy KG builder
+├── planned_graphrag.py   # CLaRa-style retrieval planning
+├── ontologies.py         # Dynamic ontology extraction
 ├── graphrag.py           # GraphRAG retrieval utilities
+├── skb_graphrag.py       # SKB-specific GraphRAG
+├── build_skb.py          # Legacy KG builder
 ├── frontend/
 │   └── app.py            # Chainlit web application
 ├── prompts/              # LLM prompts and templates
 ├── benchmarks/
 │   ├── enterprise_eval/  # 4-layer evaluation framework
+│   ├── enterprise_ablation_study.py
 │   ├── run_complete_eval.py
-│   └── enterprise_ablation_study.py
+│   └── legacy_eval.py    # Original 6-metric evaluator
+├── tests/                # Test suites
+├── finetuning/           # SFT and DPO training pipelines
 └── docker-compose.yml
 ```
 
