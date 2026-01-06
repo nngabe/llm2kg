@@ -1,5 +1,4 @@
-# GraphRAG Knowledge Base System
-
+# LLM2KG: LLM Knowledge Graph construction and ReAct Agent for QA/Research
 An end-to-end GraphRAG (Graph Retrieval-Augmented Generation) system that builds knowledge graphs from text documents and enables intelligent question answering with ReAct agents.
 
 ## Features
