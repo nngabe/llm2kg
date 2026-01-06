@@ -152,9 +152,7 @@ class QAAgentState(BaseModel):
 
 # --- PROMPTS ---
 
-SYSTEM_PROMPT = """detailed thinking on
-
-You are a knowledgeable research assistant with access to a knowledge graph and web search.
+SYSTEM_PROMPT = """You are a knowledgeable research assistant with access to a knowledge graph and web search.
 Your goal is to answer questions accurately using available information sources.
 
 Available tools:
@@ -168,8 +166,7 @@ Guidelines:
 - When using web search, clearly note that external information was used
 - Provide citations for all claims
 - If information conflicts between sources, note the discrepancy
-- Be honest about uncertainty
-- Think step by step before deciding on an action"""
+- Be honest about uncertainty"""
 
 
 THINK_PROMPT = """Based on the question and any previous observations, decide what to do next.
@@ -460,14 +457,13 @@ class ReActQAAgent:
             use_retrieval_planning: Whether to use CLaRa-style retrieval planning.
             compression_enabled: Whether to compress context after retrieval.
         """
-        # Nemotron-3-Nano optimized parameters for agentic/tool-calling
-        # Ref: temp=0.6, top_p=0.95 for tool calling; enable thinking for reasoning
+        # Nemotron-3-Nano: A/B testing showed temp=0 performs equally well
+        # and is more deterministic. Keeping original settings.
         self.llm = llm or ChatOllama(
             model=OLLAMA_MAIN_MODEL,
             base_url=OLLAMA_HOST,
-            temperature=0.6,  # Recommended for agentic/tool-calling tasks
-            top_p=0.95,       # Recommended for agentic tasks
-            num_ctx=8192,     # Increased context for complex reasoning
+            temperature=0,
+            num_ctx=8192,  # Increased context for complex reasoning
         )
         self.neo4j_loader = neo4j_loader or Neo4jQALoader()
         self.web_search_enabled = web_search_enabled

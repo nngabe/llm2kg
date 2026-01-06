@@ -1,0 +1,85 @@
+{
+  "timestamp": "2026-01-06T22:08:34.762808",
+  "model": "nemotron-3-nano:30b",
+  "tests": [
+    {
+      "id": "reasoning_task",
+      "system": "You are an economic analyst. Answer questions about economics clearly and accurately.",
+      "question": "Explain how inflation affects purchasing power and provide a concrete example.",
+      "evaluate": [
+        "purchasing power",
+        "example",
+        "clear explanation"
+      ]
+    },
+    {
+      "id": "tool_selection_task",
+      "system": "You have access to these tools:\n1. graph_lookup(entity_name) - Look up an entity\n2. web_search(query) - Search the web\n3. cypher_query(query) - Query the database\n\nRespond with JSON: {\"thought\": \"your reasoning\", \"tool\": \"tool_name\", \"args\": {...}}",
+      "question": "I need to find information about 'Aggregate Demand' and its effects. What tool should I use first?",
+      "evaluate": [
+        "graph_lookup",
+        "Aggregate Demand",
+        "JSON format"
+      ]
+    }
+  ],
+  "results": [
+    {
+      "test_id": "reasoning_task",
+      "settings": "OLD (temp=0, no thinking)",
+      "elapsed_seconds": 23.81,
+      "response_length": 2565,
+      "criteria_met": [
+        "purchasing power",
+        "example"
+      ],
+      "criteria_score": "2/3",
+      "score_pct": 66.66666666666666,
+      "response_preview": "**Inflation and Purchasing Power**  * **Definition of purchasing power:**     The amount of goods or services that a unit of money can buy. When prices rise (inflation), each dollar buys fewer items; when prices fall (deflation), each dollar buys more.  * **How inflation erodes purchasing power:**  "
+    },
+    {
+      "test_id": "tool_selection_task",
+      "settings": "OLD (temp=0, no thinking)",
+      "elapsed_seconds": 8.65,
+      "response_length": 404,
+      "criteria_met": [
+        "Aggregate Demand"
+      ],
+      "criteria_score": "1/3",
+      "score_pct": 33.33333333333333,
+      "response_preview": "{   \"thought\": \"The user is asking for general information about 'Aggregate Demand' and its effects. This is likely best addressed by searching external resources like academic articles, textbooks, or reputable websites that explain economic concepts. Web_search would provide the most direct access "
+    },
+    {
+      "test_id": "reasoning_task",
+      "settings": "NEW (temp=0.6, top_p=0.95, thinking)",
+      "elapsed_seconds": 23.38,
+      "response_length": 3088,
+      "criteria_met": [
+        "purchasing power",
+        "example"
+      ],
+      "criteria_score": "2/3",
+      "score_pct": 66.66666666666666,
+      "response_preview": "**Step\u2011by\u2011step reasoning**  1. **Define inflation in monetary terms**      Inflation is the sustained rise in the general price level of goods and services over time. When prices increase, each unit of money buys fewer items than it did before.  2. **Link inflation to purchasing power**      *Purcha"
+    },
+    {
+      "test_id": "tool_selection_task",
+      "settings": "NEW (temp=0.6, top_p=0.95, thinking)",
+      "elapsed_seconds": 22.98,
+      "response_length": 339,
+      "criteria_met": [
+        "Aggregate Demand"
+      ],
+      "criteria_score": "1/3",
+      "score_pct": 33.33333333333333,
+      "response_preview": "{   \"thought\": \"To find information about 'Aggregate Demand' and its effects, I need to search reliable sources like academic articles or educational websites. Web search can provide up-to-date explanations, examples, and economic analyses.\",   \"tool\": \"web_search\",   \"args\": {     \"query\": \"Aggrega"
+    }
+  ],
+  "summary": {
+    "old_avg_score": 49.99999999999999,
+    "new_avg_score": 49.99999999999999,
+    "old_avg_time": 16.23,
+    "new_avg_time": 23.18,
+    "improvement": 0.0
+  }
+}

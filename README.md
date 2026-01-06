@@ -58,11 +58,114 @@ python cli.py
 ```
 The chatbot is instructed only to answer questions using the retrieved context from the KG, and will not answer questions on other topics.
 
+### Web Interface (Chainlit)
+
+For a more interactive experience, run the Chainlit web application:
+
+```bash
+chainlit run frontend/app.py --port 8000
+```
+
+Then open http://localhost:8000 in your browser. The Chainlit app provides:
+
+- **Classic Mode**: Traditional GraphRAG with entity extraction and visualization
+- **Q&A Agent Mode**: ReAct agent with hybrid GraphRAG + web search
+- **Research Mode**: Autonomous gap-filling with human-in-the-loop approval
+
+Features include:
+- Interactive chat with knowledge graph
+- Chain-of-thought step visualization
+- PyVis graph rendering of relevant subgraphs
+- Human-in-the-loop entity disambiguation
+
 Lastly, a set of benchmark questions from Economics, Law, and Physics can be be used to evaluate the given Answer and Context from the GraphRAG enabled (context relevance, groundedness,   answer relevance, context precision, context recall, perplexity):
 
 ```
 python eval.py
 ```
+
+## ReAct QA Agent
+
+The `agent_qa.py` module provides an advanced ReAct (Reasoning + Acting) agent for knowledge graph question answering with the following configurable features:
+
+### Features
+
+| Feature | Parameter | Default | Description |
+|---------|-----------|---------|-------------|
+| **Retrieval Planning** | `use_retrieval_planning` | True | CLaRa-style entity/relationship planning before retrieval. The agent analyzes the question to identify target entities and relationship patterns, then executes a structured retrieval plan. |
+| **Context Compression** | `compression_enabled` | True | Compresses verbose graph observations to relevant facts. Reduces token usage while preserving essential information. |
+| **Web Search** | `web_search_enabled` | True | Enables external web search tool (via Tavily) when knowledge graph lacks sufficient information. |
+| **Auto Document Ingestion** | `auto_add_documents` | True | Automatically extracts entities and relationships from web search results and adds them to the knowledge graph for future queries. |
+
+### Usage
+
+```python
+from agent_qa import ReActQAAgent
+
+# Full-featured agent (default)
+agent = ReActQAAgent()
+
+# Minimal agent (graph lookup only)
+agent = ReActQAAgent(
+    use_retrieval_planning=False,
+    compression_enabled=False,
+    web_search_enabled=False,
+    auto_add_documents=False,
+)
+
+# Ask questions
+response = agent.answer_question("What is aggregate demand?")
+print(response.answer)
+print(f"Confidence: {response.confidence}")
+print(f"Citations: {response.citations}")
+
+agent.close()
+```
+
+### Agent Tools
+
+The ReAct agent has access to:
+- `graph_lookup(entity_name)` - Look up an entity and its relationships in the knowledge graph
+- `cypher_query(query)` - Execute a Cypher query against Neo4j for complex graph traversals
+- `web_search(query)` - Search the web for external information (when enabled)
+- `finish(answer)` - Complete the task with a final answer
+
+## Enterprise Evaluation Framework
+
+The `benchmarks/enterprise_eval/` directory contains a comprehensive 4-layer evaluation framework for assessing GraphRAG agent quality:
+
+### Evaluation Layers
+
+| Layer | Purpose | Metrics |
+|-------|---------|---------|
+| **Retrieval** | Measures quality of retrieved context | Contextual Precision, Contextual Recall, Graph Traversal Efficiency, Subgraph Connectivity |
+| **Agentic** | Assesses reasoning and tool usage | Tool Selection Accuracy, Argument Correctness, Loop Efficiency, Rejection Sensitivity |
+| **Integrity** | Validates knowledge graph updates | Schema Adherence, Entity Disambiguation, Source Citation Accuracy |
+| **Generation** | Evaluates answer quality | Faithfulness, Answer Relevance, Citation Recall |
+
+### Running Evaluations
+
+```bash
+# Run complete evaluation suite
+python benchmarks/run_complete_eval.py
+
+# Run ablation study comparing feature impact
+python benchmarks/enterprise_ablation_study.py
+
+# Quick validation (4 test cases)
+python benchmarks/enterprise_ablation_study.py --quick
+```
+
+### Ablation Study
+
+The ablation study tests the impact of each agent feature by comparing:
+1. **baseline** - All features ON (default)
+2. **no_planning** - Disable retrieval planning
+3. **no_compression** - Disable context compression
+4. **no_web** - Disable web search
+5. **no_auto_ingest** - Disable auto document ingestion
+6. **minimal** - All features OFF (graph lookup only)
+
 # Sample Responses
 Here is a sample response from the chatbot in `cli.py` after building a KG and indexing documents `0:200` from the `economics` dataset:
 

@@ -696,14 +696,13 @@ class KnowledgeGraphAgent:
                 format="json",  # Enable JSON mode for structured output
             )
             # Utility LLM for ontology assignment and entity checking
-            # Nemotron-3-Nano optimized parameters for reasoning tasks
+            # A/B testing showed temp=0 performs equally well and is more deterministic
             self.utility_model = utility_model or DEFAULT_LOCAL_UTILITY_MODEL
             self.utility_llm = ChatOllama(
                 model=self.utility_model,
-                temperature=0.6,  # Recommended for agentic/reasoning tasks
-                top_p=0.95,       # Recommended for reasoning tasks
+                temperature=0,
                 base_url="http://host.docker.internal:11434",
-                num_predict=512,  # Increased for reasoning tokens
+                num_predict=256,  # Limit tokens for label assignment
             )
         elif provider == 'openai':
             self.extraction_model = model or DEFAULT_OPENAI_MODEL
