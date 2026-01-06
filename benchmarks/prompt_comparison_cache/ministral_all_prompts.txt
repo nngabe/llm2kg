@@ -1,0 +1,124 @@
+
+================================================================================
+PROMPT COMPARISON BENCHMARK REPORT
+================================================================================
+Generated: 2026-01-04T01:11:27.922473
+
+--------------------------------------------------------------------------------
+EXTRACTION SUMMARY
+--------------------------------------------------------------------------------
++-----------------+----------+-----------+-------------+-------------+---------------+
+| Model           | Prompt   | Success   |   Avg Nodes |   Avg Edges | Avg Latency   |
++=================+==========+===========+=============+=============+===============+
+| Ministral-3 14B | minimal  | 6/6       |        12.7 |        14.7 | 82.49s        |
++-----------------+----------+-----------+-------------+-------------+---------------+
+| Ministral-3 14B | compact  | 6/6       |        11.3 |        12.3 | 71.42s        |
++-----------------+----------+-----------+-------------+-------------+---------------+
+| Ministral-3 14B | standard | 6/6       |        10   |         9.8 | 64.99s        |
++-----------------+----------+-----------+-------------+-------------+---------------+
+| Ministral-3 14B | baseline | 6/6       |        11.7 |        12   | 116.95s       |
++-----------------+----------+-----------+-------------+-------------+---------------+
+| Ministral-3 14B | advanced | 6/6       |         9.3 |         9.2 | 122.95s       |
++-----------------+----------+-----------+-------------+-------------+---------------+
+
+--------------------------------------------------------------------------------
+LLM JUDGE SCORES (GPT-5.2)
+--------------------------------------------------------------------------------
++---------------------+----------+------------+-----------+------------+-----------+-----------+
+| Model               | Prompt   |   Ent Comp |   Ent Acc |   Rel Comp |   Rel Acc |   Overall |
++=====================+==========+============+===========+============+===========+===========+
+| GPT-5.2             | baseline |       0.88 |      0.88 |       0.85 |      0.84 |      0.86 |
++---------------------+----------+------------+-----------+------------+-----------+-----------+
+| GPT-5.2             | advanced |       0.85 |      0.87 |       0.83 |      0.78 |      0.84 |
++---------------------+----------+------------+-----------+------------+-----------+-----------+
+| Gemini-2.5          | baseline |       0.83 |      0.85 |       0.8  |      0.79 |      0.82 |
++---------------------+----------+------------+-----------+------------+-----------+-----------+
+| Gemini-2.5          | advanced |       0.8  |      0.83 |       0.79 |      0.78 |      0.81 |
++---------------------+----------+------------+-----------+------------+-----------+-----------+
+| Ministral-3 14B     | baseline |       0.84 |      0.84 |       0.76 |      0.67 |      0.78 |
++---------------------+----------+------------+-----------+------------+-----------+-----------+
+| Ministral-3 14B     | advanced |       0.77 |      0.75 |       0.73 |      0.63 |      0.7  |
++---------------------+----------+------------+-----------+------------+-----------+-----------+
+| Nemotron-3 Nano 30B | baseline |       0.75 |      0.77 |       0.69 |      0.66 |      0.72 |
++---------------------+----------+------------+-----------+------------+-----------+-----------+
+| Nemotron-3 Nano 30B | advanced |       0.83 |      0.82 |       0.76 |      0.69 |      0.79 |
++---------------------+----------+------------+-----------+------------+-----------+-----------+
+| Qwen3 30B A3B       | baseline |       0.72 |      0.85 |       0.57 |      0.78 |      0.72 |
++---------------------+----------+------------+-----------+------------+-----------+-----------+
+| Qwen3 30B A3B       | advanced |       0.6  |      0.75 |       0.55 |      0.7  |      0.65 |
++---------------------+----------+------------+-----------+------------+-----------+-----------+
+| Gemma3 27B IT QAT   | baseline |       0.72 |      0.77 |       0.63 |      0.61 |      0.68 |
++---------------------+----------+------------+-----------+------------+-----------+-----------+
+| Gemma3 27B IT QAT   | advanced |       0.7  |      0.81 |       0.62 |      0.64 |      0.69 |
++---------------------+----------+------------+-----------+------------+-----------+-----------+
+
+--------------------------------------------------------------------------------
+BASELINE vs ADVANCED PROMPT COMPARISON
+--------------------------------------------------------------------------------
+
+Qwen3 30B A3B:
+  Baseline Overall: 0.72
+  Advanced Overall: 0.65
+  Difference: -0.07
+  Winner: BASELINE
+
+Gemini-2.5:
+  Baseline Overall: 0.82
+  Advanced Overall: 0.81
+  Difference: -0.01
+  Winner: TIE
+
+Ministral-3 14B:
+  Baseline Overall: 0.78
+  Advanced Overall: 0.70
+  Difference: -0.08
+  Winner: BASELINE
+
+GPT-5.2:
+  Baseline Overall: 0.86
+  Advanced Overall: 0.84
+  Difference: -0.02
+  Winner: TIE
+
+Gemma3 27B IT QAT:
+  Baseline Overall: 0.68
+  Advanced Overall: 0.69
+  Difference: +0.01
+  Winner: TIE
+
+Nemotron-3 Nano 30B:
+  Baseline Overall: 0.72
+  Advanced Overall: 0.79
+  Difference: +0.07
+  Winner: ADVANCED
+
+--------------------------------------------------------------------------------
+SAMPLE EXTRACTIONS
+--------------------------------------------------------------------------------
+
+[Chunk: doc0_chunk0]
+
+Input Text (truncated):
+The neoclassical perspective places more emphasis on aggregate supply. Neoclassical economists believe that long term productivity growth determines the potential GDP level and that the economy typically will return to full employment after a change in aggregate demand. Skeptical of the effectiveness and timeliness of Keynesian policy, neoclassical economists are more likely to advocate a hands-off, or fairly limited, role for active stabilization policy....
+
+Ministral-3 14B (minimal):
+  Nodes: ['NeoclassicalPerspective', 'AggregateSupply', 'LongTermProductivityGrowth', 'PotentialGDP', 'FullEmployment']
+  Edges: [('NeoclassicalPerspective', 'EMPHASIZES', 'AggregateSupply'), ('NeoclassicalEconomists', 'ADVOCATES', 'NeoclassicalPerspective'), ('NeoclassicalEconomists', 'BELIEVES_IN', 'LongTermProductivityGrowth'), ('LongTermProductivityGrowth', 'DETERMINES', 'PotentialGDP'), ('NeoclassicalEconomists', 'EXPECTS_RETURN_TO', 'FullEmployment')]
+
+Ministral-3 14B (compact):
+  Nodes: ['Neoclassical Perspective', 'Aggregate Supply', 'Long-Term Productivity Growth', 'Potential GDP', 'Full Employment']
+  Edges: [('Neoclassical Perspective', 'EMPHASIZES', 'Aggregate Supply'), ('Neoclassical Economists', 'ADVOCATES', 'Neoclassical Perspective'), ('Neoclassical Economists', 'BELIEVES_IN', 'Long-Term Productivity Growth'), ('Long-Term Productivity Growth', 'DETERMINES', 'Potential GDP'), ('Aggregate Demand', 'CAUSES_EFFECT_ON', 'Full Employment')]
+
+Ministral-3 14B (standard):
+  Nodes: ['NeoclassicalPerspective', 'AggregateSupply', 'LongTermProductivityGrowth', 'PotentialGDP', 'FullEmployment']
+  Edges: [('NeoclassicalPerspective', 'EMPHASIZES', 'AggregateSupply'), ('NeoclassicalEconomists', 'BELIEVE_IN', 'LongTermProductivityGrowth'), ('LongTermProductivityGrowth', 'DETERMINES', 'PotentialGDP'), ('AggregateDemand', 'LEADS_TO_RESTORATION_OF', 'FullEmployment'), ('NeoclassicalEconomists', 'SKEPTICAL_OF', 'KeynesianPolicy')]
+
+Ministral-3 14B (baseline):
+  Nodes: ['NeoclassicalPerspective', 'AggregateSupply', 'LongTermProductivityGrowth', 'PotentialGDP', 'FullEmployment']
+  Edges: [('NeoclassicalPerspective', 'EMPHASIZES', 'AggregateSupply'), ('NeoclassicalEconomists', 'BELIEVE_IN', 'LongTermProductivityGrowth'), ('LongTermProductivityGrowth', 'DETERMINES', 'PotentialGDP'), ('AggregateDemand', 'LEADS_TO_RECOVERY', 'FullEmployment'), ('NeoclassicalEconomists', 'SKEPTICAL_OF', 'KeynesianPolicy')]
+
+Ministral-3 14B (advanced):
+  Nodes: ['NeoclassicalPerspective', 'NeoclassicalEconomists', 'AggregateSupply', 'LongTermProductivityGrowth', 'PotentialGDP']
+  Edges: [('NeoclassicalPerspective', 'EMPHASIZES', 'AggregateSupply'), ('NeoclassicalEconomists', 'ADVOCATES', 'NeoclassicalPerspective'), ('NeoclassicalEconomists', 'BELIEVES_DETERMINES', 'LongTermProductivityGrowth'), ('LongTermProductivityGrowth', 'DETERMINES', 'PotentialGDP'), ('AggregateDemand', 'LEADS_TO', 'FullEmployment')]
+
+================================================================================

@@ -249,27 +249,47 @@ Example output: {{"Economist": "Person", "Scientist": "Person", "developed": "CR
 
 
 # =============================================================================
-# ADAPTIVE PROMPT SELECTION
+# DEFAULT PROMPT SELECTION
 # =============================================================================
 
-def get_extraction_prompt(text_length: int) -> str:
+# Default extraction prompt - compact performs best across benchmarks
+DEFAULT_EXTRACTION_PROMPT = "compact"
+
+
+def get_extraction_prompt(text_length: int, prompt_type: str = None) -> str:
     """
-    Select the appropriate extraction prompt based on input text length.
+    Select the appropriate extraction prompt.
 
     Args:
-        text_length: Character count of the input text
+        text_length: Character count of the input text (used for adaptive selection)
+        prompt_type: Override prompt type. Options: "minimal", "compact", "standard", "adaptive"
+                    If None, uses DEFAULT_EXTRACTION_PROMPT.
 
     Returns:
-        The most appropriate extraction prompt for the text length
+        The extraction prompt string
 
-    Rationale:
-        - Short texts (<600 chars): Use minimal prompt to avoid overwhelming the model
-        - Medium texts (600-1500 chars): Use compact prompt with one example
-        - Long texts (>1500 chars): Use full prompt with multiple examples
+    Prompt options:
+        - "minimal": Ultra-compact, no examples (best for very short texts)
+        - "compact": One example, balanced (RECOMMENDED - best overall quality)
+        - "standard": Full prompt with 3 examples (for complex/long texts)
+        - "adaptive": Auto-select based on text length (legacy behavior)
     """
-    if text_length < 600:
+    prompt_type = prompt_type or DEFAULT_EXTRACTION_PROMPT
+
+    if prompt_type == "minimal":
         return KG_EXTRACTION_PROMPT_MINIMAL
-    elif text_length < 1500:
+    elif prompt_type == "compact":
         return KG_EXTRACTION_PROMPT_COMPACT
-    else:
+    elif prompt_type == "standard":
         return KG_EXTRACTION_PROMPT
+    elif prompt_type == "adaptive":
+        # Legacy adaptive behavior based on text length
+        if text_length < 600:
+            return KG_EXTRACTION_PROMPT_MINIMAL
+        elif text_length < 1500:
+            return KG_EXTRACTION_PROMPT_COMPACT
+        else:
+            return KG_EXTRACTION_PROMPT
+    else:
+        # Default to compact (best benchmark performance)
+        return KG_EXTRACTION_PROMPT_COMPACT

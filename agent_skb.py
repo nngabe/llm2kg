@@ -49,8 +49,17 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("neo4j").setLevel(logging.WARNING)
 
 # --- PERIODIC MAINTENANCE SETTINGS ---
-ENTITY_RESOLUTION_INTERVAL = 100  # Run entity resolution every N documents
-ONTOLOGY_CONSOLIDATION_INTERVAL = 100  # Run ontology consolidation every N documents
+ENTITY_RESOLUTION_INTERVAL = 600  # Run entity resolution every N documents
+ONTOLOGY_CONSOLIDATION_INTERVAL = 9999999  # Run ontology consolidation every N documents
+
+# --- MODEL DEFAULTS ---
+DEFAULT_LOCAL_EXTRACTION_MODEL = "ministral-3:14b"
+DEFAULT_LOCAL_UTILITY_MODEL = "nemotron-3-nano:30b"
+DEFAULT_LOCAL_EMBEDDING_MODEL = "qwen3-embedding:8b"
+DEFAULT_OPENAI_MODEL = "gpt-4o"
+DEFAULT_OPENAI_EMBEDDING_MODEL = "text-embedding-3-small"
+DEFAULT_GOOGLE_MODEL = "gemini-2.5-flash"
+DEFAULT_MAINTENANCE_MODEL = "gpt-5.2"  # Used for entity resolution & ontology consolidation
 
 # --- CONFIGURATION ---
 NEO4J_URI = os.getenv("NEO4J_URI", "neo4j://localhost:7687")
@@ -62,6 +71,17 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 TARGET_ENTITY_TYPES = (5, 15)  # min, max entity types for convergence
 TARGET_RELATIONSHIP_TYPES = (5, 20)  # min, max relationship types for convergence
 STABILITY_THRESHOLD = 3  # versions without changes to consider stable
+
+# --- ONTOLOGY IMPORTS ---
+from ontologies import (
+    get_ontology,
+    OntologyConfig,
+    ONTOLOGY_SMALL,
+    ONTOLOGY_MEDIUM,
+    ONTOLOGY_LARGE,
+    DEFAULT_ONTOLOGY,
+    ONTOLOGIES,
+)
 
 
 # --- ONTOLOGY SCHEMAS ---
@@ -225,18 +245,18 @@ class Neo4jAgentLoader:
         self.provider = provider
 
         if provider == 'local':
-            self.embedding_model_name = "qwen3-embedding:8b"
+            self.embedding_model_name = DEFAULT_LOCAL_EMBEDDING_MODEL
             self.embedding_model = OllamaEmbeddings(
                 base_url="http://host.docker.internal:11434",
                 model=self.embedding_model_name,
             )
             self.embedding_dim = 4096
         elif provider == 'openai':
-            self.embedding_model_name = "text-embedding-3-small"
+            self.embedding_model_name = DEFAULT_OPENAI_EMBEDDING_MODEL
             self.embedding_model = OpenAIEmbeddings(model=self.embedding_model_name)
             self.embedding_dim = 1536
         else:
-            self.embedding_model_name = "text-embedding-3-small"
+            self.embedding_model_name = DEFAULT_OPENAI_EMBEDDING_MODEL
             self.embedding_model = OpenAIEmbeddings(model=self.embedding_model_name)
             self.embedding_dim = 1536
 
@@ -655,15 +675,20 @@ class Neo4jAgentLoader:
 class KnowledgeGraphAgent:
     """LangGraph agent for knowledge graph extraction with ontology convergence."""
 
-    def __init__(self, provider: str = 'local', model: str = None, utility_model: str = None):
+    def __init__(self, provider: str = 'local', model: str = None, utility_model: str = None,
+                 ontology: str = None):
         self.provider = provider
         self.loader = Neo4jAgentLoader(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, provider)
 
+        # Load ontology configuration
+        self.ontology_config = get_ontology(ontology)
+        self.ontology_name = self.ontology_config.name
+
         # Initialize extraction LLM (fine-tuned for KG extraction)
         if provider == 'local':
-            extraction_model = model or "gpt-oss:20b"
+            self.extraction_model = model or DEFAULT_LOCAL_EXTRACTION_MODEL
             self.llm = ChatOllama(
-                model=extraction_model,
+                model=self.extraction_model,
                 temperature=0.0,  # Slight temperature to avoid empty responses
                 base_url="http://host.docker.internal:11434",
                 num_ctx=16384,  # Increase context window for long prompts + output
@@ -671,31 +696,73 @@ class KnowledgeGraphAgent:
                 format="json",  # Enable JSON mode for structured output
             )
             # Utility LLM for ontology assignment and entity checking
-            util_model = utility_model or "gpt-oss:20b"
+            # Nemotron-3-Nano optimized parameters for reasoning tasks
+            self.utility_model = utility_model or DEFAULT_LOCAL_UTILITY_MODEL
             self.utility_llm = ChatOllama(
-                model=util_model,
-                temperature=0,
+                model=self.utility_model,
+                temperature=0.6,  # Recommended for agentic/reasoning tasks
+                top_p=0.95,       # Recommended for reasoning tasks
                 base_url="http://host.docker.internal:11434",
-                num_predict=256,  # Limit tokens for label assignment
+                num_predict=512,  # Increased for reasoning tokens
             )
         elif provider == 'openai':
-            self.llm = ChatOpenAI(model=model or "gpt-4o", temperature=0)
+            self.extraction_model = model or DEFAULT_OPENAI_MODEL
+            self.utility_model = utility_model or self.extraction_model
+            self.llm = ChatOpenAI(model=self.extraction_model, temperature=0)
             self.utility_llm = self.llm  # Use same model for non-local
         elif provider == 'google':
-            self.llm = ChatGoogleGenerativeAI(model=model or "gemini-2.5-flash", temperature=0)
+            self.extraction_model = model or DEFAULT_GOOGLE_MODEL
+            self.utility_model = utility_model or self.extraction_model
+            self.llm = ChatGoogleGenerativeAI(model=self.extraction_model, temperature=0)
             self.utility_llm = self.llm  # Use same model for non-local
         else:
-            self.llm = ChatOpenAI(model=model or "gpt-4o", temperature=0)
+            self.extraction_model = model or DEFAULT_OPENAI_MODEL
+            self.utility_model = utility_model or self.extraction_model
+            self.llm = ChatOpenAI(model=self.extraction_model, temperature=0)
             self.utility_llm = self.llm
 
         self.structured_llm = self.llm.with_structured_output(ExtractedKnowledgeGraph)
 
-        # Ontology state tracking
-        self.ontology_state = OntologyState()
+        # Maintenance LLM for entity resolution & ontology consolidation (always GPT-5.2)
+        self.maintenance_model = DEFAULT_MAINTENANCE_MODEL
+        self.maintenance_llm = ChatOpenAI(model=self.maintenance_model, temperature=0)
+
+        # Ontology state tracking - initialize with clean default labels
+        self.ontology_state = self._create_default_ontology()
         self.previous_ontology_state: Optional[OntologyState] = None
 
         # Build the graph
         self.graph = self._build_graph()
+
+    def _create_default_ontology(self) -> OntologyState:
+        """Create ontology state initialized from the selected ontology config."""
+        entity_types = {
+            label: OntologyLabel(
+                canonical_name=label,
+                aliases=[],
+                description=desc,
+                count=0,
+            )
+            for label, desc in self.ontology_config.entity_types.items()
+        }
+
+        relationship_types = {
+            label: OntologyLabel(
+                canonical_name=label,
+                aliases=[],
+                description=desc,
+                count=0,
+            )
+            for label, desc in self.ontology_config.relationship_types.items()
+        }
+
+        return OntologyState(
+            entity_types=entity_types,
+            relationship_types=relationship_types,
+            is_frozen=True,  # Start frozen - use strict ontology
+            version=0,
+            last_change_version=0,
+        )
 
     def _build_graph(self) -> StateGraph:
         """Build the LangGraph workflow."""
@@ -743,8 +810,12 @@ class KnowledgeGraphAgent:
         text_length = len(state.text_chunk)
         extraction_prompt = get_extraction_prompt(text_length)
 
+        # Add strict ontology context to the prompt
+        ontology_context = self.ontology_config.format_for_prompt()
+        full_prompt = f"{extraction_prompt}\n\n{ontology_context}"
+
         prompt = ChatPromptTemplate.from_messages([
-            ("system", extraction_prompt),
+            ("system", full_prompt),
             ("human", "Text: {text}"),
         ])
 
@@ -827,6 +898,115 @@ class KnowledgeGraphAgent:
             "new_ontology_labels": new_ontology_labels,
         }
 
+    def _clean_label_response(self, response: str, is_relationship: bool = False) -> str:
+        """Clean LLM response to extract just the label name.
+
+        Removes markdown formatting, prefixes, and other noise from LLM responses.
+        Ensures the result is a valid Neo4j label (no numbers at start, reasonable length).
+        Returns empty string if no valid label can be extracted (caller should use fallback).
+        """
+        original = response
+        cleaned = response.replace('\n', ' ').strip()
+
+        # Remove markdown bold formatting (**text**)
+        cleaned = re.sub(r'\*\*([^*]+)\*\*', r'\1', cleaned)
+
+        # Remove markdown italic formatting (*text*)
+        cleaned = re.sub(r'\*([^*]+)\*', r'\1', cleaned)
+
+        # Remove common prefixes the LLM might add
+        prefixes_to_remove = [
+            r'^Canonical\s+(Entity\s+)?Type:\s*',
+            r'^Canonical\s+Relationship\s+Type:\s*',
+            r'^Generalized\s+Label:\s*',
+            r'^Ontology\s+Label:\s*',
+            r'^Label:\s*',
+            r'^Type:\s*',
+            r'^\d+\.\s*',  # Numbered list items like "1. "
+            r'^-\s*',  # Bullet points
+        ]
+        for prefix in prefixes_to_remove:
+            cleaned = re.sub(prefix, '', cleaned, flags=re.IGNORECASE)
+
+        # Remove quotes and extra whitespace
+        cleaned = cleaned.strip().strip('"').strip("'").strip()
+
+        # If there's a colon, the label is usually after it
+        if ':' in cleaned:
+            parts = cleaned.split(':')
+            # Take the shortest non-empty part (likely the label, not explanation)
+            candidates = [p.strip() for p in parts if p.strip() and len(p.strip()) < 50]
+            if candidates:
+                cleaned = min(candidates, key=len)
+
+        # If response is way too long, LLM gave explanation instead of label
+        # Try to extract a valid label pattern
+        if len(cleaned) > 40:
+            if is_relationship:
+                # First, look for common relationship types in the response
+                common_rels = ['RELATES_TO', 'CONTAINS', 'PART_OF', 'IS_A', 'HAS', 'USES',
+                              'INFLUENCES', 'CAUSES', 'CREATES', 'LEADS_TO', 'DEPENDS_ON',
+                              'SUPPORTS', 'OPPOSES', 'REFLECTS', 'REPRESENTS', 'INVOLVES']
+                for rel in common_rels:
+                    if rel in cleaned.upper():
+                        cleaned = rel
+                        break
+                else:
+                    # Look for SCREAMING_SNAKE_CASE patterns (reasonable length)
+                    matches = re.findall(r'\b([A-Z]{2,}(?:_[A-Z0-9]+){0,2})\b', cleaned)
+                    if matches:
+                        # Pick shortest reasonable one (3-25 chars)
+                        valid = [m for m in matches if 3 <= len(m) <= 25]
+                        if valid:
+                            cleaned = min(valid, key=len)
+                        else:
+                            # Give up - return empty
+                            return ""
+                    else:
+                        return ""
+            else:
+                # Look for PascalCase patterns
+                matches = re.findall(r'\b([A-Z][a-z]+(?:[A-Z][a-z]+)*)\b', cleaned)
+                if matches:
+                    valid = [m for m in matches if 3 <= len(m) <= 30]
+                    if valid:
+                        cleaned = valid[0]
+                    else:
+                        cleaned = matches[0][:30]
+                else:
+                    # Try to get first meaningful word
+                    words = re.findall(r'\b([A-Za-z]{3,15})\b', cleaned)
+                    if words:
+                        cleaned = words[0].title()
+                    else:
+                        return ""
+
+        # Neo4j labels/types cannot start with a number
+        if cleaned and cleaned[0].isdigit():
+            match = re.search(r'[A-Za-z]', cleaned)
+            if match:
+                cleaned = cleaned[match.start():]
+            else:
+                return ""  # No valid label
+
+        # Ensure valid characters only
+        if is_relationship:
+            cleaned = re.sub(r'[^A-Za-z0-9_]', '_', cleaned).upper()
+            cleaned = re.sub(r'_+', '_', cleaned).strip('_')
+        else:
+            cleaned = re.sub(r'[^A-Za-z0-9]', '', cleaned)
+
+        # Must be at least 2 chars to be meaningful
+        if len(cleaned) < 2:
+            return ""
+
+        # Final length limit (25 for relationships, 30 for entities)
+        max_len = 25 if is_relationship else 30
+        if len(cleaned) > max_len:
+            cleaned = cleaned[:max_len]
+
+        return cleaned
+
     def _assign_single_label(
         self,
         open_label: str,
@@ -862,7 +1042,7 @@ class KnowledgeGraphAgent:
 
         try:
             response = (prompt | self.utility_llm).invoke({})
-            ontology_label = response.content.strip().strip('"').strip("'")
+            ontology_label = self._clean_label_response(response.content, is_relationship=not is_node)
             return ontology_label if ontology_label else open_label
         except Exception as e:
             logger.warning(f"Label assignment failed for {open_label}: {e}")
@@ -883,7 +1063,7 @@ class KnowledgeGraphAgent:
 
         try:
             response = (prompt | self.utility_llm).invoke({})
-            ontology_label = response.content.strip().strip('"').strip("'")
+            ontology_label = self._clean_label_response(response.content, is_relationship=not is_node)
             # Validate it's in the ontology
             if ontology_label in ontology:
                 return ontology_label
@@ -914,7 +1094,8 @@ class KnowledgeGraphAgent:
 
         try:
             response = (prompt | self.utility_llm).invoke({})
-            return response.content.strip().strip('"').strip("'") or open_label
+            cleaned = self._clean_label_response(response.content, is_relationship=not is_node)
+            return cleaned if cleaned else open_label
         except Exception as e:
             logger.warning(f"Label generalization failed for {open_label}: {e}")
             return open_label
@@ -1041,7 +1222,7 @@ class KnowledgeGraphAgent:
         return "\n".join(lines)
 
     def _llm_check_same_entity(self, name1: str, desc1: str, name2: str, desc2: str) -> bool:
-        """Use LLM to verify if two entities are the same."""
+        """Use LLM to verify if two entities are the same. Uses GPT-5.2 for accuracy."""
         prompt = ChatPromptTemplate.from_messages([
             ("system", ENTITY_VERIFICATION_PROMPT),
             ("human", """Entity 1: {name1}
@@ -1053,7 +1234,7 @@ Description: {desc2}
 Are these likely the same entity? Answer ONLY with 'YES' or 'NO'."""),
         ])
 
-        chain = prompt | self.utility_llm
+        chain = prompt | self.maintenance_llm  # Use GPT-5.2 for entity resolution
         try:
             response = chain.invoke({
                 "name1": name1, "desc1": desc1 or "No description",
@@ -1065,7 +1246,7 @@ Are these likely the same entity? Answer ONLY with 'YES' or 'NO'."""),
             return False
 
     def _llm_check_same_label(self, label1: str, label2: str, category: str) -> tuple[bool, str]:
-        """Use LLM to verify if two ontology labels are the same and pick canonical."""
+        """Use LLM to verify if two ontology labels are the same. Uses GPT-5.2 for accuracy."""
         system_msg = LABEL_VERIFICATION_PROMPT_TEMPLATE.format(category=category)
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_msg),
@@ -1076,7 +1257,7 @@ Are these the same concept? If YES, which label is more canonical?
 Answer in format: YES|canonical_label or NO"""),
         ])
 
-        chain = prompt | self.utility_llm
+        chain = prompt | self.maintenance_llm  # Use GPT-5.2 for ontology consolidation
         try:
             response = chain.invoke({"label1": label1, "label2": label2}).content.strip()
             if response.upper().startswith("YES"):
@@ -1240,7 +1421,7 @@ Answer in format: YES|canonical_label or NO"""),
         }
 
     def _propose_ontology_merges(self, labels: List[str], is_node: bool) -> Dict[str, str]:
-        """Use LLM to propose merges for ontology labels."""
+        """Use LLM to propose merges for ontology labels. Uses GPT-5.2 for accuracy."""
         label_type = "entity types" if is_node else "relationship types"
         target_range = TARGET_ENTITY_TYPES if is_node else TARGET_RELATIONSHIP_TYPES
 
@@ -1255,7 +1436,7 @@ Answer in format: YES|canonical_label or NO"""),
         ])
 
         try:
-            response = (prompt | self.utility_llm).invoke({})
+            response = (prompt | self.maintenance_llm).invoke({})  # Use GPT-5.2
             content = response.content.strip()
             # Try to parse JSON
             import re
@@ -1423,10 +1604,16 @@ def run_agent_pipeline(
     subject: str = 'economics',
     entity_resolution_interval: int = ENTITY_RESOLUTION_INTERVAL,
     ontology_consolidation_interval: int = ONTOLOGY_CONSOLIDATION_INTERVAL,
+    ontology: str = None,
 ):
     """Run the knowledge graph extraction agent pipeline."""
 
-    agent = KnowledgeGraphAgent(provider=provider, model=model, utility_model=utility_model)
+    agent = KnowledgeGraphAgent(
+        provider=provider,
+        model=model,
+        utility_model=utility_model,
+        ontology=ontology,
+    )
 
     # Determine which subjects to process
     if subject == 'all':
@@ -1538,11 +1725,12 @@ def run_agent_pipeline(
                     try:
                         merged = agent.run_entity_resolution()
                         total_entities_resolved += merged
-                        docs_since_entity_resolution = 0
                         print(f"Resolved {merged} duplicate entities", flush=True)
                     except Exception as e:
                         logger.error(f"Entity resolution failed: {e}")
 
+                    # Always reset counter, even on failure
+                    docs_since_entity_resolution = 0
                     print(f"{'=' * 60}\n", flush=True)
 
                 # --- PERIODIC ONTOLOGY CONVERGENCE ---
@@ -1569,11 +1757,11 @@ def run_agent_pipeline(
                             print("\n*** ONTOLOGY HAS STABILIZED ***", flush=True)
                             agent.freeze_ontology()
                             print("Ontology is now FROZEN. All future extractions will use fixed labels.", flush=True)
-
-                        docs_since_ontology_consolidation = 0
                     except Exception as e:
                         logger.error(f"Ontology convergence failed: {e}")
 
+                    # Always reset counter, even on failure
+                    docs_since_ontology_consolidation = 0
                     print(f"{'=' * 60}\n", flush=True)
 
             # Print subject completion summary
@@ -1633,68 +1821,46 @@ def run_agent_pipeline(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="LangGraph Agent for Knowledge Graph Extraction"
-    )
-
-    parser.add_argument(
-        "--provider",
-        type=str,
-        default='local',
-        choices=['local', 'openai', 'google'],
-        help="LLM provider to use",
-    )
-    parser.add_argument(
-        "--model",
-        type=str,
-        default=None,
-        help="Extraction model (default: gemma-3-12b-kg:latest for local, gpt-4o for openai)",
-    )
-    parser.add_argument(
-        "--utility_model",
-        type=str,
-        default=None,
-        help="Utility model for ontology/entity tasks (default: gemma3:12b-it-qat for local)",
-    )
-    parser.add_argument(
-        "--limit_docs",
-        type=int,
-        default=5,
-        help="Number of documents to process (0 for all)",
-    )
-    parser.add_argument(
-        "--restart_index",
-        type=int,
-        default=0,
-        help="Document index to start from",
-    )
-    parser.add_argument(
-        "--subject",
-        type=str,
-        default='economics',
-        choices=['economics', 'law', 'physics', 'all'],
-        help="Subject corpus to use ('all' processes limit_docs from each subject)",
-    )
-    parser.add_argument(
-        "--entity_resolution_interval",
-        type=int,
-        default=ENTITY_RESOLUTION_INTERVAL,
-        help=f"Run entity resolution every N documents (default: {ENTITY_RESOLUTION_INTERVAL})",
-    )
-    parser.add_argument(
-        "--ontology_consolidation_interval",
-        type=int,
-        default=ONTOLOGY_CONSOLIDATION_INTERVAL,
-        help=f"Run ontology consolidation every N documents (default: {ONTOLOGY_CONSOLIDATION_INTERVAL})",
-    )
-
+    parser = argparse.ArgumentParser(description="LangGraph Agent for Knowledge Graph Extraction")
+    parser.add_argument("--provider", default='local', choices=['local', 'openai', 'google'], help="LLM provider")
+    parser.add_argument("--model", default=None, help="Extraction model")
+    parser.add_argument("--utility_model", default=None, help="Utility model for ontology tasks")
+    parser.add_argument("--limit_docs", type=int, default=5, help="Docs to process (0=all)")
+    parser.add_argument("--restart_index", type=int, default=0, help="Start index")
+    parser.add_argument("--subject", default='economics', choices=['economics', 'law', 'physics', 'all'], help="Corpus")
+    parser.add_argument("--entity_resolution_interval", type=int, default=ENTITY_RESOLUTION_INTERVAL, help="Entity resolution every N docs")
+    parser.add_argument("--ontology_consolidation_interval", type=int, default=ONTOLOGY_CONSOLIDATION_INTERVAL, help="Ontology consolidation every N docs")
+    parser.add_argument("--ontology", default=DEFAULT_ONTOLOGY, choices=list(ONTOLOGIES.keys()), help="Ontology size (small/medium/large)")
     args = parser.parse_args()
+
+    # Determine actual models based on provider and arguments
+    if args.provider == 'local':
+        extraction_model = args.model or DEFAULT_LOCAL_EXTRACTION_MODEL
+        utility_model = args.utility_model or DEFAULT_LOCAL_UTILITY_MODEL
+        embedding_model = DEFAULT_LOCAL_EMBEDDING_MODEL
+    elif args.provider == 'openai':
+        extraction_model = args.model or DEFAULT_OPENAI_MODEL
+        utility_model = args.utility_model or extraction_model
+        embedding_model = DEFAULT_OPENAI_EMBEDDING_MODEL
+    elif args.provider == 'google':
+        extraction_model = args.model or DEFAULT_GOOGLE_MODEL
+        utility_model = args.utility_model or extraction_model
+        embedding_model = DEFAULT_OPENAI_EMBEDDING_MODEL
+    else:
+        extraction_model = args.model or DEFAULT_OPENAI_MODEL
+        utility_model = args.utility_model or extraction_model
+        embedding_model = DEFAULT_OPENAI_EMBEDDING_MODEL
+
+    # Get ontology info
+    ontology_config = get_ontology(args.ontology)
 
     print(f"\nConfiguration:", flush=True)
     print(f"  Provider: {args.provider}", flush=True)
-    print(f"  Extraction model: {args.model or 'gpt-oss:20b'}", flush=True)
-    print(f"  Utility model: {args.utility_model or 'gpt-oss:20b'}", flush=True)
-    print(f"  Embedding model: {'qwen3-embedding:8b' if args.provider == 'local' else 'text-embedding-3-small'}", flush=True)
+    print(f"  Extraction model: {extraction_model}", flush=True)
+    print(f"  Utility model: {utility_model}", flush=True)
+    print(f"  Embedding model: {embedding_model}", flush=True)
+    print(f"  Maintenance model: {DEFAULT_MAINTENANCE_MODEL} (entity resolution & ontology consolidation)", flush=True)
+    print(f"  Ontology: {args.ontology} ({len(ontology_config.entity_types)} entity types, {len(ontology_config.relationship_types)} relationship types)", flush=True)
     print(f"  Subject: {args.subject}", flush=True)
     if args.subject == 'all':
         print(f"  Documents: {args.limit_docs} per subject (economics, law, physics) = {args.limit_docs * 3} total", flush=True)
@@ -1713,4 +1879,5 @@ if __name__ == "__main__":
         subject=args.subject,
         entity_resolution_interval=args.entity_resolution_interval,
         ontology_consolidation_interval=args.ontology_consolidation_interval,
+        ontology=args.ontology,
     )

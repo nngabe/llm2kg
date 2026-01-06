@@ -27,6 +27,12 @@ from neo4j import GraphDatabase
 
 from langgraph.graph import StateGraph, START, END
 
+from planned_graphrag import PlannedGraphRAG, RetrievalPlan, parse_retrieval_plan
+from prompts.retrieval_prompts import format_retrieval_plan_prompt
+
+# KG extraction imports for auto document ingestion
+from agent_skb import KnowledgeGraphAgent, AgentState as SKBAgentState
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -35,9 +41,16 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("neo4j").setLevel(logging.WARNING)
 
 # --- CONFIGURATION ---
-NEO4J_URI = os.getenv("NEO4J_URI", "neo4j://localhost:7687")
+NEO4J_URI = os.getenv("NEO4J_URI", "neo4j://host.docker.internal:7687")
 NEO4J_USER = os.getenv("NEO4J_USERNAME", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434")
+
+# Ollama model configuration (benchmark winner: Pair D)
+# Main model: Complex reasoning, ReAct loop, answer synthesis
+OLLAMA_MAIN_MODEL = os.getenv("OLLAMA_MAIN_MODEL", "nemotron-3-nano:30b")
+# Utility model: Compression, planning, Cypher generation
+OLLAMA_UTILITY_MODEL = os.getenv("OLLAMA_UTILITY_MODEL", "ministral-3:14b")
 
 MAX_ITERATIONS = 5
 CONTEXT_WINDOW_SIZE = 8000  # Max tokens for context
@@ -107,6 +120,10 @@ class QAAgentState(BaseModel):
     # Input
     question: str = ""
 
+    # Retrieval planning (CLaRa-style)
+    retrieval_plan: Optional[RetrievalPlan] = None
+    compressed_context: str = ""
+
     # Retrieved context
     context: List[ContextItem] = Field(default_factory=list)
     context_formatted: str = ""
@@ -135,7 +152,9 @@ class QAAgentState(BaseModel):
 
 # --- PROMPTS ---
 
-SYSTEM_PROMPT = """You are a knowledgeable research assistant with access to a knowledge graph and web search.
+SYSTEM_PROMPT = """detailed thinking on
+
+You are a knowledgeable research assistant with access to a knowledge graph and web search.
 Your goal is to answer questions accurately using available information sources.
 
 Available tools:
@@ -149,7 +168,8 @@ Guidelines:
 - When using web search, clearly note that external information was used
 - Provide citations for all claims
 - If information conflicts between sources, note the discrepancy
-- Be honest about uncertainty"""
+- Be honest about uncertainty
+- Think step by step before deciding on an action"""
 
 
 THINK_PROMPT = """Based on the question and any previous observations, decide what to do next.
@@ -226,8 +246,10 @@ class Neo4jQALoader:
         embedding_model: Optional[Any] = None,
     ):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
-        self.embedding_model = embedding_model or OpenAIEmbeddings(
-            model="text-embedding-3-small"
+        self.embedding_model = embedding_model or OllamaEmbeddings(
+            model="qwen3-embedding:8b",
+            base_url=OLLAMA_HOST,
+            num_ctx=4096,
         )
 
     def close(self):
@@ -424,6 +446,8 @@ class ReActQAAgent:
         neo4j_loader: Optional[Neo4jQALoader] = None,
         web_search_enabled: bool = True,
         auto_add_documents: bool = True,
+        use_retrieval_planning: bool = True,
+        compression_enabled: bool = True,
     ):
         """
         Initialize the ReAct Q&A agent.
@@ -433,20 +457,63 @@ class ReActQAAgent:
             neo4j_loader: Neo4j loader for graph operations.
             web_search_enabled: Whether to allow web searches.
             auto_add_documents: Whether to automatically add web results to DB.
+            use_retrieval_planning: Whether to use CLaRa-style retrieval planning.
+            compression_enabled: Whether to compress context after retrieval.
         """
-        self.llm = llm or ChatOpenAI(model="gpt-4o", temperature=0)
+        # Nemotron-3-Nano optimized parameters for agentic/tool-calling
+        # Ref: temp=0.6, top_p=0.95 for tool calling; enable thinking for reasoning
+        self.llm = llm or ChatOllama(
+            model=OLLAMA_MAIN_MODEL,
+            base_url=OLLAMA_HOST,
+            temperature=0.6,  # Recommended for agentic/tool-calling tasks
+            top_p=0.95,       # Recommended for agentic tasks
+            num_ctx=8192,     # Increased context for complex reasoning
+        )
         self.neo4j_loader = neo4j_loader or Neo4jQALoader()
         self.web_search_enabled = web_search_enabled
         self.auto_add_documents = auto_add_documents
+        self.use_retrieval_planning = use_retrieval_planning
+        self.compression_enabled = compression_enabled
+
+        # Initialize utility LLM for planning/compression (smaller, faster model)
+        self.utility_llm = ChatOllama(
+            model=OLLAMA_UTILITY_MODEL,
+            base_url=OLLAMA_HOST,
+            temperature=0,
+        )
+
+        # Initialize PlannedGraphRAG for retrieval planning (uses utility model)
+        self.planned_graphrag = PlannedGraphRAG(
+            llm=self.utility_llm,
+            compression_enabled=compression_enabled,
+        )
+
+        # Initialize KG extraction agent for auto document ingestion
+        self._kg_extraction_agent = None
+        if auto_add_documents:
+            try:
+                self._kg_extraction_agent = KnowledgeGraphAgent(
+                    provider='openai',  # Use OpenAI for quality extraction
+                    ontology='medium',  # Use medium ontology for balance
+                )
+                logger.info("KG extraction agent initialized for auto document ingestion")
+            except Exception as e:
+                logger.warning(f"KG extraction agent not available: {e}")
 
         # Initialize web search tool
         self._web_search_tool = None
         if web_search_enabled:
             try:
-                from finetuning.agent.tools import WebSearchTool
-                self._web_search_tool = WebSearchTool()
-            except ImportError:
-                logger.warning("Web search tool not available")
+                import importlib.util
+                spec = importlib.util.spec_from_file_location(
+                    "agent_tools",
+                    os.path.join(os.path.dirname(__file__), "finetuning/agent/tools.py")
+                )
+                tools_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(tools_module)
+                self._web_search_tool = tools_module.WebSearchTool()
+            except Exception as e:
+                logger.warning(f"Web search tool not available: {e}")
 
         # Build the graph
         self.graph = self._build_graph()
@@ -455,28 +522,55 @@ class ReActQAAgent:
         """Build the LangGraph state machine."""
         graph = StateGraph(QAAgentState)
 
-        # Add nodes
-        graph.add_node("retrieve_initial", self._retrieve_initial_node)
-        graph.add_node("think", self._think_node)
-        graph.add_node("execute_action", self._execute_action_node)
-        graph.add_node("observe", self._observe_node)
-        graph.add_node("synthesize", self._synthesize_node)
+        if self.use_retrieval_planning:
+            # CLaRa-style flow with retrieval planning
+            # START → plan_retrieval → retrieve_planned → think → [conditional]
+            #         ├→ execute_action → compress_observation → think (loop)
+            #         └→ synthesize → END
+            graph.add_node("plan_retrieval", self._plan_retrieval_node)
+            graph.add_node("retrieve_planned", self._retrieve_planned_node)
+            graph.add_node("think", self._think_node)
+            graph.add_node("execute_action", self._execute_action_node)
+            graph.add_node("compress_observation", self._compress_observation_node)
+            graph.add_node("synthesize", self._synthesize_node)
 
-        # Add edges
-        graph.add_edge(START, "retrieve_initial")
-        graph.add_edge("retrieve_initial", "think")
-        graph.add_conditional_edges(
-            "think",
-            self._should_continue,
-            {
-                "execute": "execute_action",
-                "answer": "synthesize",
-                "end": END,
-            }
-        )
-        graph.add_edge("execute_action", "observe")
-        graph.add_edge("observe", "think")
-        graph.add_edge("synthesize", END)
+            graph.add_edge(START, "plan_retrieval")
+            graph.add_edge("plan_retrieval", "retrieve_planned")
+            graph.add_edge("retrieve_planned", "think")
+            graph.add_conditional_edges(
+                "think",
+                self._should_continue,
+                {
+                    "execute": "execute_action",
+                    "answer": "synthesize",
+                    "end": END,
+                }
+            )
+            graph.add_edge("execute_action", "compress_observation")
+            graph.add_edge("compress_observation", "think")
+            graph.add_edge("synthesize", END)
+        else:
+            # Original flow without retrieval planning
+            graph.add_node("retrieve_initial", self._retrieve_initial_node)
+            graph.add_node("think", self._think_node)
+            graph.add_node("execute_action", self._execute_action_node)
+            graph.add_node("observe", self._observe_node)
+            graph.add_node("synthesize", self._synthesize_node)
+
+            graph.add_edge(START, "retrieve_initial")
+            graph.add_edge("retrieve_initial", "think")
+            graph.add_conditional_edges(
+                "think",
+                self._should_continue,
+                {
+                    "execute": "execute_action",
+                    "answer": "synthesize",
+                    "end": END,
+                }
+            )
+            graph.add_edge("execute_action", "observe")
+            graph.add_edge("observe", "think")
+            graph.add_edge("synthesize", END)
 
         return graph.compile()
 
@@ -491,6 +585,161 @@ class ReActQAAgent:
         if state.pending_action:
             return "execute"
         return "answer"
+
+    # =========================================================================
+    # CLaRa-style Retrieval Planning Nodes
+    # =========================================================================
+
+    def _plan_retrieval_node(self, state: QAAgentState) -> Dict[str, Any]:
+        """
+        Create a retrieval plan for the question (CLaRa-style).
+
+        This node generates an explicit plan specifying:
+        - Entity targets to look up
+        - Relationship patterns to query
+        - Fallback web searches if needed
+        """
+        question = state.question
+        logger.info(f"Creating retrieval plan for: {question[:100]}...")
+
+        try:
+            # Generate retrieval plan
+            plan_prompt = format_retrieval_plan_prompt(question)
+            response = self.llm.invoke(plan_prompt)
+            plan = parse_retrieval_plan(response.content)
+
+            logger.info(f"Retrieval plan: {len(plan.entity_targets)} entities, "
+                       f"{len(plan.relationship_queries)} patterns")
+
+            return {"retrieval_plan": plan}
+
+        except Exception as e:
+            logger.error(f"Retrieval planning failed: {e}")
+            # Return empty plan - will fall back to basic retrieval
+            return {"retrieval_plan": RetrievalPlan()}
+
+    def _retrieve_planned_node(self, state: QAAgentState) -> Dict[str, Any]:
+        """
+        Execute the retrieval plan and return compressed context.
+
+        Uses PlannedGraphRAG to:
+        1. Look up targeted entities with N-hop traversal
+        2. Execute relationship pattern queries
+        3. Compress retrieved context to relevant facts
+        """
+        plan = state.retrieval_plan
+        question = state.question
+
+        if not plan or (not plan.entity_targets and not plan.relationship_queries):
+            # Fallback to basic retrieval
+            logger.info("No retrieval plan, falling back to vector search")
+            return self._retrieve_initial_node(state)
+
+        try:
+            # Execute plan using PlannedGraphRAG
+            graph_context = self.planned_graphrag.retrieve_with_plan(plan, question)
+
+            # Convert to ContextItems
+            context = []
+
+            # Add entity contexts
+            for entity_ctx in graph_context.entities:
+                if entity_ctx.found:
+                    content = self._format_entity(entity_ctx.entity_data)
+                    if entity_ctx.relationships:
+                        rel_lines = []
+                        for rel in entity_ctx.relationships[:10]:
+                            other = rel["other_entity"]
+                            other_name = other.get("name", other.get("id", "?"))
+                            direction = "->" if rel["direction"] == "outgoing" else "<-"
+                            rel_lines.append(f"  {direction} [{rel['type']}] {other_name}")
+                        content += f"\nRelationships:\n" + "\n".join(rel_lines)
+
+                    context.append(ContextItem(
+                        source_type="entity",
+                        content=content,
+                        source_id=entity_ctx.entity_name,
+                        relevance_score=1.0,
+                        metadata={"from_plan": True},
+                    ))
+
+            # Add relationship query results
+            for rel_ctx in graph_context.relationships:
+                if rel_ctx.results:
+                    content = f"[Pattern: {rel_ctx.pattern}]\n"
+                    for result in rel_ctx.results[:5]:
+                        result_str = ", ".join(f"{k}: {v}" for k, v in result.items() if v)
+                        content += f"  {result_str}\n"
+
+                    context.append(ContextItem(
+                        source_type="relationship",
+                        content=content,
+                        source_id=rel_ctx.pattern,
+                        relevance_score=0.9,
+                        metadata={"cypher": rel_ctx.cypher_used},
+                    ))
+
+            # Format and store both raw and compressed context
+            context_formatted = self._format_context(context)
+            compressed = graph_context.compressed_text
+
+            logger.info(f"Retrieved {len(context)} context items, "
+                       f"compressed from {len(graph_context.raw_text)} to {len(compressed)} chars")
+
+            return {
+                "context": context,
+                "context_formatted": context_formatted,
+                "compressed_context": compressed,
+            }
+
+        except Exception as e:
+            logger.error(f"Planned retrieval failed: {e}")
+            # Fallback to basic retrieval
+            return self._retrieve_initial_node(state)
+
+    def _compress_observation_node(self, state: QAAgentState) -> Dict[str, Any]:
+        """
+        Compress the tool observation before recording it (CLaRa-style).
+
+        This reduces noise in the observation and focuses on facts
+        relevant to the question.
+        """
+        observation = state.last_observation
+        question = state.question
+
+        if not observation:
+            return self._observe_node(state)
+
+        try:
+            # Compress observation if it's long
+            if len(observation) > 500 and self.compression_enabled:
+                compressed = self.planned_graphrag.compress_observation(observation, question)
+                logger.debug(f"Compressed observation from {len(observation)} to {len(compressed)} chars")
+            else:
+                compressed = observation
+
+            # Add to thought history
+            new_history = list(state.thought_history)
+            new_history.append(ThoughtStep(
+                thought=state.current_thought,
+                action=state.pending_action,
+                observation=compressed,
+            ))
+
+            return {
+                "thought_history": new_history,
+                "pending_action": None,
+                "last_observation": compressed,
+            }
+
+        except Exception as e:
+            logger.warning(f"Observation compression failed: {e}")
+            # Fallback to normal observe
+            return self._observe_node(state)
+
+    # =========================================================================
+    # Original Retrieval Nodes (non-planning fallback)
+    # =========================================================================
 
     def _retrieve_initial_node(self, state: QAAgentState) -> Dict[str, Any]:
         """Initial retrieval based on the question."""
@@ -559,6 +808,12 @@ class ReActQAAgent:
         """Generate next thought and action."""
         # Format thought history
         history_parts = []
+
+        # Include retrieval plan reasoning if available
+        if state.retrieval_plan and state.retrieval_plan.reasoning:
+            history_parts.append(f"Retrieval Plan: {state.retrieval_plan.reasoning}")
+            history_parts.append("")
+
         for step in state.thought_history:
             history_parts.append(f"Thought: {step.thought}")
             if step.action:
@@ -569,11 +824,15 @@ class ReActQAAgent:
 
         thought_history = "\n".join(history_parts) if history_parts else "No previous steps."
 
+        # Use compressed context if available, otherwise use raw formatted context
+        context_to_use = state.compressed_context if state.compressed_context else state.context_formatted
+        context_to_use = context_to_use[:CONTEXT_WINDOW_SIZE]
+
         # Generate next thought
         prompt = THINK_PROMPT.format(
             question=state.question,
             thought_history=thought_history,
-            context=state.context_formatted[:CONTEXT_WINDOW_SIZE],
+            context=context_to_use,
         )
 
         try:
@@ -659,7 +918,7 @@ class ReActQAAgent:
                 )
                 observation = self._format_web_search_result(result)
 
-                # Add to context and optionally to database
+                # Add to context and optionally extract KG to database
                 new_context = list(state.context)
                 for item in result.get("results", []):
                     new_context.append(ContextItem(
@@ -673,19 +932,12 @@ class ReActQAAgent:
                         },
                     ))
 
-                    # Optionally add to database
-                    if self.auto_add_documents and item.get("url"):
+                    # Extract KG from web content using same pipeline as agent_skb.py
+                    if self.auto_add_documents and self._kg_extraction_agent:
                         try:
-                            self.neo4j_loader.add_document(
-                                url=item["url"],
-                                title=item.get("title", ""),
-                                content=item.get("snippet", ""),
-                                domain=item.get("domain", ""),
-                                trust_level=item.get("trust_level", "medium"),
-                                source_type="web_search",
-                            )
+                            self._extract_kg_from_web_result(item)
                         except Exception as e:
-                            logger.warning(f"Failed to add document: {e}")
+                            logger.warning(f"Failed to extract KG from web result: {e}")
 
                 return {
                     "last_observation": observation,
@@ -773,6 +1025,55 @@ class ReActQAAgent:
             parts.append(f"   Snippet: {item.get('snippet', '')[:200]}...")
 
         return "\n".join(parts)
+
+    def _extract_kg_from_web_result(self, web_result: Dict[str, Any]) -> None:
+        """
+        Extract knowledge graph from web search result using agent_skb.py pipeline.
+
+        This ensures web search results are ingested into the knowledge graph
+        using the same extraction and ontology as the main SKB construction.
+
+        Args:
+            web_result: Web search result with title, url, snippet, etc.
+        """
+        if not self._kg_extraction_agent:
+            return
+
+        # Combine title and snippet for extraction
+        title = web_result.get("title", "")
+        snippet = web_result.get("snippet", "")
+        url = web_result.get("url", "")
+        domain = web_result.get("domain", "")
+
+        if not snippet:
+            logger.debug(f"Skipping KG extraction for {url}: no content")
+            return
+
+        # Create text chunk for extraction (include URL context)
+        text_chunk = f"Source: {url}\nTitle: {title}\n\n{snippet}"
+
+        # Create agent state for extraction (using actual AgentState fields)
+        extraction_state = SKBAgentState(
+            text_chunk=text_chunk,
+            chunk_index=0,
+            doc_index=0,
+        )
+
+        try:
+            # Run the extraction pipeline
+            result = self._kg_extraction_agent.graph.invoke(extraction_state)
+
+            # Log extraction results
+            if result.get("extracted_kg"):
+                kg = result["extracted_kg"]
+                node_count = len(kg.nodes) if hasattr(kg, 'nodes') else 0
+                edge_count = len(kg.relationships) if hasattr(kg, 'relationships') else 0
+                logger.info(f"Extracted KG from web result: {node_count} nodes, {edge_count} edges from {domain}")
+            else:
+                logger.debug(f"No KG extracted from {url}")
+
+        except Exception as e:
+            logger.warning(f"KG extraction failed for {url}: {e}")
 
     def _observe_node(self, state: QAAgentState) -> Dict[str, Any]:
         """Record observation from action."""
@@ -891,6 +1192,8 @@ class ReActQAAgent:
         """Close connections."""
         if self.neo4j_loader:
             self.neo4j_loader.close()
+        if self.planned_graphrag:
+            self.planned_graphrag.close()
 
 
 # --- ASYNC WRAPPER FOR CHAINLIT ---
@@ -932,13 +1235,19 @@ def main():
     """CLI for testing the Q&A agent."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="ReAct Q&A Agent")
+    parser = argparse.ArgumentParser(description="ReAct Q&A Agent with CLaRa-style Retrieval")
     parser.add_argument("--question", "-q", type=str, help="Question to answer")
     parser.add_argument("--interactive", "-i", action="store_true", help="Interactive mode")
     parser.add_argument("--no-web", action="store_true", help="Disable web search")
+    parser.add_argument("--no-planning", action="store_true", help="Disable retrieval planning")
+    parser.add_argument("--no-compression", action="store_true", help="Disable context compression")
     args = parser.parse_args()
 
-    agent = ReActQAAgent(web_search_enabled=not args.no_web)
+    agent = ReActQAAgent(
+        web_search_enabled=not args.no_web,
+        use_retrieval_planning=not args.no_planning,
+        compression_enabled=not args.no_compression,
+    )
 
     try:
         if args.interactive:
