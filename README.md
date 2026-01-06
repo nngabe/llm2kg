@@ -1,110 +1,95 @@
-# LLM Knowledge Graph (KG) and Semi-structured Knowledge Bases (SKB) construction
+# GraphRAG Knowledge Base System
 
-This repo contains an end-to-end GraphRAG application in the following steps:
-1. Pipeline for constructing a KG (as a Neo4J graph database) with vector indexing and node/edge text descriptions: `build_skb.py`
-2. Entity resolution by similarity search on the KG vector index, with an LLM judge for final merging decisions: `resolve_entities.py`
-3. Tools for GraphRAG using vector search + 1-hop neighbor enrichment:  `graphrag.py` uses only node and edge labels, `skb_graphrag.py` adds node/edge descriptions to context.
-4. A CLI chatbot for answering questions based on a GraphRAG supplied context: `cli.py`.
-5. Evaluation using six LLM-as-a-judge metrics: `eval.py`.
+An end-to-end GraphRAG (Graph Retrieval-Augmented Generation) system that builds knowledge graphs from text documents and enables intelligent question answering with ReAct agents.
 
-The KG can be built from text datasets on Economics, Law, and Physics found in `cais/wmdp-mmlu-auxiliary-corpora` [[1](https://huggingface.co/datasets/cais/wmdp-mmlu-auxiliary-corpora?library=datasets)].
+## Features
 
-## Setup
+- **Agentic KG Construction**: Autonomous agent builds knowledge graphs with dynamic ontology extraction
+- **ReAct QA Agent**: Reasoning + Acting agent for knowledge graph Q&A with hybrid retrieval
+- **Enterprise Evaluation**: 4-layer evaluation framework with 14 metrics
+- **Web Interface**: Interactive Chainlit app with graph visualization
 
-First, set up this repository: 
-```
+## Quick Start
+
+### 1. Setup
+
+```bash
 git clone https://github.com/nngabe/llm2kg.git
 cd llm2kg/
-```
-
-Then start the docker containers for the Neo4J/Python environment (using configs in `docker-compose.yml`):
-```
 docker compose up -d
 docker compose exec llm-app bash
-```
-and install the python dependencies with 
-```
-python -m pip install requirements.txt
+pip install -r requirements.txt
 ```
 
-## Running the pipeline
+### 2. Set API Keys
 
-The only environmental variable needed is an OpenAI API key, which you can set with
-```
-export OPENAI_API_KEY=sk-...
-```
-
-The Neo4j environment is already configured within the docker container, and the default URI, username, and password are used in all scripts. 
-Note that the KG stored in the container Neo4j instance will be lost when the container is closed.
-
-The knowledge graph can be constructed from scratch (or restarted from index) with:
-
-```
-python build_skb.py --restart_index 0 --limit_docs 200 --subject economics
-```
-which indexes documents `0:200` of the economics dataset.
-
-
-Entity resolution can be performed to clean up the extracted graph with:
-
-```
-python resolve_entities.py 
+```bash
+export OPENAI_API_KEY=sk-...       # Required for evaluation LLM judge
+export TAVILY_API_KEY=tvly-...      # Optional: enables web search
 ```
 
-The chatbot can be run with:
+### 3. Build Knowledge Graph
 
+```bash
+# Build KG from economics dataset (200 documents)
+python agent_skb.py --subject economics --limit_docs 200
+
+# Other subjects: law, physics
+python agent_skb.py --subject law --limit_docs 100
 ```
-python cli.py
-```
-The chatbot is instructed only to answer questions using the retrieved context from the KG, and will not answer questions on other topics.
 
-### Web Interface (Chainlit)
+### 4. Run the Application
 
-For a more interactive experience, run the Chainlit web application:
-
+**Option A: Web Interface (Recommended)**
 ```bash
 chainlit run frontend/app.py --port 8000
 ```
+Open http://localhost:8000
 
-Then open http://localhost:8000 in your browser. The Chainlit app provides:
-
-- **Classic Mode**: Traditional GraphRAG with entity extraction and visualization
-- **Q&A Agent Mode**: ReAct agent with hybrid GraphRAG + web search
-- **Research Mode**: Autonomous gap-filling with human-in-the-loop approval
-
-Features include:
-- Interactive chat with knowledge graph
-- Chain-of-thought step visualization
-- PyVis graph rendering of relevant subgraphs
-- Human-in-the-loop entity disambiguation
-
-Lastly, a set of benchmark questions from Economics, Law, and Physics can be be used to evaluate the given Answer and Context from the GraphRAG enabled (context relevance, groundedness,   answer relevance, context precision, context recall, perplexity):
-
-```
-python eval.py
-```
-
-## ReAct QA Agent
-
-The `agent_qa.py` module provides an advanced ReAct (Reasoning + Acting) agent for knowledge graph question answering with the following configurable features:
-
-### Features
-
-| Feature | Parameter | Default | Description |
-|---------|-----------|---------|-------------|
-| **Retrieval Planning** | `use_retrieval_planning` | True | CLaRa-style entity/relationship planning before retrieval. The agent analyzes the question to identify target entities and relationship patterns, then executes a structured retrieval plan. |
-| **Context Compression** | `compression_enabled` | True | Compresses verbose graph observations to relevant facts. Reduces token usage while preserving essential information. |
-| **Web Search** | `web_search_enabled` | True | Enables external web search tool (via Tavily) when knowledge graph lacks sufficient information. |
-| **Auto Document Ingestion** | `auto_add_documents` | True | Automatically extracts entities and relationships from web search results and adds them to the knowledge graph for future queries. |
-
-### Usage
-
+**Option B: Python API**
 ```python
 from agent_qa import ReActQAAgent
 
-# Full-featured agent (default)
 agent = ReActQAAgent()
+response = agent.answer_question("What is aggregate demand?")
+print(response.answer)
+agent.close()
+```
 
+## Architecture
+
+### Knowledge Graph Construction (`agent_skb.py`)
+
+The SKB (Semi-structured Knowledge Base) agent autonomously constructs knowledge graphs:
+
+1. **Document Processing**: Ingests text documents from HuggingFace datasets
+2. **Ontology Extraction**: Dynamically identifies entity types and relationships per document
+3. **Entity Extraction**: Extracts entities and relationships using the ontology
+4. **Graph Storage**: Stores in Neo4j with vector embeddings for similarity search
+
+```bash
+# Full options
+python agent_skb.py --subject economics --limit_docs 200 --restart_index 0
+```
+
+### ReAct QA Agent (`agent_qa.py`)
+
+The QA agent uses ReAct (Reasoning + Acting) for multi-step question answering:
+
+| Feature | Parameter | Default | Description |
+|---------|-----------|---------|-------------|
+| **Retrieval Planning** | `use_retrieval_planning` | True | CLaRa-style entity/relationship planning |
+| **Context Compression** | `compression_enabled` | True | Compresses observations to relevant facts |
+| **Web Search** | `web_search_enabled` | True | External search via Tavily API |
+| **Auto Ingestion** | `auto_add_documents` | True | Adds web results to knowledge graph |
+
+**Agent Tools:**
+- `graph_lookup(entity_name)` - Look up entity and relationships
+- `cypher_query(query)` - Execute Neo4j Cypher queries
+- `web_search(query)` - Search the web (when enabled)
+- `finish(answer)` - Complete with final answer
+
+```python
 # Minimal agent (graph lookup only)
 agent = ReActQAAgent(
     use_retrieval_planning=False,
@@ -112,44 +97,39 @@ agent = ReActQAAgent(
     web_search_enabled=False,
     auto_add_documents=False,
 )
-
-# Ask questions
-response = agent.answer_question("What is aggregate demand?")
-print(response.answer)
-print(f"Confidence: {response.confidence}")
-print(f"Citations: {response.citations}")
-
-agent.close()
 ```
 
-### Agent Tools
+### Web Interface (`frontend/app.py`)
 
-The ReAct agent has access to:
-- `graph_lookup(entity_name)` - Look up an entity and its relationships in the knowledge graph
-- `cypher_query(query)` - Execute a Cypher query against Neo4j for complex graph traversals
-- `web_search(query)` - Search the web for external information (when enabled)
-- `finish(answer)` - Complete the task with a final answer
+The Chainlit app provides three modes:
 
-## Enterprise Evaluation Framework
+- **Classic Mode**: Traditional GraphRAG with entity extraction
+- **Q&A Agent Mode**: Full ReAct agent with hybrid retrieval
+- **Research Mode**: Autonomous gap-filling with approval workflow
 
-The `benchmarks/enterprise_eval/` directory contains a comprehensive 4-layer evaluation framework for assessing GraphRAG agent quality:
+Features:
+- Chain-of-thought step visualization
+- PyVis graph rendering
+- Human-in-the-loop entity disambiguation
 
-### Evaluation Layers
+## Evaluation Framework
+
+### Enterprise Evaluation (`benchmarks/enterprise_eval/`)
+
+A comprehensive 4-layer evaluation framework:
 
 | Layer | Purpose | Metrics |
 |-------|---------|---------|
-| **Retrieval** | Measures quality of retrieved context | Contextual Precision, Contextual Recall, Graph Traversal Efficiency, Subgraph Connectivity |
-| **Agentic** | Assesses reasoning and tool usage | Tool Selection Accuracy, Argument Correctness, Loop Efficiency, Rejection Sensitivity |
-| **Integrity** | Validates knowledge graph updates | Schema Adherence, Entity Disambiguation, Source Citation Accuracy |
-| **Generation** | Evaluates answer quality | Faithfulness, Answer Relevance, Citation Recall |
-
-### Running Evaluations
+| **Retrieval** | Context quality | Contextual Precision, Contextual Recall, Graph Traversal Efficiency, Subgraph Connectivity |
+| **Agentic** | Reasoning quality | Tool Selection Accuracy, Argument Correctness, Loop Efficiency, Rejection Sensitivity |
+| **Integrity** | KG updates | Schema Adherence, Entity Disambiguation, Source Citation Accuracy |
+| **Generation** | Answer quality | Faithfulness, Answer Relevance, Citation Recall |
 
 ```bash
-# Run complete evaluation suite
+# Run complete evaluation
 python benchmarks/run_complete_eval.py
 
-# Run ablation study comparing feature impact
+# Run ablation study
 python benchmarks/enterprise_ablation_study.py
 
 # Quick validation (4 test cases)
@@ -158,181 +138,49 @@ python benchmarks/enterprise_ablation_study.py --quick
 
 ### Ablation Study
 
-The ablation study tests the impact of each agent feature by comparing:
-1. **baseline** - All features ON (default)
-2. **no_planning** - Disable retrieval planning
-3. **no_compression** - Disable context compression
-4. **no_web** - Disable web search
-5. **no_auto_ingest** - Disable auto document ingestion
-6. **minimal** - All features OFF (graph lookup only)
+Tests impact of each agent feature:
 
-# Sample Responses
-Here is a sample response from the chatbot in `cli.py` after building a KG and indexing documents `0:200` from the `economics` dataset:
+| Config | Description |
+|--------|-------------|
+| `baseline` | All features ON (default) |
+| `no_planning` | Disable retrieval planning |
+| `no_compression` | Disable context compression |
+| `no_web` | Disable web search |
+| `no_auto_ingest` | Disable auto document ingestion |
+| `minimal` | All features OFF |
 
-## Sample Response 1
-You > who are some famous physicists?   
+## Project Structure
 
-Thinking... (Searching Knowledge Graph)
+```
+llm2kg/
+├── agent_skb.py          # Knowledge graph construction agent
+├── agent_qa.py           # ReAct QA agent
+├── build_skb.py          # Legacy KG builder
+├── graphrag.py           # GraphRAG retrieval utilities
+├── frontend/
+│   └── app.py            # Chainlit web application
+├── prompts/              # LLM prompts and templates
+├── benchmarks/
+│   ├── enterprise_eval/  # 4-layer evaluation framework
+│   ├── run_complete_eval.py
+│   └── enterprise_ablation_study.py
+└── docker-compose.yml
+```
 
---- RETRIEVED CONTEXT ---
-  Retrieved Graph Data:
-  
-  === Entity: Solow (Person) ===
-  Summary: An economist known for his work on economic growth and the Solow residual.
-  Connections:
-    -> [COMPUTED] -> Solow residual (Economic Concept)
-       Context: Solow computed the Solow residual for the U.S. economy.
-  
-  === Entity: Keynes (Person) ===
-  Summary: An economist known for his contributions to monetary theory, including the concept of liquidity.
-  Connections:
-  
-  === Entity: George P. Schultz (Person) ===
-  Summary: A professor of economics and former Secretary of the Treasury and Director of the Office of Management and Budget.
-  Connections:
-    -> [IS_A] -> Economist (Profession)
-       Context: George P. Schultz is a professor of economics, thus an economist.
-       
------------------------------
+## Data Sources
 
- **Chatbot >** The provided graph data does not include information about physicists. It focuses on economists and their contributions to economic theories and policies. If you have any questions related to the economists or economic concepts mentioned in the data, feel free to ask!
+Knowledge graphs can be built from text datasets on:
+- **Economics** - Economic concepts, theories, and policies
+- **Law** - Legal terminology and case concepts
+- **Physics** - Physical laws and scientific concepts
 
-## Sample Response 2
-You > who are some famous economists?
+Source: [cais/wmdp-mmlu-auxiliary-corpora](https://huggingface.co/datasets/cais/wmdp-mmlu-auxiliary-corpora)
 
-Thinking... (Searching Knowledge Graph)
+## Requirements
 
---- RETRIEVED CONTEXT ---
-  Retrieved Graph Data:
-  
-  === Entity: John Maynard Keynes (Person) ===
-  Summary: An influential economist known for his ideas on government intervention in the economy.
-  Connections:
-    -> [INFLUENCES] -> Keynesian Economists (Group)
-       Context: John Maynard Keynes' theories form the basis of Keynesian economics.
-  
-  === Entity: Keynesian Economists (Group) ===
-  Summary: Economists who follow the theories of John Maynard Keynes, emphasizing the role of government intervention in the economy.
-  Connections:
-    -> [OPINION_ON] -> Macroeconomic Adjustment (Concept)
-       Context: Keynesian economists argue that macroeconomic adjustment can take a very long time.
-  
-  === Entity: George P. Schultz (Person) ===
-  Summary: A professor of economics and former Secretary of the Treasury and Director of the Office of Management and Budget.
-  Connections:
-    -> [IS_A] -> Economist (Profession)
-       Context: George P. Schultz is a professor of economics, thus an economist.  
-
------------------------------
-
-**Chatbot >** Based on the provided graph data, some famous economists include:
-
-1. **John Maynard Keynes**: He is an influential economist known for his ideas on government intervention in the economy. His theories form the basis of Keynesian economics, which emphasizes the role of government intervention in managing economic cycles [John Maynard Keynes (Person)].
-
-2. **Hyman Minsky**: Known for his work on financial instability and the nature of money, Minsky contributed significantly to the understanding of economic crises and the dynamics of financial markets [Hyman Minsky (Person)].
-
-3. **George P. Schultz**: A professor of economics and former Secretary of the Treasury, Schultz has played a significant role in economic policy and management [George P. Schultz (Person)].
-
-These individuals have made substantial contributions to economic theory and policy, influencing both academic thought and practical economic management.
-
-## Sample Response 3
-You > what are your favorite economic theories?
-
-Thinking... (Searching Knowledge Graph)
-
---- RETRIEVED CONTEXT ---
-  Retrieved Graph Data:
-  
-  === Entity: Keynesian Economists (Group) ===
-  Summary: Economists who follow the theories of John Maynard Keynes, emphasizing the role of government intervention in the economy.
-  Connections:
-    -> [OPINION_ON] -> Macroeconomic Adjustment (Concept)
-       Context: Keynesian economists argue that macroeconomic adjustment can take a very long time.
-  
-  === Entity: Modern Money Theory (Theory) ===
-  Summary: An economic theory that suggests the state and the market are not opposing forces but are interconnected.
-  Connections:
-    -> [REDEFINES_RELATIONSHIP] -> State (Entity)
-       Context: Modern Money Theory redefines the relationship between the state and the market.
-    -> [REDEFINES_RELATIONSHIP] -> Market (Institution)
-       Context: Modern Money Theory redefines the relationship between the market and the state.
-  
-  === Entity: Keynesian policy thinking (Economic Theory) ===
-  Summary: An economic theory that emphasizes the role of government intervention and macroeconomic policy in managing economic cycles.
-  Connections:
-  
-  === Entity: New Keynesian tradition (Economic Theory) ===
-  Summary: An economic theory that attempts to reconcile rational expectations with the possibility and desirability of systematic macroeconomic policy.
-  Connections:
-    -> [RESPONSE_TO] -> Lucas model (Economic Model)
-       Context: The New Keynesian tradition emerged as an attempt to address the limitations of the Lucas model by reconciling rational expectations with systematic policy.
-       
------------------------------
-
- **Chatbot >** As a helpful assistant, I don't have personal preferences or favorites. However, I can provide information on various economic theories based on the provided data:
-
-1. **Keynesian Economics**: This theory, based on the ideas of John Maynard Keynes, emphasizes the role of government intervention in the economy. Keynesian economists argue that macroeconomic adjustment can take a very long time, and thus, active government policies are necessary to manage economic cycles and ensure stability [Keynesian Economists, Keynesian policy thinking].
-
-2. **New Keynesian Economics**: This theory builds on Keynesian ideas by incorporating rational expectations and addressing the limitations of earlier models like the Lucas model. It emphasizes the importance of barriers to price adjustment and imperfect competition, suggesting that systematic macroeconomic policy can be both possible and desirable [New Keynesian tradition, New Keynesian thinking].
-
-3. **Modern Money Theory (MMT)**: This theory suggests that the state and the market are interconnected rather than opposing forces. It redefines the relationship between the state and the market, proposing that governments can use their currency-issuing power to achieve full employment and control inflation [Modern Money Theory].
-
-4. **Neoclassical Economics**: This perspective emphasizes the importance of aggregate supply and long-term productivity growth in determining potential GDP. Neoclassical economists believe in the natural adjustment of the economy to its potential GDP and typically advocate for a limited role of active stabilization policy, focusing instead on creating a stable economic environment [Neoclassical Perspective, Neoclassical Economists].
-
-Each of these theories offers different insights and approaches to understanding and managing economic systems.
-
-## Sample Evaluation
-After building a KG only with Economics data, we can see that the GraphRAG system performs well on Economics questions, and very poorly on Law and Physics quesions, as expected. There does appear to be some transfer from the Economics KG in answering the Law questions, but not the Physics questions, which makes sense. 
-
-Unabreviated column names are:
-
-`Context_Relevance| Groundedness| Answer_Relevancy| Context_Precision| Context_Recall| Perplexity| Composite_Score`
-
-Here is an example output of:
-
-`python eval.py`
-
---- ECON TEST REPORT ---
-|    | Question | Answer          |  Ctx_Rel. | Grd. | Ans_Rel. | Prec. | Rec. | Perp. | **COMP** |
-|---:|:----|:----|---------:|---------:|--------:|---------:|--------:|-------:|-------:|
-|  0 | Explain the conc... | Definition      |           1    |           0.75 |          1    |            1    |           1    |         6.44 |         0.95 |
-|  1 | What happens to... | When supply... |           0.75 |           0.25 |          0.75 |            1    |           1    |         6.63 |         0.77 |
-|  2 | Define Gross Dome... | Definition:     |           1    |           1    |          0.75 |            0.75 |           1    |         6.91 |         0.91 |
-|  3 | What is the diffe... | Short answer... |           0.5  |           0.5  |          1    |            0.75 |           0.5  |         7.93 |         0.64 |
-|  4 | How does an incre... | Short answer... |           0.75 |           0.75 |          0.75 |            0.25 |           0.5  |         7.33 |         0.59 |
-|  5 | What describes a Ma... | A market mon... |           1    |           1    |          1    |            1    |           0.75 |         4.27 |         0.93 |
-|  6 | What is Price Elas... | Price elasti... |           1    |           1    |          0.75 |            1    |           1    |         3.85 |         0.95 |
-|  7 | Explain the Law of ... | Definition      |           1    |           0.75 |          1    |            1    |           1    |         7.5  |         0.95 |
-|  8 | What constitutes Fi... | Short answer... |           1    |           1    |          1    |            1    |           1    |         3.61 |         1    |
-|  9 | What is the invisi... | The graph do... |           0    |           0.75 |          1    |            0    |           0    |        10.74 |         0.32 |
-
-
-  --- LAW TEST REPORT ---
-|    | Question | Answer | Ctx_Rel. | Grd. | Ans_Rel. |   Prec. |   Rec. |   Perp. |   **COMP** |
-|---:|:----|:----|---------------:|---------------:|--------------:|----------------:|---------------:|-------------:|-------------:|
-|  0 | What are the four... | I can’t find... |           0.5  |           0.5  |          1    |               0 |           0.5  |        18.13 |         0.5  |
-|  1 | What is 'Considerat... | The graph da... |           0.5  |           0.75 |          1    |               0 |           0    |         7.97 |         0.41 |
-|  2 | Explain the concep... | I can’t find... |           0.25 |           0.75 |          0.25 |               0 |           0    |        13.66 |         0.23 |
-|  3 | What does the Firs... | The First Am... |           1    |           1    |          0.75 |               1 |           0.75 |        17.11 |         0.89 |
-|  4 | What is the differ... | I cannot fin... |           0.5  |           0.5  |          0.75 |               0 |           0    |         9.09 |         0.32 |
-|  5 | Explain the princi... | Short defini... |           0.5  |           0.5  |          1    |               0 |           0    |         8.32 |         0.36 |
-|  6 | What is Double Jeop... | The retrieve... |           0.25 |           1    |          0.25 |               0 |           0    |        23.14 |         0.27 |
-|  7 | What is a Plaintiff? | I can't find... |           0    |           1    |          0.25 |               0 |           0    |        14.2  |         0.23 |
-|  8 | Define 'Habeas Cor... | I can’t find... |           0.5  |           1    |          0.25 |               0 |           0    |        15.22 |         0.32 |
-|  9 | What is the 'Stat... | I cannot fin... |           0.5  |           1    |          0.25 |               0 |           0    |        13.29 |         0.32 |
-
-
- --- PHYSICS TEST REPORT ---
-|    | Question              | Answer          |   Ctx_Rel. |   Grd. |   Ans_Rel. |   Prec. |   Rec. |   Perp. |   **COMP** |
-|---:|:----|:---|---------------:|---------------:|--------------:|----------------:|---------------:|-------------:|-------------:|
-|  0 | State Newton's Secon... | I’m unable t... |           0    |           1    |          0.25 |               0 |              0 |        14.79 |         0.23 |
-|  1 | What is the differen... | I can’t answ... |           0    |           1    |          0.25 |               0 |              0 |        21.94 |         0.23 |
-|  2 | Define Kinetic Energ... | I can’t find... |           0.25 |           0.25 |          0.75 |               0 |              0 |        23.36 |         0.23 |
-|  3 | What does the First ... | I cannot ans... |           0    |           1    |          0.25 |               0 |              0 |        12.87 |         0.23 |
-|  4 | Explain Ohm's Law....   | I can’t expl... |           0    |           1    |          0.25 |               0 |              0 |         9.16 |         0.23 |
-|  5 | What is the accelera... | I can’t find... |           0.5  |           0.75 |          0.75 |               0 |              0 |        15.66 |         0.36 |
-|  6 | Define Momentum....     | I can’t find... |           0    |           1    |          0.25 |               0 |              0 |        23.38 |         0.23 |
-|  7 | What is Friction?...    | I cannot fin... |           0    |           0.75 |          0.75 |               0 |              0 |        16.66 |         0.27 |
-|  8 | What is a Vector qua... | I don't have... |           0    |           0.75 |          0.25 |               0 |              0 |        19.7  |         0.18 |
-|  9 | Explain the concept ... | The retrieve... |           0.25 |           1    |          0.25 |               0 |              0 |        12.24 |         0.27 |
-
+- Docker & Docker Compose
+- Python 3.10+
+- Neo4j (runs in container)
+- Ollama with `nemotron-3-nano:30b` model (for local inference)
+- OpenAI API key (for evaluation judge)
+- Tavily API key (optional, for web search)
