@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 def create_test_cases_and_outputs():
     """Create test cases and simulated agent outputs based on observed behavior."""
-    from enterprise_eval.metrics.base import TestCase, AgentOutput
+    from agent_eval.metrics.base import TestCase, AgentOutput
 
     # Results observed from the actual run
     test_data = [
@@ -285,9 +285,9 @@ def create_test_cases_and_outputs():
 
 def run_evaluation(test_cases, agent_outputs):
     """Run the evaluation suite."""
-    from enterprise_eval import EvalConfig
-    from enterprise_eval.runner import create_default_runner
-    from enterprise_eval.reporting import HumanReporter, JSONReporter
+    from agent_eval import EvalConfig
+    from agent_eval.runner import create_default_runner
+    from agent_eval.reporting import HumanReporter, JSONReporter
 
     logger.info("Running evaluation suite on 8 test cases (2 per layer)...")
 
@@ -301,7 +301,7 @@ def run_evaluation(test_cases, agent_outputs):
     reporter.print_report(result)
 
     # Save JSON report
-    json_reporter = JSONReporter("benchmarks/enterprise_eval/reports")
+    json_reporter = JSONReporter("benchmarks/agent_eval/reports")
     report_path = json_reporter.generate(result, f"complete_eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
     logger.info(f"JSON report saved to {report_path}")
 

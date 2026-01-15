@@ -1,0 +1,306 @@
+{
+  "timestamp": "2026-01-07T06:38:23.057846",
+  "total_time_seconds": 1432.0357558727264,
+  "configs_run": [
+    "baseline",
+    "no_planning",
+    "minimal"
+  ],
+  "questions_per_config": 20,
+  "results": {
+    "baseline": {
+      "config_name": "baseline",
+      "description": "All features ON (default)",
+      "success_rate": 1.0,
+      "avg_correctness": 0.0,
+      "avg_completeness": 0.0,
+      "avg_groundedness": 0.0,
+      "avg_confidence": 0.73,
+      "total_time_seconds": 618.7983350753784,
+      "category_breakdown": {
+        "conceptual": {
+          "count": 1,
+          "avg_correctness": 0.0,
+          "avg_completeness": 0.0
+        },
+        "multi_hop": {
+          "count": 1,
+          "avg_correctness": 0.0,
+          "avg_completeness": 0.0
+        },
+        "current_events": {
+          "count": 1,
+          "avg_correctness": 0.0,
+          "avg_completeness": 0.0
+        },
+        "comparison": {
+          "count": 1,
+          "avg_correctness": 0.0,
+          "avg_completeness": 0.0
+        }
+      },
+      "question_results": [
+        {
+          "question_id": "econ_concept_01",
+          "question": "What is inflation and what are its primary causes according to economic theory?",
+          "category": "conceptual",
+          "domain": "economics",
+          "requires_web": false,
+          "config_name": "baseline",
+          "answer": "[Note: This answer includes information from web search.]\n\nInflation is a general and sustained increase in the price level of goods and services, leading to a decline in the purchasing power of money over time. According to economic theory, its primary causes are:\n\n1. **Demand\u2011pull inflation** \u2013 when aggregate demand rises faster than supply, pushing prices up.\n2. **Cost\u2011push inflation** \u2013 when rising production costs (e.g., wages, raw materials) are passed on to consumers.\n3. **Monetary factors** \u2013 excessive growth in the money supply or accommodative monetary policy (e.g., low interest rates, central\u2011bank asset purchases) can increase demand and reduce the real value of money.\n4. **Supply shocks** \u2013 abrupt reductions in output, such as those caused by wars or natural disasters, can also trigger price increases.\n\nThese mechanisms are reflected in the knowledge graph: inflation is defined as a \u201cgeneral and sustained increase in the price level \u2026 reducing purchasing power\u201d\u3010Source: Inflation (Concept)\u3011; demand\u2011pull inflation is described as \u201cinflation caused by an increase in aggregate demand without a proportional increase in supply\u201d\u3010Source: Demand-Pull Inflation (Concept)\u3011; and monetary policy actions are linked to inflation through causal relationships such as \u201cMonetary Policy CAUSES Inflation\u201d\u3010Source: Relationships (CAUSES)\u3011. The graph also notes that contractionary fiscal policy can prevent inflation, indicating the policy context in which inflationary pressures arise\u3010Source: Relationships (20)\u3011.",
+          "confidence": 0.85,
+          "citations_count": 4,
+          "elapsed_seconds": 184.75,
+          "error": null,
+          "correctness": 0.0,
+          "completeness": 0.0,
+          "groundedness": 0.0
+        },
+        {
+          "question_id": "econ_multihop_01",
+          "question": "Trace the causal chain from expansionary monetary policy through aggregate demand to potential inflation. What mechanisms connect these concepts?",
+          "category": "multi_hop",
+          "domain": "economics",
+          "requires_web": false,
+          "config_name": "baseline",
+          "answer": "Expansionary monetary policy is implemented when a central bank lowers its policy interest rate or injects additional reserves, thereby reducing borrowing costs and expanding the money supply. The cheaper credit encourages firms to invest and households to consume, which shifts the aggregate\u2011demand (AD) curve to the right (Context 2). A rightward shift in AD raises real output until the economy approaches its potential; any further increase in demand then translates into upward pressure on the price level. Because inflation is defined as a sustained rise in the general price level (Context 3), this upward pressure can become persistent, especially when expectations of future inflation adjust and wage\u2011price setting accelerates. The transmission channel also works through the exchange rate: lower domestic rates tend to depreciate the currency, boosting net exports and further supporting AD (Context 4 & 5). In addition, an increase in the money supply directly influences aggregate demand by affecting credit impulse and debt capacity, reinforcing the rightward shift of the AD curve (Context 5). When the economy is near full employment, these mechanisms can generate inflationary pressures that may require a tightening of monetary policy to preserve price stability.\n\nMechanistic chain:\n1. **Policy action** \u2013 central bank reduces interest rates / expands money supply (Context 1 & 4).\n2. **Credit and spending response** \u2013 lower borrowing costs stimulate investment, consumption, and net exports.\n3. **Aggregate\u2011demand shift** \u2013 higher spending shifts AD rightward (Context 2 & 5).\n4. **Output and price effects** \u2013 output rises until capacity is reached; excess demand raises prices.\n5. **Inflation outcome** \u2013 sustained price increases constitute inflation (Context 3).",
+          "confidence": 0.96,
+          "citations_count": 5,
+          "elapsed_seconds": 133.34,
+          "error": null,
+          "correctness": 0.0,
+          "completeness": 0.0,
+          "groundedness": 0.0
+        },
+        {
+          "question_id": "econ_current_01",
+          "question": "What is the current US inflation rate and how has the Federal Reserve responded with its recent policy decisions?",
+          "category": "current_events",
+          "domain": "economics",
+          "requires_web": true,
+          "config_name": "baseline",
+          "answer": "[Note: This answer includes information from web search.]\n\nThe knowledge graph does not contain a specific inflation figure for the United States as of January\u202f7\u202f2026, nor does it record any concrete Federal Reserve policy decision tied to that date. The only information available about the Federal Reserve describes it as the central banking system responsible for monetary policy and references past/future rate actions (e.g., 2022 hikes and a projected 2025 reduction), but no actual inflation data or recent policy moves are provided in the retrieved context. Therefore, an exact current U.S. inflation rate and the corresponding Fed response cannot be determined from the available sources.",
+          "confidence": 0.15,
+          "citations_count": 2,
+          "elapsed_seconds": 163.82,
+          "error": null,
+          "correctness": 0.0,
+          "completeness": 0.0,
+          "groundedness": 0.0
+        },
+        {
+          "question_id": "econ_compare_01",
+          "question": "Compare and contrast Keynesian and Neoclassical economic views on government intervention during recessions.",
+          "category": "comparison",
+          "domain": "economics",
+          "requires_web": false,
+          "config_name": "baseline",
+          "answer": "The Keynesian and Neoclassical schools offer opposing prescriptions for government intervention during recessions.\n\n- **Keynesian economics** argues that active fiscal policy\u2014such as increased government spending or tax cuts\u2014is necessary to boost aggregate demand when private sector demand collapses. It emphasizes the short\u2011run impact of sticky prices and wages, expecting a multiplier effect that can quickly lift output and employment. Because it views recessions as periods of insufficient demand, Keynesians support discretionary intervention to stabilize the economy.\n- **Neoclassical economics**, by contrast, holds that markets are inherently efficient and self\u2011correcting in the long run. It assumes rational agents with perfect information who adjust their behavior swiftly to shocks. Consequently, neoclassicals favor minimal government interference, preferring rules (e.g., balanced\u2011budget amendments) over discretionary policies, and they view attempts to fine\u2011tune demand as likely to cause distortions rather than genuine stabilization.\n\nThese contrasting views stem from differing assumptions about price/wage flexibility, the speed of economic adjustment, and the role of expectations. Keynesians focus on short\u2011run demand management, while neoclassicals prioritize long\u2011run equilibrium and market-driven adjustments.\n\n[Source: Keynesian Economics] Macroeconomic theory advocating government intervention to stabilize aggregate demand and mitigate recessions.\n[Source: Neoclassical Economics] School of economic thought emphasizing market efficiency, rational agents, and minimal government intervention. Macroeconomic theory focusing on market efficiency, long\u2011run equilibrium, and self\u2011correction.",
+          "confidence": 0.96,
+          "citations_count": 2,
+          "elapsed_seconds": 136.89,
+          "error": null,
+          "correctness": 0.0,
+          "completeness": 0.0,
+          "groundedness": 0.0
+        }
+      ]
+    },
+    "no_planning": {
+      "config_name": "no_planning",
+      "description": "Disable retrieval planning",
+      "success_rate": 1.0,
+      "avg_correctness": 0.0,
+      "avg_completeness": 0.0,
+      "avg_groundedness": 0.0,
+      "avg_confidence": 0.61,
+      "total_time_seconds": 410.4805681705475,
+      "category_breakdown": {
+        "conceptual": {
+          "count": 1,
+          "avg_correctness": 0.0,
+          "avg_completeness": 0.0
+        },
+        "multi_hop": {
+          "count": 1,
+          "avg_correctness": 0.0,
+          "avg_completeness": 0.0
+        },
+        "current_events": {
+          "count": 1,
+          "avg_correctness": 0.0,
+          "avg_completeness": 0.0
+        },
+        "comparison": {
+          "count": 1,
+          "avg_correctness": 0.0,
+          "avg_completeness": 0.0
+        }
+      },
+      "question_results": [
+        {
+          "question_id": "econ_concept_01",
+          "question": "What is inflation and what are its primary causes according to economic theory?",
+          "category": "conceptual",
+          "domain": "economics",
+          "requires_web": false,
+          "config_name": "no_planning",
+          "answer": "[Note: This answer includes information from web search.]\n\nInflation is the sustained increase in the general price level of goods and services in an economy over a period of time, which reduces the purchasing power of money. According to mainstream economic theory, the primary drivers of inflation are:\n\n1. **Demand\u2011pull inflation** \u2013 When aggregate demand outpaces aggregate supply, pulling prices upward.\n2. **Cost\u2011push inflation** \u2013 Rising production costs (e.g., wages, raw materials, energy) force firms to increase prices.\n3. **Monetary factors** \u2013 An expansion of the money supply relative to output can devalue currency, leading to higher price levels (the quantity theory of money).\n4. **Inflation expectations** \u2013 If workers and firms expect future price increases, they may demand higher wages or set prices accordingly, creating a self\u2011reinforcing loop.\n5. **Structural and supply\u2011side shocks** \u2013 Disruptions in key sectors (e.g., energy crises, natural disasters) can shift cost curves upward, contributing to inflation.\n\nThese mechanisms are often interrelated; for example, an increase in the money supply can boost demand, while expectations about future inflation can amplify wage\u2011price spirals. The specific dominance of each factor depends on the economic context (e.g., open vs. closed economy, degree of slack in labor markets).\n\n**Citations**:\n- [Source: graph] Entity \"Inflation\" \u2013 Description: \"General increase in prices and fall in purchasing value of money.\"\n- [Source: web_search] \"Demand\u2011pull inflation\", \"Cost\u2011push inflation\", \"Monetary factors\", \"Inflation expectations\" \u2013 Standard economic theory explanations.\n\n**Confidence**: 0.85 \u2013 The definition comes directly from the knowledge graph, and the causal mechanisms are drawn from widely accepted economic theory documented in external sources.",
+          "confidence": 0.5,
+          "citations_count": 0,
+          "elapsed_seconds": 90.94,
+          "error": null,
+          "correctness": 0.0,
+          "completeness": 0.0,
+          "groundedness": 0.0
+        },
+        {
+          "question_id": "econ_multihop_01",
+          "question": "Trace the causal chain from expansionary monetary policy through aggregate demand to potential inflation. What mechanisms connect these concepts?",
+          "category": "multi_hop",
+          "domain": "economics",
+          "requires_web": false,
+          "config_name": "no_planning",
+          "answer": "[Note: This answer includes information from web search.]\n\nExpansionary monetary policy works by lowering short\u2011term interest rates and increasing the money supply, which reduces borrowing costs for households and firms. This stimulus encourages higher consumption and investment, shifting the aggregate demand (AD) curve to the right (e.g., from AD\u2080 to AD\u2081 as depicted in Figure 11.10(A)) [Source: Aggregate Demand]. If the economy was already operating near its potential output, the rightward shift pushes actual output above potential GDP, creating an output gap. The resulting excess demand for goods and services generates upward pressure on prices, manifesting as inflationary pressures [Source: Inflationary Pressures; Source: Y0 (Quantity)]. In summary, the causal chain is: Expansionary Monetary Policy \u2192 Rightward AD shift \u2192 Output above potential GDP (Y\u2080) \u2192 Inflationary Pressures [Source: Expansionary Monetary Policy]",
+          "confidence": 0.92,
+          "citations_count": 4,
+          "elapsed_seconds": 124.68,
+          "error": null,
+          "correctness": 0.0,
+          "completeness": 0.0,
+          "groundedness": 0.0
+        },
+        {
+          "question_id": "econ_current_01",
+          "question": "What is the current US inflation rate and how has the Federal Reserve responded with its recent policy decisions?",
+          "category": "current_events",
+          "domain": "economics",
+          "requires_web": true,
+          "config_name": "no_planning",
+          "answer": "[Note: This answer includes information from web search.]\n\nThe provided knowledge graph contexts and subsequent web searches did not return any specific, up-to-date figures on the current U.S. inflation rate or the Federal Reserve's most recent policy decisions; consequently, a definitive answer cannot be supplied from the available information.",
+          "confidence": 0.1,
+          "citations_count": 2,
+          "elapsed_seconds": 98.83,
+          "error": null,
+          "correctness": 0.0,
+          "completeness": 0.0,
+          "groundedness": 0.0
+        },
+        {
+          "question_id": "econ_compare_01",
+          "question": "Compare and contrast Keynesian and Neoclassical economic views on government intervention during recessions.",
+          "category": "comparison",
+          "domain": "economics",
+          "requires_web": false,
+          "config_name": "no_planning",
+          "answer": "Keynesian economics holds that active government intervention is necessary during recessions to stabilize aggregate demand. It argues that because prices and wages are sticky, a drop in private spending can leave the economy persistently under\u2011employed, so fiscal stimulus (e.g., increased public spending or tax cuts) and accommodative monetary policy should be used to boost demand and bring output back toward potential [Source: Keynesian Economics]. \n\nNeoclassical economics, by contrast, assumes that markets are generally efficient and self\u2011correcting. It maintains that recessions are temporary disequilibria that will resolve once prices and resources adjust, and therefore it favors minimal government interference\u2014often limiting policy to maintaining a stable macro\u2011environment rather than actively stimulating demand [Source: Neoclassical Economics]. \n\nKey contrasts:\n- **Role of Government**: Keynesians advocate deliberate, counter\u2011cyclical fiscal and monetary policies; neoclassicals view such interventions as likely to distort price signals and prefer reliance on market forces.\n- **Assumptions about Prices/Wages**: Keynesians emphasize short\u2011run rigidities and the possibility of prolonged unemployment; neoclassicals assume flexible prices that quickly restore equilibrium.\n- **Long\u2011Run Focus**: Neoclassical theory is grounded in long\u2011run optimality and rational expectations, whereas Keynesian analysis focuses on short\u2011run demand management to affect real variables like output and employment.\n- **Policy Stance During Recessions**: Keynesians support active stabilization policies (e.g., stimulus packages); neoclassicals typically oppose them, arguing that allowing the market to adjust naturally is preferable [Source: Active Stabilization Policy].",
+          "confidence": 0.92,
+          "citations_count": 3,
+          "elapsed_seconds": 96.03,
+          "error": null,
+          "correctness": 0.0,
+          "completeness": 0.0,
+          "groundedness": 0.0
+        }
+      ]
+    },
+    "minimal": {
+      "config_name": "minimal",
+      "description": "All features OFF (graph-only)",
+      "success_rate": 1.0,
+      "avg_correctness": 0.0,
+      "avg_completeness": 0.0,
+      "avg_groundedness": 0.0,
+      "avg_confidence": 0.6875,
+      "total_time_seconds": 402.445561170578,
+      "category_breakdown": {
+        "conceptual": {
+          "count": 1,
+          "avg_correctness": 0.0,
+          "avg_completeness": 0.0
+        },
+        "multi_hop": {
+          "count": 1,
+          "avg_correctness": 0.0,
+          "avg_completeness": 0.0
+        },
+        "current_events": {
+          "count": 1,
+          "avg_correctness": 0.0,
+          "avg_completeness": 0.0
+        },
+        "comparison": {
+          "count": 1,
+          "avg_correctness": 0.0,
+          "avg_completeness": 0.0
+        }
+      },
+      "question_results": [
+        {
+          "question_id": "econ_concept_01",
+          "question": "What is inflation and what are its primary causes according to economic theory?",
+          "category": "conceptual",
+          "domain": "economics",
+          "requires_web": false,
+          "config_name": "minimal",
+          "answer": "Inflation is a sustained increase in the general price level of goods and services, resulting in a decline in the purchasing power of money [Source: Context 6]. The primary theoretical causes identified in economic theory are:\\n1. **Demand\u2011pull inflation** \u2013 occurs when aggregate demand rises faster than supply, pulling prices upward [Source: Context 7].\\n2. **Cost\u2011push inflation** \u2013 arises from increasing production costs (e.g., wages, raw materials) that push prices up; this broader mechanism is captured by the concept of \"inflationary pressures\" which are described as economic conditions leading to sustained increases in price levels [Source: Context 1].\\n3. **Monetary factors** \u2013 an expansion of the money supply relative to output contributes to rising prices and underlies ongoing inflationary pressure [Source: Context 1].\\nThese mechanisms constitute the main causes of inflation according to standard economic theory.",
+          "confidence": 0.85,
+          "citations_count": 3,
+          "elapsed_seconds": 132.86,
+          "error": null,
+          "correctness": 0.0,
+          "completeness": 0.0,
+          "groundedness": 0.0
+        },
+        {
+          "question_id": "econ_multihop_01",
+          "question": "Trace the causal chain from expansionary monetary policy through aggregate demand to potential inflation. What mechanisms connect these concepts?",
+          "category": "multi_hop",
+          "domain": "economics",
+          "requires_web": false,
+          "config_name": "minimal",
+          "answer": "Expansionary monetary policy works through the following chain:\n\n1. **Policy action** \u2013 The central bank reduces the policy interest rate (or increases the money supply), which lowers the real cost of borrowing.\n2. **Effect on spending** \u2013 Lower rates encourage households and firms to borrow more, boosting consumption and investment expenditure.\n3. **Shift in aggregate demand** \u2013 The increase in consumption and investment pushes the aggregate\u2011demand (AD) curve to the right.  This shift is illustrated in the diagrams referenced as [Figure 11.8] and [Figure 11.10(A)], which show a rightward movement of AD from an initial level (Ad0) toward a higher quantity.\n4. **Potential output constraint** \u2013 If the new AD level (denoted Ad0 in the context) exceeds the economy\u2019s sustainable output, the economy operates above its potential GDP (Y0).  Context\u202f1 notes that \"Equilibrium output above potential GDP, leading to inflationary pressures.\"\n5. **Inflationary pressure** \u2013 When demand outstrips the capacity of the economy, firms face upward pressure on prices, resulting in sustained increases in the price level\u2014i.e., inflationary pressures (Context\u202f4).\n\nThus, the causal chain is: expansionary monetary policy \u2192 lower interest rates \u2192 higher consumption & investment \u2192 rightward shift in AD \u2192 AD exceeding potential output \u2192 inflationary pressures.\n\n**Citations**:\n- Context\u202f1 (entity: Y0) \u2013 \"Equilibrium output above potential GDP, leading to inflationary pressures.\"\n- Context\u202f2 (entity: Ad0) \u2013 \"Initial equilibrium level of aggregate demand in the economy.\"  [2026\u201101\u201105T04:33:05.247801] \"Initial aggregate demand level exceeding potential GDP, causing inflationary pressure.\"\n- Context\u202f3 (entity: Figure 11.8) \u2013 Diagram illustrating shifts in aggregate demand and their economic effects.\n- Context\u202f4 (entity: Inflationary Pressures) \u2013 Economic conditions leading to sustained increases in price levels.\n- Context\u202f5 (entity: Figure 11.10 (A)) \u2013 Graphical representation showing rightward shift in aggregate demand.",
+          "confidence": 0.73,
+          "citations_count": 5,
+          "elapsed_seconds": 83.33,
+          "error": null,
+          "correctness": 0.0,
+          "completeness": 0.0,
+          "groundedness": 0.0
+        },
+        {
+          "question_id": "econ_current_01",
+          "question": "What is the current US inflation rate and how has the Federal Reserve responded with its recent policy decisions?",
+          "category": "current_events",
+          "domain": "economics",
+          "requires_web": true,
+          "config_name": "minimal",
+          "answer": "The provided knowledge graph only contains generic descriptions of the Federal Reserve as the central banking system of the United States that is \"responsible for monetary policy\" (e.g., Context 4, Context 6). It does not include any up\u2011to\u2011date quantitative information on the current U.S. inflation rate nor details about recent Federal Reserve policy decisions such as interest\u2011rate changes or balance\u2011sheet actions. Consequently, based solely on the retrieved context I cannot state the present inflation figure (e.g., 2025 CPI) or specify the Fed\u2019s latest monetary\u2011policy moves; those data would need to be obtained from more recent external sources.",
+          "confidence": 0.25,
+          "citations_count": 2,
+          "elapsed_seconds": 90.34,
+          "error": null,
+          "correctness": 0.0,
+          "completeness": 0.0,
+          "groundedness": 0.0
+        },
+        {
+          "question_id": "econ_compare_01",
+          "question": "Compare and contrast Keynesian and Neoclassical economic views on government intervention during recessions.",
+          "category": "comparison",
+          "domain": "economics",
+          "requires_web": false,
+          "config_name": "minimal",
+          "answer": "Keynesian economics holds that active government intervention is necessary during recessions to stabilize aggregate demand. It argues that because prices and wages are sticky, a drop in private spending can leave the economy persistently under\u2011employed, so fiscal stimulus (e.g., increased public spending or tax cuts) and accommodative monetary policy should be used to boost demand and bring output back toward potential [Source: Keynesian Economics]. \n\nNeoclassical economics, by contrast, assumes that markets are generally efficient and self\u2011correcting. It maintains that recessions are temporary disequilibria that will resolve once prices and resources adjust, and therefore it favors minimal government interference\u2014often limiting policy to maintaining a stable macro\u2011environment rather than actively stimulating demand [Source: Neoclassical Economics]. \n\nKey contrasts:\n- **Role of Government**: Keynesians advocate deliberate, counter\u2011cyclical fiscal and monetary policies; neoclassicals view such interventions as likely to distort price signals and prefer reliance on market forces.\n- **Assumptions about Prices/Wages**: Keynesians emphasize short\u2011run rigidities and the possibility of prolonged unemployment; neoclassicals assume flexible prices that quickly restore equilibrium.\n- **Long\u2011Run Focus**: Neoclassical theory is grounded in long\u2011run optimality and rational expectations, whereas Keynesian analysis focuses on short\u2011run demand management to affect real variables like output and employment.\n- **Policy Stance During Recessions**: Keynesians support active stabilization policies (e.g., stimulus packages); neoclassicals typically oppose them, arguing that allowing the market to adjust naturally is preferable [Source: Active Stabilization Policy].",
+          "confidence": 0.92,
+          "citations_count": 3,
+          "elapsed_seconds": 95.92,
+          "error": null,
+          "correctness": 0.0,
+          "completeness": 0.0,
+          "groundedness": 0.0
+        }
+      ]
+    }
+  }
+}

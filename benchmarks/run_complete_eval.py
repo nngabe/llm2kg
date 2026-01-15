@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Complete Evaluation Script for Enterprise Eval Suite.
+Complete Evaluation Script for Agent Eval Suite.
 
 Runs 2 test cases per layer (8 total) to complete the full evaluation matrix.
 """
@@ -260,7 +260,7 @@ def run_qa_agent(questions: List[Dict[str, Any]]) -> List[Tuple[Dict, Any]]:
 
 def convert_to_test_cases(questions: List[Dict[str, Any]]):
     """Convert questions to TestCase format."""
-    from enterprise_eval.metrics.base import TestCase
+    from agent_eval.metrics.base import TestCase
 
     test_cases = []
     for q in questions:
@@ -285,7 +285,7 @@ def convert_to_test_cases(questions: List[Dict[str, Any]]):
 
 def convert_to_agent_outputs(results: List[Tuple[Dict, Any]]):
     """Convert QA responses to AgentOutput format."""
-    from enterprise_eval.metrics.base import AgentOutput
+    from agent_eval.metrics.base import AgentOutput
 
     outputs = []
     for q, response in results:
@@ -332,9 +332,9 @@ def convert_to_agent_outputs(results: List[Tuple[Dict, Any]]):
 
 def run_evaluation(test_cases, agent_outputs):
     """Run the evaluation suite."""
-    from enterprise_eval import EvalConfig
-    from enterprise_eval.runner import create_default_runner
-    from enterprise_eval.reporting import HumanReporter, JSONReporter
+    from agent_eval import EvalConfig
+    from agent_eval.runner import create_default_runner
+    from agent_eval.reporting import HumanReporter, JSONReporter
 
     logger.info("Running evaluation suite...")
 
@@ -348,7 +348,7 @@ def run_evaluation(test_cases, agent_outputs):
     reporter.print_report(result)
 
     # Save JSON report
-    json_reporter = JSONReporter("benchmarks/enterprise_eval/reports")
+    json_reporter = JSONReporter("benchmarks/agent_eval/reports")
     report_path = json_reporter.generate(result, f"complete_eval_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
     logger.info(f"JSON report saved to {report_path}")
 

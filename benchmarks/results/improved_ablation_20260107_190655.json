@@ -1,0 +1,31 @@
+{
+  "timestamp": "2026-01-07T19:06:55.449507",
+  "study_type": "improved_hybrid_rag",
+  "description": "Keywords + Vector \u2192 Fixed N-hop Sampling ablation study",
+  "results": [
+    {
+      "config_name": "baseline_improved",
+      "config_description": "All features ON with improved retrieval (default)",
+      "config_params": {
+        "vector_limit": 5,
+        "max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": true,
+        "use_retrieval_planning": true
+      },
+      "timestamp": "2026-01-07T18:53:24.889051",
+      "duration_ms": 806937,
+      "test_case_count": 6,
+      "overall_score": 0.0,
+      "overall_passed": false,
+      "layer_scores": [],
+      "per_category_scores": {
+        "multi_hop": 0.6366666666666666,
+        "comparison": 0.96,
+        "current_events": 0.3
+      },
+      "cypher_errors": 2,
+      "errors": []
+    }
+  ]
+}

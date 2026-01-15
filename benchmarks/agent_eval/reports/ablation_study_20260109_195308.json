@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-01-09T19:53:08.865049",
+  "results": [
+    {
+      "config_name": "baseline",
+      "config_description": "All features ON (default)",
+      "timestamp": "2026-01-09T19:45:22.143530",
+      "duration_ms": 420920,
+      "test_case_count": 4,
+      "overall_score": 0.5625,
+      "overall_passed": false,
+      "layer_scores": [],
+      "errors": []
+    }
+  ]
+}

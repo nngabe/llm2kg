@@ -1,0 +1,477 @@
+{
+  "study_name": "study1_planning_modes",
+  "timestamp": "20260110_045058",
+  "total_configs": 7,
+  "questions_per_config": 6,
+  "results": [
+    {
+      "config": {
+        "name": "no_planning_baseline",
+        "description": "No planning, direct vector search (previous best)",
+        "use_retrieval_planning": false,
+        "use_followup_planning": false,
+        "planning_reasoning": false,
+        "primary_vector_limit": 5,
+        "primary_max_hops": 4,
+        "secondary_vector_limit": 3,
+        "secondary_max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "max_hops": 2,
+        "vector_limit": 5
+      },
+      "questions": [
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 85.92387342453003,
+          "success": false
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 100.98339533805847,
+          "success": false
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 120.14122915267944,
+          "success": false
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 150.06586170196533,
+          "success": false
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 141.1236653327942,
+          "success": false
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 126.53096961975098,
+          "success": false
+        }
+      ],
+      "metrics": {
+        "avg_confidence": 0.0,
+        "avg_response_time": 120.7948324282964,
+        "total_questions": 6,
+        "successful_responses": 0
+      }
+    },
+    {
+      "config": {
+        "name": "old_planning",
+        "description": "Old CLaRa-style entity/relationship planning",
+        "use_retrieval_planning": true,
+        "use_followup_planning": false,
+        "planning_reasoning": false,
+        "primary_vector_limit": 5,
+        "primary_max_hops": 4,
+        "secondary_vector_limit": 3,
+        "secondary_max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "max_hops": 2,
+        "vector_limit": 5
+      },
+      "questions": [
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 187.9503710269928,
+          "success": false
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 216.4998424053192,
+          "success": false
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 260.6367356777191,
+          "success": false
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 199.9628460407257,
+          "success": false
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 404.5260720252991,
+          "success": false
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 139.34461855888367,
+          "success": false
+        }
+      ],
+      "metrics": {
+        "avg_confidence": 0.0,
+        "avg_response_time": 234.82008095582327,
+        "total_questions": 6,
+        "successful_responses": 0
+      }
+    },
+    {
+      "config": {
+        "name": "followup_v4h4",
+        "description": "Follow-up planning: v4_h4 primary + v3_h2 secondary",
+        "use_retrieval_planning": false,
+        "use_followup_planning": true,
+        "planning_reasoning": false,
+        "primary_vector_limit": 4,
+        "primary_max_hops": 4,
+        "secondary_vector_limit": 3,
+        "secondary_max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "max_hops": 2,
+        "vector_limit": 5
+      },
+      "questions": [
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 231.16585087776184,
+          "success": false
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 153.0181531906128,
+          "success": false
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 66.34579849243164,
+          "success": false
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 65.27732682228088,
+          "success": false
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 264.7226095199585,
+          "success": false
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 90.11221885681152,
+          "success": false
+        }
+      ],
+      "metrics": {
+        "avg_confidence": 0.0,
+        "avg_response_time": 145.1069929599762,
+        "total_questions": 6,
+        "successful_responses": 0
+      }
+    },
+    {
+      "config": {
+        "name": "followup_v5h5",
+        "description": "Follow-up planning: v5_h5 primary + v3_h2 secondary",
+        "use_retrieval_planning": false,
+        "use_followup_planning": true,
+        "planning_reasoning": false,
+        "primary_vector_limit": 5,
+        "primary_max_hops": 5,
+        "secondary_vector_limit": 3,
+        "secondary_max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "max_hops": 2,
+        "vector_limit": 5
+      },
+      "questions": [
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 236.94566869735718,
+          "success": false
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 92.03138971328735,
+          "success": false
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 71.93041515350342,
+          "success": false
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 65.27840042114258,
+          "success": false
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 264.70190501213074,
+          "success": false
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 90.18041133880615,
+          "success": false
+        }
+      ],
+      "metrics": {
+        "avg_confidence": 0.0,
+        "avg_response_time": 136.84469838937125,
+        "total_questions": 6,
+        "successful_responses": 0
+      }
+    },
+    {
+      "config": {
+        "name": "followup_v4h6",
+        "description": "Follow-up planning: v4_h6 primary + v3_h2 secondary",
+        "use_retrieval_planning": false,
+        "use_followup_planning": true,
+        "planning_reasoning": false,
+        "primary_vector_limit": 4,
+        "primary_max_hops": 6,
+        "secondary_vector_limit": 3,
+        "secondary_max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "max_hops": 2,
+        "vector_limit": 5
+      },
+      "questions": [
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 236.4671413898468,
+          "success": false
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 91.84649562835693,
+          "success": false
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 71.9233500957489,
+          "success": false
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 65.1485447883606,
+          "success": false
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 263.91222977638245,
+          "success": false
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 90.06896042823792,
+          "success": false
+        }
+      ],
+      "metrics": {
+        "avg_confidence": 0.0,
+        "avg_response_time": 136.5611203511556,
+        "total_questions": 6,
+        "successful_responses": 0
+      }
+    },
+    {
+      "config": {
+        "name": "followup_reasoning_v4h4",
+        "description": "Follow-up + reasoning: v4_h4 primary + v3_h2 secondary",
+        "use_retrieval_planning": false,
+        "use_followup_planning": true,
+        "planning_reasoning": true,
+        "primary_vector_limit": 4,
+        "primary_max_hops": 4,
+        "secondary_vector_limit": 3,
+        "secondary_max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "max_hops": 2,
+        "vector_limit": 5
+      },
+      "questions": [
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 236.26317286491394,
+          "success": false
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 91.80239272117615,
+          "success": false
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 71.89701294898987,
+          "success": false
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 65.12730550765991,
+          "success": false
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 263.8277688026428,
+          "success": false
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 90.04956793785095,
+          "success": false
+        }
+      ],
+      "metrics": {
+        "avg_confidence": 0.0,
+        "avg_response_time": 136.4945367972056,
+        "total_questions": 6,
+        "successful_responses": 0
+      }
+    },
+    {
+      "config": {
+        "name": "followup_reasoning_v5h5",
+        "description": "Follow-up + reasoning: v5_h5 primary + v3_h2 secondary",
+        "use_retrieval_planning": false,
+        "use_followup_planning": true,
+        "planning_reasoning": true,
+        "primary_vector_limit": 5,
+        "primary_max_hops": 5,
+        "secondary_vector_limit": 3,
+        "secondary_max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "max_hops": 2,
+        "vector_limit": 5
+      },
+      "questions": [
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 236.71084022521973,
+          "success": false
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 92.02748131752014,
+          "success": false
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 72.00036144256592,
+          "success": false
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 65.24609875679016,
+          "success": false
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 264.7234101295471,
+          "success": false
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 90.20078039169312,
+          "success": false
+        }
+      ],
+      "metrics": {
+        "avg_confidence": 0.0,
+        "avg_response_time": 136.81816204388937,
+        "total_questions": 6,
+        "successful_responses": 0
+      }
+    }
+  ]
+}

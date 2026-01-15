@@ -5,7 +5,8 @@ An end-to-end GraphRAG (Graph Retrieval-Augmented Generation) system that builds
 
 - **Agentic KG Construction**: Autonomous agent builds knowledge graphs with dynamic ontology extraction
 - **ReAct QA Agent**: Reasoning + Acting agent for knowledge graph Q&A with hybrid retrieval
-- **Enterprise Evaluation**: 4-layer evaluation framework with 14 metrics
+- **Uncertainty Metrics**: Objective confidence scoring (perplexity, semantic entropy, embedding consistency)
+- **RAGAS Evaluation**: 3-layer evaluation framework with 8 metrics (no LLM-as-judge)
 - **Web Interface**: Interactive Chainlit app with graph visualization
 
 ## Quick Start
@@ -23,8 +24,9 @@ pip install -r requirements.txt
 ### 2. Set API Keys
 
 ```bash
-export OPENAI_API_KEY=sk-...       # Required for evaluation LLM judge
-export TAVILY_API_KEY=tvly-...      # Optional: enables web search
+export GOOGLE_API_KEY=...          # Primary: RAGAS evaluation (Gemini 2.5 Pro)
+export OPENAI_API_KEY=sk-...       # Fallback: RAGAS evaluation (GPT)
+export TAVILY_API_KEY=tvly-...     # Optional: enables web search
 ```
 
 ### 3. Build Knowledge Graph
@@ -113,26 +115,43 @@ Features:
 
 ## Evaluation Framework
 
-### Enterprise Evaluation (`benchmarks/enterprise_eval/`)
+### RAGAS-Based Evaluation (`benchmarks/agent_eval/`)
 
-A comprehensive 4-layer evaluation framework:
+A 3-layer evaluation framework using RAGAS metrics (no LLM-as-judge):
 
-| Layer | Purpose | Metrics |
-|-------|---------|---------|
-| **Retrieval** | Context quality | Contextual Precision, Contextual Recall, Graph Traversal Efficiency, Subgraph Connectivity |
-| **Agentic** | Reasoning quality | Tool Selection Accuracy, Argument Correctness, Loop Efficiency, Rejection Sensitivity |
-| **Integrity** | KG updates | Schema Adherence, Entity Disambiguation, Source Citation Accuracy |
-| **Generation** | Answer quality | Faithfulness, Answer Relevance, Citation Recall |
+| Layer | Metrics | Method |
+|-------|---------|--------|
+| **Retrieval** | Context Precision, Context Recall | RAGAS |
+| **Agentic** | Loop Efficiency, Rejection Sensitivity | Formula-based |
+| **Generation** | Faithfulness, Answer Relevancy, Answer Correctness, Factual Correctness | RAGAS |
+
+> **Note:** Integrity layer disabled - all metrics used LLM-as-judge which has been removed.
 
 ```bash
-# Run complete evaluation
+# Run complete evaluation (8 test cases across 3 layers)
 python benchmarks/run_complete_eval.py
 
-# Run ablation study
-python benchmarks/enterprise_ablation_study.py
+# Ablation study with follow-up planning
+python benchmarks/followup_ablation_study.py --quick
 
-# Quick validation (4 test cases)
-python benchmarks/enterprise_ablation_study.py --quick
+# Improved ablation study
+python benchmarks/improved_ablation_study.py --study1 --test-run
+```
+
+### Uncertainty Metrics (`uncertainty_metrics.py`)
+
+Objective confidence scoring replacing LLM self-reported confidence:
+
+| Metric | Description | Interpretation |
+|--------|-------------|----------------|
+| **Perplexity** | Token probability via Ollama logprobs | Lower = more certain |
+| **Semantic Entropy** | Consistency across multiple generations | Lower = more certain |
+| **Embedding Consistency** | Cosine similarity of answer embeddings | Higher = more certain |
+| **Combined Confidence** | Weighted average (40/30/30) | 0-1 scale |
+
+```bash
+# View detailed uncertainty scores
+python agent_qa.py --question "What is inflation?" --verbose
 ```
 
 ### Ablation Study
@@ -146,7 +165,14 @@ Tests impact of each agent feature:
 | `no_compression` | Disable context compression |
 | `no_web` | Disable web search |
 | `no_auto_ingest` | Disable auto document ingestion |
+| `followup_v*h*` | Follow-up question planning with configurable vector/hop limits |
 | `minimal` | All features OFF |
+
+**Key Insights:**
+- Results vary significantly based on test case selection and knowledge graph content
+- Simpler configurations often outperform feature-rich baseline on graph-focused queries
+- Follow-up planning can improve multi-hop reasoning questions
+- Run your own ablation study to find optimal config for your use case
 
 ## Project Structure
 
@@ -154,19 +180,22 @@ Tests impact of each agent feature:
 llm2kg/
 ├── agent_skb.py          # Knowledge graph construction agent
 ├── agent_qa.py           # ReAct QA agent
+├── uncertainty_metrics.py # Confidence scoring (perplexity, entropy, consistency)
 ├── planned_graphrag.py   # CLaRa-style retrieval planning
 ├── ontologies.py         # Dynamic ontology extraction
 ├── graphrag.py           # GraphRAG retrieval utilities
 ├── skb_graphrag.py       # SKB-specific GraphRAG
-├── build_skb.py          # Legacy KG builder
 ├── frontend/
 │   └── app.py            # Chainlit web application
 ├── prompts/              # LLM prompts and templates
 ├── benchmarks/
-│   ├── enterprise_eval/  # 4-layer evaluation framework
-│   ├── enterprise_ablation_study.py
+│   ├── agent_eval/       # RAGAS-based evaluation framework
+│   │   ├── config.py     # Thresholds and LLM configuration
+│   │   ├── runner.py     # Evaluation orchestrator
+│   │   └── metrics/      # RAGAS + formula-based metrics
 │   ├── run_complete_eval.py
-│   └── legacy_eval.py    # Original 6-metric evaluator
+│   ├── followup_ablation_study.py
+│   └── improved_ablation_study.py
 ├── tests/                # Test suites
 ├── finetuning/           # SFT and DPO training pipelines
 └── docker-compose.yml
@@ -186,6 +215,9 @@ Source: [cais/wmdp-mmlu-auxiliary-corpora](https://huggingface.co/datasets/cais/
 - Docker & Docker Compose
 - Python 3.10+
 - Neo4j (runs in container)
-- Ollama with `nemotron-3-nano:30b` model (for local inference)
-- OpenAI API key (for evaluation judge)
+- Ollama with:
+  - `nemotron-3-nano:30b` model (main inference)
+  - `qwen3-embedding:8b` model (embeddings)
+- Google API key (primary) or OpenAI API key (fallback) for RAGAS evaluation
 - Tavily API key (optional, for web search)
+- RAGAS package (`pip install ragas`)

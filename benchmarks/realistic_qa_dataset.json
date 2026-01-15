@@ -1,0 +1,222 @@
+{
+  "name": "realistic_grad_student_v1",
+  "description": "Realistic grad-student level questions for GraphRAG evaluation",
+  "created": "2026-01-07",
+  "categories": {
+    "conceptual": "KG-answerable conceptual questions",
+    "multi_hop": "Multi-hop reasoning requiring entity path traversal",
+    "current_events": "Requires web search for current data",
+    "comparison": "Analysis and comparison questions"
+  },
+  "domain_distribution": {
+    "economics": 7,
+    "law": 7,
+    "physics": 6
+  },
+  "questions": [
+    {
+      "id": "econ_concept_01",
+      "question": "What is inflation and what are its primary causes according to economic theory?",
+      "category": "conceptual",
+      "domain": "economics",
+      "requires_web": false,
+      "expected_entities": ["inflation", "demand-pull", "cost-push", "money supply"],
+      "difficulty": "medium",
+      "ground_truth_key_facts": ["sustained price level increase", "demand-pull inflation", "cost-push inflation", "monetary factors"]
+    },
+    {
+      "id": "econ_concept_02",
+      "question": "What are the components of aggregate demand and how do they interact?",
+      "category": "conceptual",
+      "domain": "economics",
+      "requires_web": false,
+      "expected_entities": ["aggregate demand", "consumption", "investment", "government spending", "net exports"],
+      "difficulty": "medium",
+      "ground_truth_key_facts": ["consumption", "investment", "government expenditure", "net exports", "AD = C + I + G + (X-M)"]
+    },
+    {
+      "id": "econ_concept_03",
+      "question": "How does the Federal Reserve use monetary policy tools to influence the economy?",
+      "category": "conceptual",
+      "domain": "economics",
+      "requires_web": false,
+      "expected_entities": ["monetary policy", "federal reserve", "interest rates", "money supply", "open market operations"],
+      "difficulty": "medium",
+      "ground_truth_key_facts": ["interest rates", "open market operations", "reserve requirements", "money supply"]
+    },
+    {
+      "id": "law_concept_01",
+      "question": "What are the essential elements required for a valid contract formation?",
+      "category": "conceptual",
+      "domain": "law",
+      "requires_web": false,
+      "expected_entities": ["contract", "offer", "acceptance", "consideration", "capacity"],
+      "difficulty": "medium",
+      "ground_truth_key_facts": ["offer", "acceptance", "consideration", "legal capacity", "lawful purpose"]
+    },
+    {
+      "id": "law_concept_02",
+      "question": "What constitutes due process and what are its procedural requirements?",
+      "category": "conceptual",
+      "domain": "law",
+      "requires_web": false,
+      "expected_entities": ["due process", "procedural due process", "substantive due process", "notice", "hearing"],
+      "difficulty": "medium",
+      "ground_truth_key_facts": ["notice", "opportunity to be heard", "impartial tribunal", "fair procedure"]
+    },
+    {
+      "id": "law_concept_03",
+      "question": "What are the different types of jurisdiction and when do they apply?",
+      "category": "conceptual",
+      "domain": "law",
+      "requires_web": false,
+      "expected_entities": ["jurisdiction", "personal jurisdiction", "subject matter jurisdiction", "federal jurisdiction"],
+      "difficulty": "medium",
+      "ground_truth_key_facts": ["personal jurisdiction", "subject matter jurisdiction", "territorial limits", "federal question"]
+    },
+    {
+      "id": "physics_concept_01",
+      "question": "What are Newton's laws of motion and how do they explain everyday phenomena?",
+      "category": "conceptual",
+      "domain": "physics",
+      "requires_web": false,
+      "expected_entities": ["newton's laws", "inertia", "force", "acceleration", "action-reaction"],
+      "difficulty": "medium",
+      "ground_truth_key_facts": ["inertia", "F=ma", "action-reaction pairs", "force and acceleration"]
+    },
+    {
+      "id": "physics_concept_02",
+      "question": "What is entropy and how does it relate to the second law of thermodynamics?",
+      "category": "conceptual",
+      "domain": "physics",
+      "requires_web": false,
+      "expected_entities": ["entropy", "thermodynamics", "second law", "heat transfer", "disorder"],
+      "difficulty": "medium",
+      "ground_truth_key_facts": ["measure of disorder", "always increases in isolated system", "irreversibility", "heat flow direction"]
+    },
+    {
+      "id": "econ_multihop_01",
+      "question": "Trace the causal chain from expansionary monetary policy through aggregate demand to potential inflation. What mechanisms connect these concepts?",
+      "category": "multi_hop",
+      "domain": "economics",
+      "requires_web": false,
+      "expected_entities": ["monetary policy", "interest rates", "investment", "aggregate demand", "inflation"],
+      "expected_path": ["Monetary Policy", "Interest Rates", "Investment", "Aggregate Demand", "Price Level", "Inflation"],
+      "difficulty": "hard",
+      "ground_truth_key_facts": ["lower interest rates", "increased borrowing", "higher investment", "AD shift right", "demand-pull inflation"]
+    },
+    {
+      "id": "law_multihop_01",
+      "question": "How does a breach of fiduciary duty lead to shareholder derivative suits, and what remedies are available?",
+      "category": "multi_hop",
+      "domain": "law",
+      "requires_web": false,
+      "expected_entities": ["fiduciary duty", "breach", "shareholder", "derivative suit", "remedies"],
+      "expected_path": ["Fiduciary Duty", "Breach", "Shareholder Rights", "Derivative Action", "Court", "Remedies"],
+      "difficulty": "hard",
+      "ground_truth_key_facts": ["duty of care/loyalty", "harm to corporation", "standing requirements", "demand requirement", "equitable remedies"]
+    },
+    {
+      "id": "law_multihop_02",
+      "question": "Explain the relationship between due process violations, judicial review, and constitutional remedies.",
+      "category": "multi_hop",
+      "domain": "law",
+      "requires_web": false,
+      "expected_entities": ["due process", "judicial review", "constitutional rights", "remedies"],
+      "expected_path": ["Due Process", "Violation", "Judicial Review", "Constitutional Rights", "Remedies"],
+      "difficulty": "hard",
+      "ground_truth_key_facts": ["constitutional violation", "court review power", "declaratory relief", "injunctive relief"]
+    },
+    {
+      "id": "physics_multihop_01",
+      "question": "How do changes in system entropy connect to the spontaneity of chemical reactions and equilibrium states?",
+      "category": "multi_hop",
+      "domain": "physics",
+      "requires_web": false,
+      "expected_entities": ["entropy", "gibbs free energy", "spontaneity", "equilibrium"],
+      "expected_path": ["Entropy", "Gibbs Free Energy", "Spontaneity", "Equilibrium", "Thermodynamic State"],
+      "difficulty": "hard",
+      "ground_truth_key_facts": ["delta G = delta H - T*delta S", "negative delta G", "equilibrium constant", "entropy increase"]
+    },
+    {
+      "id": "econ_current_01",
+      "question": "What is the current US inflation rate and how has the Federal Reserve responded with its recent policy decisions?",
+      "category": "current_events",
+      "domain": "economics",
+      "requires_web": true,
+      "expected_tools": ["graph_lookup", "web_search"],
+      "difficulty": "medium",
+      "ground_truth_key_facts": ["current CPI or PCE rate", "recent FOMC decisions", "interest rate changes"]
+    },
+    {
+      "id": "econ_current_02",
+      "question": "What is the latest US GDP growth rate and how does it compare to economic forecasts?",
+      "category": "current_events",
+      "domain": "economics",
+      "requires_web": true,
+      "expected_tools": ["graph_lookup", "web_search"],
+      "difficulty": "medium",
+      "ground_truth_key_facts": ["recent GDP figures", "quarter-over-quarter growth", "forecast comparison"]
+    },
+    {
+      "id": "law_current_01",
+      "question": "What recent Supreme Court decisions have significantly affected corporate regulation or business law?",
+      "category": "current_events",
+      "domain": "law",
+      "requires_web": true,
+      "expected_tools": ["graph_lookup", "web_search"],
+      "difficulty": "medium",
+      "ground_truth_key_facts": ["recent SCOTUS case names", "regulatory impact", "legal precedent changes"]
+    },
+    {
+      "id": "physics_current_01",
+      "question": "What are the latest significant breakthroughs in quantum computing or fusion energy research?",
+      "category": "current_events",
+      "domain": "physics",
+      "requires_web": true,
+      "expected_tools": ["graph_lookup", "web_search"],
+      "difficulty": "medium",
+      "ground_truth_key_facts": ["recent research milestones", "technical achievements", "timeline context"]
+    },
+    {
+      "id": "econ_compare_01",
+      "question": "Compare and contrast Keynesian and Neoclassical economic views on government intervention during recessions.",
+      "category": "comparison",
+      "domain": "economics",
+      "requires_web": false,
+      "expected_entities": ["keynesian economics", "neoclassical economics", "fiscal policy", "government intervention"],
+      "difficulty": "hard",
+      "ground_truth_key_facts": ["aggregate demand focus vs supply-side", "active vs minimal intervention", "sticky prices vs flexible prices", "multiplier effects"]
+    },
+    {
+      "id": "law_compare_01",
+      "question": "Compare common law and civil law approaches to contract enforcement and dispute resolution.",
+      "category": "comparison",
+      "domain": "law",
+      "requires_web": false,
+      "expected_entities": ["common law", "civil law", "contract enforcement", "precedent"],
+      "difficulty": "hard",
+      "ground_truth_key_facts": ["case precedent vs codified statutes", "adversarial vs inquisitorial", "judge role differences", "interpretation methods"]
+    },
+    {
+      "id": "physics_compare_01",
+      "question": "Compare classical and quantum mechanical descriptions of particle behavior and when each applies.",
+      "category": "comparison",
+      "domain": "physics",
+      "requires_web": false,
+      "expected_entities": ["classical mechanics", "quantum mechanics", "wave-particle duality", "uncertainty principle"],
+      "difficulty": "hard",
+      "ground_truth_key_facts": ["deterministic vs probabilistic", "wave function", "Planck scale", "correspondence principle"]
+    },
+    {
+      "id": "physics_compare_02",
+      "question": "How do special relativity and general relativity differ in their treatment of space, time, and gravity?",
+      "category": "comparison",
+      "domain": "physics",
+      "requires_web": false,
+      "expected_entities": ["special relativity", "general relativity", "spacetime", "gravity"],
+      "difficulty": "hard",
+      "ground_truth_key_facts": ["inertial frames vs curved spacetime", "gravity as geometry", "equivalence principle", "time dilation mechanisms"]
+    }
+  ]
+}

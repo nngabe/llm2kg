@@ -111,6 +111,91 @@ Cypher query:"""
 
 
 # =============================================================================
+# FOLLOW-UP QUESTION GENERATION PROMPT
+# =============================================================================
+
+FOLLOW_UP_PLAN_PROMPT = """You are a research assistant. Given a question, generate follow-up questions that would help retrieve relevant information from a knowledge graph.
+
+Question: {question}
+
+Think step-by-step:
+1. What is this question really asking?
+2. What background knowledge is needed?
+3. What sub-questions would help answer the main question?
+4. What concepts need to be understood first?
+
+Generate a plan with follow-up questions as JSON:
+{{
+    "original_analysis": "What the question is asking and what type of answer is expected",
+    "reasoning_steps": [
+        "Step 1: First, I need to understand...",
+        "Step 2: Then, I should find out...",
+        "Step 3: Finally, I need to connect..."
+    ],
+    "follow_up_questions": [
+        {{
+            "question": "What is X and how does it work?",
+            "reasoning": "Need to understand X before explaining its effects",
+            "priority": 1
+        }},
+        {{
+            "question": "What causes Y?",
+            "reasoning": "This connects X to the outcome",
+            "priority": 2
+        }}
+    ],
+    "key_concepts": ["concept1", "concept2", "concept3"]
+}}
+
+Guidelines:
+- Generate 2-4 follow-up questions
+- Priority 1 = essential, 2 = helpful, 3 = nice-to-have
+- Follow-up questions should be searchable (good for vector similarity)
+- Key concepts are nouns/topics that might be entity names
+- Keep reasoning_steps concise but logical
+
+Return ONLY valid JSON."""
+
+
+FOLLOW_UP_PLAN_PROMPT_WITH_THINKING = """You are a research assistant with deep reasoning capabilities. Given a question, think carefully about what information is needed, then generate follow-up questions.
+
+Question: {question}
+
+<detailed_thinking>
+First, let me analyze this question thoroughly:
+- What type of question is this? (factual, causal, comparative, procedural)
+- What domain knowledge is required?
+- What are the key entities and relationships involved?
+- What would a complete answer look like?
+
+Now, let me reason about what I need to find:
+- What foundational concepts must be understood first?
+- What causal chains or processes are involved?
+- What evidence or examples would strengthen the answer?
+</detailed_thinking>
+
+Based on your thinking, generate a structured plan as JSON:
+{{
+    "original_analysis": "Deep analysis of what the question requires",
+    "reasoning_steps": [
+        "Step 1: ...",
+        "Step 2: ...",
+        "Step 3: ..."
+    ],
+    "follow_up_questions": [
+        {{
+            "question": "Specific searchable question",
+            "reasoning": "Why this helps",
+            "priority": 1
+        }}
+    ],
+    "key_concepts": ["concept1", "concept2"]
+}}
+
+Return ONLY valid JSON after your thinking."""
+
+
+# =============================================================================
 # ENTITY EXTRACTION FROM QUESTION
 # =============================================================================
 
@@ -182,3 +267,18 @@ def format_observation_compression_prompt(question: str, observation: str) -> st
 def format_pattern_to_cypher_prompt(pattern: str) -> str:
     """Format the pattern-to-cypher prompt."""
     return PATTERN_TO_CYPHER_PROMPT.format(pattern=pattern)
+
+
+def format_follow_up_plan_prompt(question: str, use_thinking: bool = False) -> str:
+    """Format the follow-up question generation prompt.
+
+    Args:
+        question: The original question
+        use_thinking: If True, use the detailed thinking prompt variant
+
+    Returns:
+        Formatted prompt string
+    """
+    if use_thinking:
+        return FOLLOW_UP_PLAN_PROMPT_WITH_THINKING.format(question=question)
+    return FOLLOW_UP_PLAN_PROMPT.format(question=question)

@@ -14,6 +14,8 @@ import logging
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 
+from json_repair import repair_json
+
 from pydantic import BaseModel, Field
 from neo4j import GraphDatabase
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
@@ -28,6 +30,7 @@ from prompts.retrieval_prompts import (
     format_compression_prompt,
     format_pattern_to_cypher_prompt,
     format_observation_compression_prompt,
+    format_follow_up_plan_prompt,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -45,6 +48,21 @@ class RetrievalPlan(BaseModel):
     entity_targets: List[str] = Field(default_factory=list, description="Specific entities to look up")
     relationship_queries: List[str] = Field(default_factory=list, description="Relationship patterns to find")
     fallback_searches: List[str] = Field(default_factory=list, description="Web searches if graph fails")
+
+
+class FollowUpQuestion(BaseModel):
+    """A follow-up question with reasoning."""
+    question: str = Field(description="The follow-up question to search")
+    reasoning: str = Field(default="", description="Why this question helps answer the original")
+    priority: int = Field(default=1, ge=1, le=3, description="Priority 1=high, 2=medium, 3=low")
+
+
+class FollowUpPlan(BaseModel):
+    """Plan using follow-up questions instead of entity/relationship targets."""
+    original_analysis: str = Field(default="", description="Analysis of what the original question is asking")
+    reasoning_steps: List[str] = Field(default_factory=list, description="Step-by-step reasoning about what info is needed")
+    follow_up_questions: List[FollowUpQuestion] = Field(default_factory=list, description="Follow-up questions to search")
+    key_concepts: List[str] = Field(default_factory=list, description="Key concepts extracted from reasoning")
 
 
 @dataclass
@@ -280,6 +298,50 @@ class PlannedGraphRAG:
 
         return ctx
 
+    def _escape_entity(self, entity: str) -> str:
+        """Escape entity names for safe use in Cypher queries."""
+        if not entity:
+            return ""
+        # Escape single quotes and backslashes
+        return entity.replace("\\", "\\\\").replace("'", "\\'")
+
+    def _clean_cypher(self, query: str) -> str:
+        """Clean Cypher query by removing markdown code blocks."""
+        if not query:
+            return ""
+        query = query.strip()
+        # Remove markdown code block markers
+        if query.startswith("```cypher"):
+            query = query[9:]  # Remove ```cypher
+        elif query.startswith("```"):
+            query = query[3:]  # Remove ```
+        if query.endswith("```"):
+            query = query[:-3]  # Remove trailing ```
+        return query.strip()
+
+    def _validate_cypher(self, query: str) -> bool:
+        """Basic Cypher syntax validation."""
+        if not query or not query.strip():
+            return False
+        # Reject if still has markdown markers after cleaning
+        if "```" in query:
+            return False
+        query_upper = query.upper()
+        # Must have MATCH and RETURN
+        if "MATCH" not in query_upper:
+            return False
+        if "RETURN" not in query_upper:
+            return False
+        # Check balanced parentheses and brackets
+        if query.count("(") != query.count(")"):
+            return False
+        if query.count("[") != query.count("]"):
+            return False
+        # Check for common syntax issues
+        if "''" in query:  # Empty string literals often indicate issues
+            return False
+        return True
+
     def _pattern_to_cypher(self, pattern: str) -> str:
         """
         Convert natural language pattern to Cypher query.
@@ -291,7 +353,7 @@ class PlannedGraphRAG:
         """
         # Try rule-based conversion first
         cypher = self._rule_based_pattern_to_cypher(pattern)
-        if cypher:
+        if cypher and self._validate_cypher(cypher):
             return cypher
 
         # Fallback to LLM conversion
@@ -300,23 +362,28 @@ class PlannedGraphRAG:
             response = self.llm.invoke(prompt)
             cypher = response.content.strip()
 
-            # Basic validation
-            if cypher.upper().startswith("MATCH"):
+            # Clean markdown code blocks from LLM response
+            cypher = self._clean_cypher(cypher)
+
+            # Validate the generated Cypher
+            if self._validate_cypher(cypher):
                 return cypher
+            else:
+                logger.warning(f"LLM generated invalid Cypher: {cypher[:100]}...")
         except Exception as e:
             logger.warning(f"LLM pattern conversion failed: {e}")
 
         return ""
 
     def _rule_based_pattern_to_cypher(self, pattern: str) -> str:
-        """Rule-based pattern to Cypher conversion."""
+        """Rule-based pattern to Cypher conversion with proper escaping."""
         pattern = pattern.strip()
 
         # Pattern: "Entity -[REL_TYPE]-> ?"
         match = re.match(r"(.+?)\s*-\[([A-Z_]+)\]->\s*\?", pattern)
         if match:
             entity, rel_type = match.groups()
-            entity = entity.strip()
+            entity = self._escape_entity(entity.strip())
             return f"""
             MATCH (a)-[r:{rel_type}]->(b)
             WHERE toLower(a.name) = toLower('{entity}') OR toLower(a.id) = toLower('{entity}')
@@ -328,7 +395,7 @@ class PlannedGraphRAG:
         match = re.match(r"\?\s*-\[([A-Z_]+)\]->\s*(.+)", pattern)
         if match:
             rel_type, entity = match.groups()
-            entity = entity.strip()
+            entity = self._escape_entity(entity.strip())
             return f"""
             MATCH (a)-[r:{rel_type}]->(b)
             WHERE toLower(b.name) = toLower('{entity}') OR toLower(b.id) = toLower('{entity}')
@@ -340,7 +407,8 @@ class PlannedGraphRAG:
         match = re.match(r"(.+?)\s*-\[\?\]->\s*(.+)", pattern)
         if match:
             entity1, entity2 = match.groups()
-            entity1, entity2 = entity1.strip(), entity2.strip()
+            entity1 = self._escape_entity(entity1.strip())
+            entity2 = self._escape_entity(entity2.strip())
             return f"""
             MATCH (a)-[r]->(b)
             WHERE (toLower(a.name) = toLower('{entity1}') OR toLower(a.id) = toLower('{entity1}'))
@@ -353,7 +421,7 @@ class PlannedGraphRAG:
         match = re.match(r"(.+?)\s*-\[\*(\d+)\]->\s*\?", pattern)
         if match:
             entity, hops = match.groups()
-            entity = entity.strip()
+            entity = self._escape_entity(entity.strip())
             return f"""
             MATCH path = (a)-[*1..{hops}]->(b)
             WHERE toLower(a.name) = toLower('{entity}') OR toLower(a.id) = toLower('{entity}')
@@ -470,7 +538,12 @@ def parse_retrieval_plan(response_text: str) -> RetrievalPlan:
         elif "```" in text:
             text = text.split("```")[1].split("```")[0]
 
-        data = json.loads(text)
+        # Try to repair malformed JSON before parsing
+        try:
+            repaired_text = repair_json(text)
+            data = json.loads(repaired_text)
+        except Exception:
+            data = json.loads(text)
 
         return RetrievalPlan(
             reasoning=data.get("reasoning", ""),
@@ -482,6 +555,719 @@ def parse_retrieval_plan(response_text: str) -> RetrievalPlan:
     except (json.JSONDecodeError, KeyError) as e:
         logger.warning(f"Failed to parse retrieval plan: {e}")
         return RetrievalPlan()
+
+
+# =============================================================================
+# IMPROVED GRAPHRAG (Keywords + Vector → Fixed Hop Sampling)
+# =============================================================================
+
+class ImprovedGraphRAG:
+    """
+    Improved GraphRAG that avoids LLM-generated Cypher queries.
+
+    Uses a reliable flow:
+    1. Extract keywords from question (via LLM planning)
+    2. Vector search for each keyword → top-K entities
+    3. Fixed N-hop traversal from each entity (NO dynamic Cypher)
+    4. Compress combined context
+
+    This eliminates the failure modes of LLM-generated Cypher:
+    - Deprecated syntax (EXISTS())
+    - UNION column mismatches
+    - Invalid property references
+    """
+
+    def __init__(
+        self,
+        neo4j_uri: str = None,
+        neo4j_user: str = None,
+        neo4j_password: str = None,
+        llm: Optional[Any] = None,
+        embedding_model: Optional[Any] = None,
+        max_hops: int = 2,
+        vector_limit: int = 5,
+        compression_enabled: bool = True,
+    ):
+        """
+        Initialize ImprovedGraphRAG.
+
+        Args:
+            neo4j_uri: Neo4j connection URI
+            neo4j_user: Neo4j username
+            neo4j_password: Neo4j password
+            llm: LLM for keyword extraction and compression
+            embedding_model: Embedding model for vector search
+            max_hops: Maximum hops for graph traversal (1, 2, or 3)
+            vector_limit: Maximum entities per keyword from vector search
+            compression_enabled: Whether to compress retrieved context
+        """
+        neo4j_uri = neo4j_uri or os.getenv("NEO4J_URI", "neo4j://host.docker.internal:7687")
+        neo4j_user = neo4j_user or os.getenv("NEO4J_USERNAME", "neo4j")
+        neo4j_password = neo4j_password or os.getenv("NEO4J_PASSWORD", "password")
+        self.driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
+        self.llm = llm or ChatOllama(
+            model=OLLAMA_UTILITY_MODEL,
+            base_url=OLLAMA_HOST,
+            temperature=0,
+        )
+        self.embedding_model = embedding_model or OllamaEmbeddings(
+            model="qwen3-embedding:8b",
+            base_url=OLLAMA_HOST,
+        )
+        self.max_hops = max_hops
+        self.vector_limit = vector_limit
+        self.compression_enabled = compression_enabled
+
+    def close(self):
+        """Close database connection."""
+        self.driver.close()
+
+    def retrieve_with_keywords(self, keywords: List[str], question: str) -> GraphContext:
+        """
+        Keywords + Vector → Fixed Hop Sampling retrieval.
+
+        Args:
+            keywords: Keywords/topics extracted from question
+            question: The original question (for compression)
+
+        Returns:
+            GraphContext with retrieved entities and relationships
+        """
+        all_entities = []
+        seen_names = set()
+
+        # Step 1: Vector search for each keyword
+        for keyword in keywords:
+            entities = self._vector_search_entities(keyword, limit=self.vector_limit)
+            for entity in entities:
+                if entity.entity_name.lower() not in seen_names:
+                    all_entities.append(entity)
+                    seen_names.add(entity.entity_name.lower())
+
+        logger.info(f"Vector search found {len(all_entities)} unique entities from {len(keywords)} keywords")
+
+        # Step 2: Fixed N-hop traversal from each entity (NO LLM Cypher)
+        context = GraphContext()
+        for entity in all_entities[:10]:  # Limit seed entities to avoid explosion
+            neighbors = self._fixed_hop_traversal(entity.entity_name, hops=self.max_hops)
+            entity.relationships = neighbors
+            context.entities.append(entity)
+
+        # Step 3: Format raw context
+        context.raw_text = self._format_context(context)
+        logger.info(f"Raw context size: {len(context.raw_text)} chars")
+
+        # Step 4: Compress if enabled
+        if self.compression_enabled and len(context.raw_text) > 1000:
+            context.compressed_text = self._compress_context(context.raw_text, question)
+            logger.info(f"Compressed to: {len(context.compressed_text)} chars")
+        else:
+            context.compressed_text = context.raw_text
+
+        return context
+
+    def retrieve_direct(self, question: str) -> GraphContext:
+        """
+        Direct vector search on question (no keyword extraction).
+
+        Args:
+            question: The question to retrieve context for
+
+        Returns:
+            GraphContext with retrieved entities
+        """
+        # Embed the question directly
+        entities = self._vector_search_entities(question, limit=self.vector_limit * 2)
+
+        context = GraphContext()
+        for entity in entities[:10]:
+            neighbors = self._fixed_hop_traversal(entity.entity_name, hops=self.max_hops)
+            entity.relationships = neighbors
+            context.entities.append(entity)
+
+        context.raw_text = self._format_context(context)
+
+        if self.compression_enabled and len(context.raw_text) > 1000:
+            context.compressed_text = self._compress_context(context.raw_text, question)
+        else:
+            context.compressed_text = context.raw_text
+
+        return context
+
+    def _vector_search_entities(self, query: str, limit: int = 5) -> List[EntityContext]:
+        """
+        Vector search for entities matching query.
+
+        Args:
+            query: Search query (keyword or question)
+            limit: Maximum entities to return
+
+        Returns:
+            List of EntityContext objects
+        """
+        try:
+            # Embed the query
+            query_embedding = self.embedding_model.embed_query(query)
+
+            # Vector search query
+            vector_query = """
+            CALL db.index.vector.queryNodes('entity_embeddings', $limit, $embedding)
+            YIELD node, score
+            RETURN node.name as name,
+                   node.description as description,
+                   labels(node) as labels,
+                   score
+            ORDER BY score DESC
+            """
+
+            with self.driver.session() as session:
+                result = session.run(
+                    vector_query,
+                    embedding=query_embedding,
+                    limit=limit
+                )
+
+                entities = []
+                for record in result:
+                    entities.append(EntityContext(
+                        entity_name=record["name"],
+                        entity_data={
+                            "description": record["description"],
+                            "labels": record["labels"],
+                            "score": record["score"],
+                        },
+                        found=True,
+                    ))
+                return entities
+
+        except Exception as e:
+            logger.warning(f"Vector search failed for '{query}': {e}")
+            # Fallback to name-based search
+            return self._name_search_entities(query, limit)
+
+    def _name_search_entities(self, query: str, limit: int = 5) -> List[EntityContext]:
+        """Fallback name-based entity search."""
+        try:
+            name_query = """
+            MATCH (e)
+            WHERE toLower(e.name) CONTAINS toLower($query)
+            RETURN e.name as name,
+                   e.description as description,
+                   labels(e) as labels
+            LIMIT $limit
+            """
+
+            with self.driver.session() as session:
+                result = session.run(name_query, query=query, limit=limit)
+
+                entities = []
+                for record in result:
+                    entities.append(EntityContext(
+                        entity_name=record["name"],
+                        entity_data={
+                            "description": record["description"],
+                            "labels": record["labels"],
+                        },
+                        found=True,
+                    ))
+                return entities
+
+        except Exception as e:
+            logger.warning(f"Name search failed for '{query}': {e}")
+            return []
+
+    def _fixed_hop_traversal(self, entity_name: str, hops: int = 2) -> List[Dict[str, Any]]:
+        """
+        Fixed template traversal - NO dynamic Cypher.
+
+        This query template NEVER changes, making it highly reliable.
+
+        Args:
+            entity_name: Starting entity name
+            hops: Number of hops (1, 2, or 3)
+
+        Returns:
+            List of relationship dictionaries
+        """
+        # Fixed template - parameterized only by hops count
+        # This avoids all LLM-generated Cypher failures
+        query = f"""
+        MATCH (e)-[r*1..{hops}]-(neighbor)
+        WHERE toLower(e.name) = toLower($name)
+        WITH neighbor, r
+        UNWIND r as rel
+        RETURN DISTINCT
+            neighbor.name as neighbor_name,
+            neighbor.description as neighbor_desc,
+            labels(neighbor) as neighbor_labels,
+            type(rel) as rel_type,
+            startNode(rel).name as source,
+            endNode(rel).name as target
+        LIMIT 30
+        """
+
+        try:
+            with self.driver.session() as session:
+                result = session.run(query, name=entity_name)
+
+                relationships = []
+                for record in result:
+                    relationships.append({
+                        "neighbor_name": record["neighbor_name"],
+                        "neighbor_desc": record["neighbor_desc"],
+                        "neighbor_labels": record["neighbor_labels"],
+                        "rel_type": record["rel_type"],
+                        "source": record["source"],
+                        "target": record["target"],
+                    })
+                return relationships
+
+        except Exception as e:
+            logger.warning(f"Hop traversal failed for '{entity_name}': {e}")
+            return []
+
+    def _format_context(self, context: GraphContext) -> str:
+        """Format retrieved context as readable text."""
+        parts = []
+
+        for i, entity in enumerate(context.entities, 1):
+            entity_part = f"[Entity {i}] {entity.entity_name}"
+            if entity.entity_data.get("description"):
+                entity_part += f"\n  Description: {entity.entity_data['description']}"
+            if entity.entity_data.get("labels"):
+                entity_part += f"\n  Type: {', '.join(entity.entity_data['labels'])}"
+
+            # Add relationships
+            if entity.relationships:
+                entity_part += "\n  Relationships:"
+                seen_rels = set()
+                for rel in entity.relationships[:10]:  # Limit per entity
+                    rel_key = f"{rel['source']}-{rel['rel_type']}-{rel['target']}"
+                    if rel_key not in seen_rels:
+                        entity_part += f"\n    - {rel['source']} --[{rel['rel_type']}]--> {rel['target']}"
+                        seen_rels.add(rel_key)
+
+            parts.append(entity_part)
+
+        return "\n\n".join(parts)
+
+    def _compress_context(self, raw_context: str, question: str) -> str:
+        """Compress context to relevant facts."""
+        try:
+            prompt = format_compression_prompt(question, raw_context)
+            response = self.llm.invoke(prompt)
+            return response.content.strip()
+        except Exception as e:
+            logger.warning(f"Compression failed: {e}")
+            # Truncate as fallback
+            return raw_context[:2000]
+
+    def compress_observation(self, observation: str, question: str) -> str:
+        """Compress a single tool observation."""
+        if len(observation) < 500:
+            return observation
+
+        try:
+            prompt = format_observation_compression_prompt(question, observation)
+            response = self.llm.invoke(prompt)
+            return response.content.strip()
+        except Exception as e:
+            logger.warning(f"Observation compression failed: {e}")
+            return observation[:500]
+
+
+# =============================================================================
+# FOLLOW-UP PLAN PARSER
+# =============================================================================
+
+def parse_follow_up_plan(response_text: str) -> FollowUpPlan:
+    """
+    Parse LLM response into a FollowUpPlan.
+
+    Args:
+        response_text: JSON response from the planning LLM
+
+    Returns:
+        FollowUpPlan object
+    """
+    try:
+        # Extract JSON from response
+        text = response_text.strip()
+
+        # Handle thinking blocks - extract JSON after </detailed_thinking>
+        if "</detailed_thinking>" in text:
+            text = text.split("</detailed_thinking>")[-1].strip()
+
+        if "```json" in text:
+            text = text.split("```json")[1].split("```")[0]
+        elif "```" in text:
+            text = text.split("```")[1].split("```")[0]
+
+        # Try to repair malformed JSON before parsing
+        try:
+            repaired_text = repair_json(text)
+            data = json.loads(repaired_text)
+        except Exception:
+            data = json.loads(text)
+
+        # Parse follow-up questions
+        follow_ups = []
+        for fq in data.get("follow_up_questions", []):
+            follow_ups.append(FollowUpQuestion(
+                question=fq.get("question", ""),
+                reasoning=fq.get("reasoning", ""),
+                priority=fq.get("priority", 2),
+            ))
+
+        return FollowUpPlan(
+            original_analysis=data.get("original_analysis", ""),
+            reasoning_steps=data.get("reasoning_steps", []),
+            follow_up_questions=follow_ups,
+            key_concepts=data.get("key_concepts", []),
+        )
+    except (json.JSONDecodeError, KeyError) as e:
+        logger.warning(f"Failed to parse follow-up plan: {e}")
+        return FollowUpPlan()
+
+
+# =============================================================================
+# FOLLOW-UP GRAPHRAG (Dual Vector Search)
+# =============================================================================
+
+class FollowUpGraphRAG:
+    """
+    GraphRAG using follow-up question planning with dual vector search.
+
+    Strategy:
+    1. Generate follow-up questions from original query (with reasoning)
+    2. Primary search: Original query with v5_h4 (5 vectors, 4 hops)
+    3. Secondary search: Follow-up questions with v3_h2 (3 vectors, 2 hops)
+    4. Merge and compress results
+
+    This approach:
+    - Uses LLM reasoning to decompose complex questions
+    - Avoids brittle entity name extraction
+    - Avoids LLM-generated Cypher (uses fixed templates only)
+    - Provides broader context through multiple search angles
+    """
+
+    def __init__(
+        self,
+        neo4j_uri: str = None,
+        neo4j_user: str = None,
+        neo4j_password: str = None,
+        planning_llm: Optional[Any] = None,
+        utility_llm: Optional[Any] = None,
+        embedding_model: Optional[Any] = None,
+        primary_vector_limit: int = 5,
+        primary_max_hops: int = 4,
+        secondary_vector_limit: int = 3,
+        secondary_max_hops: int = 2,
+        compression_enabled: bool = True,
+        planning_reasoning: bool = False,
+    ):
+        """
+        Initialize FollowUpGraphRAG.
+
+        Args:
+            neo4j_uri: Neo4j connection URI
+            neo4j_user: Neo4j username
+            neo4j_password: Neo4j password
+            planning_llm: LLM for follow-up question generation (can have thinking enabled)
+            utility_llm: LLM for compression (faster model)
+            embedding_model: Embedding model for vector search
+            primary_vector_limit: Max entities for original query search (default: 5)
+            primary_max_hops: Max hops for original query traversal (default: 4)
+            secondary_vector_limit: Max entities per follow-up question (default: 3)
+            secondary_max_hops: Max hops for follow-up traversal (default: 2)
+            compression_enabled: Whether to compress retrieved context
+            planning_reasoning: Whether to use detailed thinking prompt
+        """
+        neo4j_uri = neo4j_uri or os.getenv("NEO4J_URI", "neo4j://host.docker.internal:7687")
+        neo4j_user = neo4j_user or os.getenv("NEO4J_USERNAME", "neo4j")
+        neo4j_password = neo4j_password or os.getenv("NEO4J_PASSWORD", "password")
+        self.driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
+
+        # Planning LLM (can be nemotron with thinking enabled)
+        self.planning_llm = planning_llm or ChatOllama(
+            model=os.getenv("OLLAMA_MAIN_MODEL", "nemotron-3-nano:30b"),
+            base_url=OLLAMA_HOST,
+            temperature=0,
+            num_ctx=8192,
+        )
+
+        # Utility LLM for compression (smaller, faster)
+        self.utility_llm = utility_llm or ChatOllama(
+            model=OLLAMA_UTILITY_MODEL,
+            base_url=OLLAMA_HOST,
+            temperature=0,
+        )
+
+        self.embedding_model = embedding_model or OllamaEmbeddings(
+            model="qwen3-embedding:8b",
+            base_url=OLLAMA_HOST,
+        )
+
+        # Search parameters
+        self.primary_vector_limit = primary_vector_limit
+        self.primary_max_hops = primary_max_hops
+        self.secondary_vector_limit = secondary_vector_limit
+        self.secondary_max_hops = secondary_max_hops
+        self.compression_enabled = compression_enabled
+        self.planning_reasoning = planning_reasoning
+
+    def close(self):
+        """Close database connection."""
+        self.driver.close()
+
+    def generate_follow_up_plan(self, question: str) -> FollowUpPlan:
+        """
+        Generate follow-up questions for the query.
+
+        Args:
+            question: Original question
+
+        Returns:
+            FollowUpPlan with reasoning and follow-up questions
+        """
+        try:
+            prompt = format_follow_up_plan_prompt(question, use_thinking=self.planning_reasoning)
+            response = self.planning_llm.invoke(prompt)
+            plan = parse_follow_up_plan(response.content)
+
+            logger.info(f"Generated follow-up plan: {len(plan.follow_up_questions)} questions, "
+                       f"{len(plan.key_concepts)} concepts")
+            return plan
+
+        except Exception as e:
+            logger.error(f"Follow-up plan generation failed: {e}")
+            return FollowUpPlan()
+
+    def retrieve_with_follow_ups(self, question: str, plan: Optional[FollowUpPlan] = None) -> GraphContext:
+        """
+        Dual vector search: original query (v5_h4) + follow-ups (v3_h2).
+
+        Args:
+            question: Original question
+            plan: Optional pre-generated plan (if None, generates one)
+
+        Returns:
+            GraphContext with merged results
+        """
+        # Generate plan if not provided
+        if plan is None:
+            plan = self.generate_follow_up_plan(question)
+
+        context = GraphContext()
+        all_entities = []
+        seen_names = set()
+
+        # === PRIMARY SEARCH: Original query with v5_h4 ===
+        logger.info(f"Primary search: '{question[:50]}...' (v{self.primary_vector_limit}_h{self.primary_max_hops})")
+        primary_entities = self._vector_search_entities(question, limit=self.primary_vector_limit)
+
+        for entity in primary_entities:
+            if entity.entity_name.lower() not in seen_names:
+                # Full traversal for primary entities
+                neighbors = self._fixed_hop_traversal(entity.entity_name, hops=self.primary_max_hops)
+                entity.relationships = neighbors
+                entity.entity_data["search_source"] = "primary"
+                all_entities.append(entity)
+                seen_names.add(entity.entity_name.lower())
+
+        logger.info(f"Primary search found {len(primary_entities)} entities")
+
+        # === SECONDARY SEARCH: Follow-up questions with v3_h2 ===
+        for i, fq in enumerate(plan.follow_up_questions[:3]):  # Max 3 follow-ups
+            logger.info(f"Secondary search {i+1}: '{fq.question[:40]}...' (v{self.secondary_vector_limit}_h{self.secondary_max_hops})")
+            secondary_entities = self._vector_search_entities(fq.question, limit=self.secondary_vector_limit)
+
+            for entity in secondary_entities:
+                if entity.entity_name.lower() not in seen_names:
+                    # Shallower traversal for secondary entities
+                    neighbors = self._fixed_hop_traversal(entity.entity_name, hops=self.secondary_max_hops)
+                    entity.relationships = neighbors
+                    entity.entity_data["search_source"] = f"followup_{i+1}"
+                    entity.entity_data["followup_question"] = fq.question
+                    all_entities.append(entity)
+                    seen_names.add(entity.entity_name.lower())
+
+        logger.info(f"Total unique entities: {len(all_entities)}")
+
+        # === ALSO SEARCH KEY CONCEPTS ===
+        for concept in plan.key_concepts[:5]:
+            if concept.lower() not in seen_names:
+                concept_entities = self._vector_search_entities(concept, limit=2)
+                for entity in concept_entities:
+                    if entity.entity_name.lower() not in seen_names:
+                        neighbors = self._fixed_hop_traversal(entity.entity_name, hops=self.secondary_max_hops)
+                        entity.relationships = neighbors
+                        entity.entity_data["search_source"] = "key_concept"
+                        all_entities.append(entity)
+                        seen_names.add(entity.entity_name.lower())
+
+        context.entities = all_entities
+
+        # === FORMAT AND COMPRESS ===
+        context.raw_text = self._format_context_with_plan(context, plan)
+        logger.info(f"Raw context size: {len(context.raw_text)} chars")
+
+        if self.compression_enabled and len(context.raw_text) > 1000:
+            context.compressed_text = self._compress_context(context.raw_text, question)
+            logger.info(f"Compressed to: {len(context.compressed_text)} chars")
+        else:
+            context.compressed_text = context.raw_text
+
+        return context
+
+    def _vector_search_entities(self, query: str, limit: int = 5) -> List[EntityContext]:
+        """Vector search for entities matching query."""
+        try:
+            query_embedding = self.embedding_model.embed_query(query)
+
+            vector_query = """
+            CALL db.index.vector.queryNodes('entity_embeddings', $limit, $embedding)
+            YIELD node, score
+            RETURN node.name as name,
+                   node.description as description,
+                   labels(node) as labels,
+                   score
+            ORDER BY score DESC
+            """
+
+            with self.driver.session() as session:
+                result = session.run(
+                    vector_query,
+                    embedding=query_embedding,
+                    limit=limit
+                )
+
+                entities = []
+                for record in result:
+                    entities.append(EntityContext(
+                        entity_name=record["name"],
+                        entity_data={
+                            "description": record["description"],
+                            "labels": record["labels"],
+                            "score": record["score"],
+                        },
+                        found=True,
+                    ))
+                return entities
+
+        except Exception as e:
+            logger.warning(f"Vector search failed for '{query}': {e}")
+            return []
+
+    def _fixed_hop_traversal(self, entity_name: str, hops: int = 2) -> List[Dict[str, Any]]:
+        """Fixed template traversal - NO dynamic Cypher."""
+        query = f"""
+        MATCH (e)-[r*1..{hops}]-(neighbor)
+        WHERE toLower(e.name) = toLower($name)
+        WITH neighbor, r
+        UNWIND r as rel
+        RETURN DISTINCT
+            neighbor.name as neighbor_name,
+            neighbor.description as neighbor_desc,
+            labels(neighbor) as neighbor_labels,
+            type(rel) as rel_type,
+            startNode(rel).name as source,
+            endNode(rel).name as target
+        LIMIT 30
+        """
+
+        try:
+            with self.driver.session() as session:
+                result = session.run(query, name=entity_name)
+
+                relationships = []
+                for record in result:
+                    relationships.append({
+                        "neighbor_name": record["neighbor_name"],
+                        "neighbor_desc": record["neighbor_desc"],
+                        "neighbor_labels": record["neighbor_labels"],
+                        "rel_type": record["rel_type"],
+                        "source": record["source"],
+                        "target": record["target"],
+                    })
+                return relationships
+
+        except Exception as e:
+            logger.warning(f"Hop traversal failed for '{entity_name}': {e}")
+            return []
+
+    def _format_context_with_plan(self, context: GraphContext, plan: FollowUpPlan) -> str:
+        """Format retrieved context with plan reasoning."""
+        parts = []
+
+        # Include reasoning if available
+        if plan.reasoning_steps:
+            parts.append("=== REASONING ===")
+            for i, step in enumerate(plan.reasoning_steps, 1):
+                parts.append(f"{i}. {step}")
+            parts.append("")
+
+        # Group entities by source
+        primary = [e for e in context.entities if e.entity_data.get("search_source") == "primary"]
+        secondary = [e for e in context.entities if "followup" in str(e.entity_data.get("search_source", ""))]
+        concepts = [e for e in context.entities if e.entity_data.get("search_source") == "key_concept"]
+
+        if primary:
+            parts.append("=== PRIMARY RESULTS ===")
+            parts.append(self._format_entity_list(primary))
+
+        if secondary:
+            parts.append("=== FOLLOW-UP RESULTS ===")
+            parts.append(self._format_entity_list(secondary))
+
+        if concepts:
+            parts.append("=== KEY CONCEPT RESULTS ===")
+            parts.append(self._format_entity_list(concepts))
+
+        return "\n".join(parts)
+
+    def _format_entity_list(self, entities: List[EntityContext]) -> str:
+        """Format a list of entities."""
+        parts = []
+        for entity in entities:
+            entity_part = f"[{entity.entity_name}]"
+            if entity.entity_data.get("description"):
+                entity_part += f"\n  {entity.entity_data['description']}"
+
+            if entity.relationships:
+                entity_part += "\n  Relationships:"
+                seen_rels = set()
+                for rel in entity.relationships[:8]:
+                    rel_key = f"{rel['source']}-{rel['rel_type']}-{rel['target']}"
+                    if rel_key not in seen_rels:
+                        entity_part += f"\n    - {rel['source']} --[{rel['rel_type']}]--> {rel['target']}"
+                        seen_rels.add(rel_key)
+
+            parts.append(entity_part)
+        return "\n\n".join(parts)
+
+    def _compress_context(self, raw_context: str, question: str) -> str:
+        """Compress context to relevant facts."""
+        try:
+            prompt = format_compression_prompt(question, raw_context)
+            response = self.utility_llm.invoke(prompt)
+            return response.content.strip()
+        except Exception as e:
+            logger.warning(f"Compression failed: {e}")
+            return raw_context[:2000]
+
+    def compress_observation(self, observation: str, question: str) -> str:
+        """Compress a single tool observation."""
+        if len(observation) < 500:
+            return observation
+
+        try:
+            prompt = format_observation_compression_prompt(question, observation)
+            response = self.utility_llm.invoke(prompt)
+            return response.content.strip()
+        except Exception as e:
+            logger.warning(f"Observation compression failed: {e}")
+            return observation[:500]
 
 
 # =============================================================================

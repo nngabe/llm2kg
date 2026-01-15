@@ -1,0 +1,939 @@
+{
+  "study_name": "study1_planning_modes",
+  "timestamp": "20260110_180239",
+  "total_configs": 7,
+  "questions_per_config": 6,
+  "results": [
+    {
+      "config": {
+        "name": "no_planning_baseline",
+        "description": "No planning, direct vector search (previous best)",
+        "use_retrieval_planning": false,
+        "use_followup_planning": false,
+        "planning_reasoning": false,
+        "primary_vector_limit": 5,
+        "primary_max_hops": 4,
+        "secondary_vector_limit": 3,
+        "secondary_max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "max_hops": 2,
+        "vector_limit": 5
+      },
+      "questions": [
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "answer": "Expansionary monetary policy works by increasing the amount of money in circulation\u2014usually through lower interest rates or asset purchases by the central bank. This makes borrowing cheaper and encourages households and firms to spend and invest, which shifts the aggregate\u2011demand (AD) curve to the right in the AD\u2011AS model. When the economy is already operating near or above its potential output (Y\u2080), the extra demand cannot be absorbed by additional real production; instead it pushes the general",
+          "confidence": 0.78,
+          "response_time": 91.51967096328735,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 3,
+          "success": true
+        },
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 91.51968550682068,
+          "success": false
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "answer": "In a competitive market the market (or equilibrium) price is set at the point where the quantity supplied by producers equals the quantity demanded by consumers. This occurs at the intersection of the upward\u2011sloping supply curve\u2014reflecting the law of supply that higher prices induce larger quantities supplied [Source: Law Of Supply] \u2014and the downward\u2011sloping demand curve, which embodies the law of demand that lower prices increase quantity demanded [Source: Basic Model Of Demand And Supply]. Whe",
+          "confidence": 0.96,
+          "response_time": 73.73935556411743,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 5,
+          "success": true
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 73.73937916755676,
+          "success": false
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "answer": "Newton's second law of motion states that the net force acting on an object is equal to the product of its mass and its acceleration, expressed as F = ma. This law quantifies how the velocity of an object changes when a force is applied; it provides a direct relationship between force, mass, and acceleration. Applications include predicting the motion of objects under various forces, designing mechanical systems such as engines and brakes, analyzing vehicle dynamics, optimizing sports equipment ",
+          "confidence": 0.95,
+          "response_time": 76.30209517478943,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 1,
+          "success": true
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 76.30212736129761,
+          "success": false
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "answer": "Contractual liability arises when a party fails to perform duties that are created by a legally binding agreement. The obligation is defined by the contract itself, and a breach triggers remedies such as compensatory damages, specific performance, or rescission. Liability is generally limited to losses that were foreseeable at the time of contracting and may be subject to limitation clauses in the agreement.\n\nTort liability, by contrast, stems from a civil wrong that causes harm independent of a",
+          "confidence": 0.96,
+          "response_time": 87.88944673538208,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 3,
+          "success": true
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 87.88947868347168,
+          "success": false
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "answer": "The aggregate demand (AD) curve can shift when any of the underlying determinants of total spending change.  In macroeconomic theory these determinants include:\n\n1. **Consumer\u2011related factors** \u2013 changes in tastes or preferences, wealth effects, expectations about future income or inflation, and variations in disposable income.  For example, a rise in consumer confidence or higher household incomes can increase consumption and shift AD to the right, while a decline in confidence can shift it lef",
+          "confidence": 0.96,
+          "response_time": 62.372700452804565,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 4,
+          "success": true
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 62.37274122238159,
+          "success": false
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "answer": "In an elastic collision the total linear momentum of a closed system remains unchanged because no external forces act on the objects. This is expressed by the **conservation of momentum principle** (Context 6). For a two\u2011puck system, the momentum equation derived from this principle relates the initial and final velocities and, together with the kinetic\u2011energy equation (Energyequation), provides the two independent equations needed to solve for the two unknown final velocities (twounknowns) (Con",
+          "confidence": 0.96,
+          "response_time": 76.88365340232849,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 4,
+          "success": true
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 76.8836944103241,
+          "success": false
+        }
+      ],
+      "metrics": {
+        "avg_confidence": 0.9283333333333332,
+        "avg_response_time": 156.23567144076029,
+        "total_questions": 6,
+        "successful_responses": 6
+      }
+    },
+    {
+      "config": {
+        "name": "old_planning",
+        "description": "Old CLaRa-style entity/relationship planning",
+        "use_retrieval_planning": true,
+        "use_followup_planning": false,
+        "planning_reasoning": false,
+        "primary_vector_limit": 5,
+        "primary_max_hops": 4,
+        "secondary_vector_limit": 3,
+        "secondary_max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "max_hops": 2,
+        "vector_limit": 5
+      },
+      "questions": [
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "answer": "Expansionary monetary policy\u2014such as cutting interest rates or directly increasing the money supply\u2014stimulates aggregate demand by making borrowing cheaper and encouraging spending and investment. When this higher level of economic activity meets limited productive capacity, firms raise prices to balance supply and demand, leading to a general rise in price levels. This sustained increase in the overall price level is what we call inflation. In other words, the policy expands the amount of money",
+          "confidence": 0.96,
+          "response_time": 110.2467200756073,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 2,
+          "success": true
+        },
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 110.24676012992859,
+          "success": false
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "answer": "In a competitive market the price of a good is set by the interaction of supply and demand. Supply reflects the quantity that producers are willing to offer at each possible price, typically rising as price rises because higher prices cover higher production costs and yield greater profit. Demand reflects the quantity that consumers are willing to purchase at each price, typically falling as price rises because higher prices reduce affordability and utility. When these two forces meet, the marke",
+          "confidence": 0.96,
+          "response_time": 147.56240010261536,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 4,
+          "success": true
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 147.562438249588,
+          "success": false
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "answer": "Newton's second law states that the net force acting on an object is equal to the mass of the object multiplied by its acceleration (F = ma). This means that the acceleration of an object depends on both the mass of the object and the amount of force applied [Source: Context 1]. Force is a vector quantity that causes physical interaction, producing acceleration or deformation and is measured in newtons; it can be decomposed into components such as parallel/perpendicular forces acting on objects ",
+          "confidence": 0.96,
+          "response_time": 157.9036204814911,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 5,
+          "success": true
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 157.90365052223206,
+          "success": false
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "answer": "Contractual liability arises when a party fails to fulfill obligations set out in a contract; it is based on the terms of the agreement and typically results in compensatory damages for breach. Tort liability, by contrast, stems from a civil wrong that causes harm independent of any contractual relationship, encompassing duties imposed by law such as negligence or intentional harm, and may allow for both compensatory and punitive damages. Key differences include the source of duty (contractual v",
+          "confidence": 0.75,
+          "response_time": 77.40532803535461,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 2,
+          "success": true
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 77.40536212921143,
+          "success": false
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "answer": "Shifts in the aggregate demand curve occur whenever one of its four main components changes: \n\n1. **Consumption** \u2013 household spending on goods and services.  In the knowledge graph consumption is defined as \u201cthe use of goods and services by households\u201d and is explicitly linked to income and taxes [Context\u202f2].  Thus any factor that alters disposable income, tax policy, consumer confidence, interest rates, or demographic trends can shift consumption and thereby move the AD curve.\n\n2. **Investment",
+          "confidence": 0.7,
+          "response_time": 196.7661361694336,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 5,
+          "success": true
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 196.76619911193848,
+          "success": false
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "answer": "In an elastic collision the total linear momentum of the isolated system is conserved because no external forces act on the bodies involved. This follows from the physical principle of conservation of momentum, which states that the vector sum of momentum remains constant in a closed system [Source: graph|Momentum (Concept)]. When the collision is perfectly elastic, not only is momentum conserved but kinetic energy is also conserved. The simultaneous conservation of both quantities provides two ",
+          "confidence": 0.96,
+          "response_time": 80.77352786064148,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 3,
+          "success": true
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 80.77354025840759,
+          "success": false
+        }
+      ],
+      "metrics": {
+        "avg_confidence": 0.8816666666666667,
+        "avg_response_time": 256.8859471877416,
+        "total_questions": 6,
+        "successful_responses": 6
+      }
+    },
+    {
+      "config": {
+        "name": "followup_v4h4",
+        "description": "Follow-up planning: v4_h4 primary + v3_h2 secondary",
+        "use_retrieval_planning": false,
+        "use_followup_planning": true,
+        "planning_reasoning": false,
+        "primary_vector_limit": 4,
+        "primary_max_hops": 4,
+        "secondary_vector_limit": 3,
+        "secondary_max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "max_hops": 2,
+        "vector_limit": 5
+      },
+      "questions": [
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "answer": "Expansionary monetary policy works by having the central bank increase the money supply and/or lower interest rates to stimulate economic activity. This extra liquidity encourages borrowing, investment, and consumer spending, which raises overall demand (aggregate demand) in the economy. When the economy is near or at its potential output, this higher demand outpaces the supply of goods and services, creating upward pressure on prices. In other words, the increased money chasing a fixed amount o",
+          "confidence": 0.92,
+          "response_time": 105.46017527580261,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 2,
+          "success": true
+        },
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 105.46021604537964,
+          "success": false
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "answer": "The market price is established at the point where the quantity of a good that producers are willing to supply (the supply curve) equals the quantity that consumers are willing to purchase (the demand curve). This intersection is known as **market equilibrium** or the **equilibrium price**. At this balance, the upward\u2011sloping supply curve meets the downward\u2011sloping demand curve, and the forces of supply and demand offset each other: if the price were above equilibrium, excess supply would push p",
+          "confidence": 0.96,
+          "response_time": 42.20201826095581,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 4,
+          "success": true
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 42.2020480632782,
+          "success": false
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "answer": "Newton's second law of motion states that the net force acting on an object is equal to the product of its mass and acceleration (F = ma). This principle quantifies how the velocity of an object changes when a force is applied, linking force, mass, and acceleration in a linear relationship. It serves as a cornerstone for predicting motion in classical mechanics and finds applications across many fields: engineers use it to calculate braking distances and design vehicle safety systems; aerospace ",
+          "confidence": 0.95,
+          "response_time": 40.09033393859863,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 3,
+          "success": true
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 40.090370178222656,
+          "success": false
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "answer": "Contractual liability and tort liability arise from different legal bases and involve distinct duties, remedies, and underlying rationales.\n\n1. **Source of the duty**\n   - *Contractual liability* stems from a binding agreement between parties. The obligations are defined by the terms of that contract; failure to meet these obligations constitutes a breach of contract [Source: Context 1 \u2013 Breach Of Contract (Event); Context 2 \u2013 Contractualobligations (Concept)].\n   - *Tort liability* arises from ",
+          "confidence": 0.96,
+          "response_time": 39.95866370201111,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 4,
+          "success": true
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 39.95869517326355,
+          "success": false
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "answer": "The aggregate\u2011demand (AD) curve shifts whenever one of its components\u2014consumption, investment, government purchases, or net exports\u2014changes. The main determinants that cause such shifts are:\n\n1. **Consumer wealth and expectations** \u2013 changes in household wealth or expectations about future income/taxes alter consumption.\n2. **Real interest rates** \u2013 higher real rates raise the cost of borrowing, reducing both consumer spending and business investment; lower rates have the opposite effect.\n3. **F",
+          "confidence": 0.85,
+          "response_time": 145.71577429771423,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 4,
+          "success": true
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 145.71581387519836,
+          "success": false
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "answer": "In an elastic collision the total linear momentum of the isolated system remains constant; that is, the vector sum of the momenta of all objects before the impact equals the vector sum after the impact. This conservation is expressed mathematically as\n\n\\[\\sum_{i} m_i \\mathbf{v}_{i,\\;{\\text{initial}}} = \\sum_{i} m_i \\mathbf{v}_{i,\\;{\\text{final}}}\\]\n\nwhere \\(m_i\\) is the mass of each object and \\(\\mathbf{v}\\) its velocity. The process that enforces this equality is captured by the **Momentumequat",
+          "confidence": 0.96,
+          "response_time": 41.90514945983887,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 2,
+          "success": true
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 41.905197620391846,
+          "success": false
+        }
+      ],
+      "metrics": {
+        "avg_confidence": 0.9333333333333332,
+        "avg_response_time": 138.4440759817759,
+        "total_questions": 6,
+        "successful_responses": 6
+      }
+    },
+    {
+      "config": {
+        "name": "followup_v5h5",
+        "description": "Follow-up planning: v5_h5 primary + v3_h2 secondary",
+        "use_retrieval_planning": false,
+        "use_followup_planning": true,
+        "planning_reasoning": false,
+        "primary_vector_limit": 5,
+        "primary_max_hops": 5,
+        "secondary_vector_limit": 3,
+        "secondary_max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "max_hops": 2,
+        "vector_limit": 5
+      },
+      "questions": [
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "answer": "Expansionary monetary policy works by having the central bank increase the money supply and/or lower interest rates to stimulate economic activity. This extra liquidity encourages borrowing, investment, and consumer spending, which raises overall demand (aggregate demand) in the economy. When the economy is near or at its potential output, this higher demand outpaces the supply of goods and services, creating upward pressure on prices. In other words, the increased money chasing a fixed amount o",
+          "confidence": 0.92,
+          "response_time": 105.47193026542664,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 2,
+          "success": true
+        },
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 105.4719729423523,
+          "success": false
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "answer": "The market price is established at the point where the quantity of a good that producers are willing to supply (the supply curve) equals the quantity that consumers are willing to purchase (the demand curve). This intersection is known as **market equilibrium** or the **equilibrium price**. At this balance, the upward\u2011sloping supply curve meets the downward\u2011sloping demand curve, and the forces of supply and demand offset each other: if the price were above equilibrium, excess supply would push p",
+          "confidence": 0.96,
+          "response_time": 42.3328001499176,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 4,
+          "success": true
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 42.33283805847168,
+          "success": false
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "answer": "Newton's second law of motion states that the net force acting on an object is equal to the product of its mass and acceleration (F = ma). This principle quantifies how the velocity of an object changes when a force is applied, linking force, mass, and acceleration in a linear relationship. It serves as a cornerstone for predicting motion in classical mechanics and finds applications across many fields: engineers use it to calculate braking distances and design vehicle safety systems; aerospace ",
+          "confidence": 0.95,
+          "response_time": 40.139334201812744,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 3,
+          "success": true
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 40.13939309120178,
+          "success": false
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "answer": "Contractual liability and tort liability arise from different legal bases and involve distinct duties, remedies, and underlying rationales.\n\n1. **Source of the duty**\n   - *Contractual liability* stems from a binding agreement between parties. The obligations are defined by the terms of that contract; failure to meet these obligations constitutes a breach of contract [Source: Context 1 \u2013 Breach Of Contract (Event); Context 2 \u2013 Contractualobligations (Concept)].\n   - *Tort liability* arises from ",
+          "confidence": 0.96,
+          "response_time": 39.89098644256592,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 4,
+          "success": true
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 39.891027212142944,
+          "success": false
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "answer": "The aggregate\u2011demand (AD) curve shifts whenever one of its components\u2014consumption, investment, government purchases, or net exports\u2014changes. The main determinants that cause such shifts are:\n\n1. **Consumer wealth and expectations** \u2013 changes in household wealth or expectations about future income/taxes alter consumption.\n2. **Real interest rates** \u2013 higher real rates raise the cost of borrowing, reducing both consumer spending and business investment; lower rates have the opposite effect.\n3. **F",
+          "confidence": 0.85,
+          "response_time": 146.05633330345154,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 4,
+          "success": true
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 146.0563895702362,
+          "success": false
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "answer": "In an elastic collision the total linear momentum of the isolated system remains constant; that is, the vector sum of the momenta of all objects before the impact equals the vector sum after the impact. This conservation is expressed mathematically as\n\n\\[\\sum_{i} m_i \\mathbf{v}_{i,\\;{\\text{initial}}} = \\sum_{i} m_i \\mathbf{v}_{i,\\;{\\text{final}}}\\]\n\nwhere \\(m_i\\) is the mass of each object and \\(\\mathbf{v}\\) its velocity. The process that enforces this equality is captured by the **Momentumequat",
+          "confidence": 0.96,
+          "response_time": 41.92284107208252,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 2,
+          "success": true
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 41.92285919189453,
+          "success": false
+        }
+      ],
+      "metrics": {
+        "avg_confidence": 0.9333333333333332,
+        "avg_response_time": 138.6047842502594,
+        "total_questions": 6,
+        "successful_responses": 6
+      }
+    },
+    {
+      "config": {
+        "name": "followup_v4h6",
+        "description": "Follow-up planning: v4_h6 primary + v3_h2 secondary",
+        "use_retrieval_planning": false,
+        "use_followup_planning": true,
+        "planning_reasoning": false,
+        "primary_vector_limit": 4,
+        "primary_max_hops": 6,
+        "secondary_vector_limit": 3,
+        "secondary_max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "max_hops": 2,
+        "vector_limit": 5
+      },
+      "questions": [
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "answer": "Expansionary monetary policy works by having the central bank increase the money supply and/or lower interest rates to stimulate economic activity. This extra liquidity encourages borrowing, investment, and consumer spending, which raises overall demand (aggregate demand) in the economy. When the economy is near or at its potential output, this higher demand outpaces the supply of goods and services, creating upward pressure on prices. In other words, the increased money chasing a fixed amount o",
+          "confidence": 0.92,
+          "response_time": 105.33318948745728,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 2,
+          "success": true
+        },
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 105.33320689201355,
+          "success": false
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "answer": "The market price is established at the point where the quantity of a good that producers are willing to supply (the supply curve) equals the quantity that consumers are willing to purchase (the demand curve). This intersection is known as **market equilibrium** or the **equilibrium price**. At this balance, the upward\u2011sloping supply curve meets the downward\u2011sloping demand curve, and the forces of supply and demand offset each other: if the price were above equilibrium, excess supply would push p",
+          "confidence": 0.96,
+          "response_time": 42.22999310493469,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 4,
+          "success": true
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 42.23000645637512,
+          "success": false
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "answer": "Newton's second law of motion states that the net force acting on an object is equal to the product of its mass and acceleration (F = ma). This principle quantifies how the velocity of an object changes when a force is applied, linking force, mass, and acceleration in a linear relationship. It serves as a cornerstone for predicting motion in classical mechanics and finds applications across many fields: engineers use it to calculate braking distances and design vehicle safety systems; aerospace ",
+          "confidence": 0.95,
+          "response_time": 40.0369770526886,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 3,
+          "success": true
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 40.037025690078735,
+          "success": false
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "answer": "Contractual liability and tort liability arise from different legal bases and involve distinct duties, remedies, and underlying rationales.\n\n1. **Source of the duty**\n   - *Contractual liability* stems from a binding agreement between parties. The obligations are defined by the terms of that contract; failure to meet these obligations constitutes a breach of contract [Source: Context 1 \u2013 Breach Of Contract (Event); Context 2 \u2013 Contractualobligations (Concept)].\n   - *Tort liability* arises from ",
+          "confidence": 0.96,
+          "response_time": 39.857969999313354,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 4,
+          "success": true
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 39.85798239707947,
+          "success": false
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "answer": "The aggregate\u2011demand (AD) curve shifts whenever one of its components\u2014consumption, investment, government purchases, or net exports\u2014changes. The main determinants that cause such shifts are:\n\n1. **Consumer wealth and expectations** \u2013 changes in household wealth or expectations about future income/taxes alter consumption.\n2. **Real interest rates** \u2013 higher real rates raise the cost of borrowing, reducing both consumer spending and business investment; lower rates have the opposite effect.\n3. **F",
+          "confidence": 0.85,
+          "response_time": 145.2709560394287,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 4,
+          "success": true
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 145.27098965644836,
+          "success": false
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "answer": "In an elastic collision the total linear momentum of the isolated system remains constant; that is, the vector sum of the momenta of all objects before the impact equals the vector sum after the impact. This conservation is expressed mathematically as\n\n\\[\\sum_{i} m_i \\mathbf{v}_{i,\\;{\\text{initial}}} = \\sum_{i} m_i \\mathbf{v}_{i,\\;{\\text{final}}}\\]\n\nwhere \\(m_i\\) is the mass of each object and \\(\\mathbf{v}\\) its velocity. The process that enforces this equality is captured by the **Momentumequat",
+          "confidence": 0.96,
+          "response_time": 41.8481080532074,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 2,
+          "success": true
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 41.84813141822815,
+          "success": false
+        }
+      ],
+      "metrics": {
+        "avg_confidence": 0.9333333333333332,
+        "avg_response_time": 138.19242270787558,
+        "total_questions": 6,
+        "successful_responses": 6
+      }
+    },
+    {
+      "config": {
+        "name": "followup_reasoning_v4h4",
+        "description": "Follow-up + reasoning: v4_h4 primary + v3_h2 secondary",
+        "use_retrieval_planning": false,
+        "use_followup_planning": true,
+        "planning_reasoning": true,
+        "primary_vector_limit": 4,
+        "primary_max_hops": 4,
+        "secondary_vector_limit": 3,
+        "secondary_max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "max_hops": 2,
+        "vector_limit": 5
+      },
+      "questions": [
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "answer": "Expansionary monetary policy works by having the central bank increase the money supply and/or lower interest rates to stimulate economic activity. This extra liquidity encourages borrowing, investment, and consumer spending, which raises overall demand (aggregate demand) in the economy. When the economy is near or at its potential output, this higher demand outpaces the supply of goods and services, creating upward pressure on prices. In other words, the increased money chasing a fixed amount o",
+          "confidence": 0.92,
+          "response_time": 105.15366697311401,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 2,
+          "success": true
+        },
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 105.15370464324951,
+          "success": false
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "answer": "The market price is established at the point where the quantity of a good that producers are willing to supply (the supply curve) equals the quantity that consumers are willing to purchase (the demand curve). This intersection is known as **market equilibrium** or the **equilibrium price**. At this balance, the upward\u2011sloping supply curve meets the downward\u2011sloping demand curve, and the forces of supply and demand offset each other: if the price were above equilibrium, excess supply would push p",
+          "confidence": 0.96,
+          "response_time": 42.220937967300415,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 4,
+          "success": true
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 42.220977783203125,
+          "success": false
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "answer": "Newton's second law of motion states that the net force acting on an object is equal to the product of its mass and acceleration (F = ma). This principle quantifies how the velocity of an object changes when a force is applied, linking force, mass, and acceleration in a linear relationship. It serves as a cornerstone for predicting motion in classical mechanics and finds applications across many fields: engineers use it to calculate braking distances and design vehicle safety systems; aerospace ",
+          "confidence": 0.95,
+          "response_time": 39.989312171936035,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 3,
+          "success": true
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 39.98932766914368,
+          "success": false
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "answer": "Contractual liability and tort liability arise from different legal bases and involve distinct duties, remedies, and underlying rationales.\n\n1. **Source of the duty**\n   - *Contractual liability* stems from a binding agreement between parties. The obligations are defined by the terms of that contract; failure to meet these obligations constitutes a breach of contract [Source: Context 1 \u2013 Breach Of Contract (Event); Context 2 \u2013 Contractualobligations (Concept)].\n   - *Tort liability* arises from ",
+          "confidence": 0.96,
+          "response_time": 39.73821711540222,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 4,
+          "success": true
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 39.73825025558472,
+          "success": false
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "answer": "The aggregate\u2011demand (AD) curve shifts whenever one of its components\u2014consumption, investment, government purchases, or net exports\u2014changes. The main determinants that cause such shifts are:\n\n1. **Consumer wealth and expectations** \u2013 changes in household wealth or expectations about future income/taxes alter consumption.\n2. **Real interest rates** \u2013 higher real rates raise the cost of borrowing, reducing both consumer spending and business investment; lower rates have the opposite effect.\n3. **F",
+          "confidence": 0.85,
+          "response_time": 145.0600233078003,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 4,
+          "success": true
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 145.06005454063416,
+          "success": false
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "answer": "In an elastic collision the total linear momentum of the isolated system remains constant; that is, the vector sum of the momenta of all objects before the impact equals the vector sum after the impact. This conservation is expressed mathematically as\n\n\\[\\sum_{i} m_i \\mathbf{v}_{i,\\;{\\text{initial}}} = \\sum_{i} m_i \\mathbf{v}_{i,\\;{\\text{final}}}\\]\n\nwhere \\(m_i\\) is the mass of each object and \\(\\mathbf{v}\\) its velocity. The process that enforces this equality is captured by the **Momentumequat",
+          "confidence": 0.96,
+          "response_time": 41.81210255622864,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 2,
+          "success": true
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 41.812122106552124,
+          "success": false
+        }
+      ],
+      "metrics": {
+        "avg_confidence": 0.9333333333333332,
+        "avg_response_time": 137.9914495150248,
+        "total_questions": 6,
+        "successful_responses": 6
+      }
+    },
+    {
+      "config": {
+        "name": "followup_reasoning_v5h5",
+        "description": "Follow-up + reasoning: v5_h5 primary + v3_h2 secondary",
+        "use_retrieval_planning": false,
+        "use_followup_planning": true,
+        "planning_reasoning": true,
+        "primary_vector_limit": 5,
+        "primary_max_hops": 5,
+        "secondary_vector_limit": 3,
+        "secondary_max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "max_hops": 2,
+        "vector_limit": 5
+      },
+      "questions": [
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "answer": "Expansionary monetary policy works by having the central bank increase the money supply and/or lower interest rates to stimulate economic activity. This extra liquidity encourages borrowing, investment, and consumer spending, which raises overall demand (aggregate demand) in the economy. When the economy is near or at its potential output, this higher demand outpaces the supply of goods and services, creating upward pressure on prices. In other words, the increased money chasing a fixed amount o",
+          "confidence": 0.92,
+          "response_time": 105.31497359275818,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 2,
+          "success": true
+        },
+        {
+          "question": "How does expansionary monetary policy lead to inflation?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 105.31500744819641,
+          "success": false
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "answer": "The market price is established at the point where the quantity of a good that producers are willing to supply (the supply curve) equals the quantity that consumers are willing to purchase (the demand curve). This intersection is known as **market equilibrium** or the **equilibrium price**. At this balance, the upward\u2011sloping supply curve meets the downward\u2011sloping demand curve, and the forces of supply and demand offset each other: if the price were above equilibrium, excess supply would push p",
+          "confidence": 0.96,
+          "response_time": 42.18585681915283,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 4,
+          "success": true
+        },
+        {
+          "question": "What is the relationship between supply and demand in determining market price?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 42.185912132263184,
+          "success": false
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "answer": "Newton's second law of motion states that the net force acting on an object is equal to the product of its mass and acceleration (F = ma). This principle quantifies how the velocity of an object changes when a force is applied, linking force, mass, and acceleration in a linear relationship. It serves as a cornerstone for predicting motion in classical mechanics and finds applications across many fields: engineers use it to calculate braking distances and design vehicle safety systems; aerospace ",
+          "confidence": 0.95,
+          "response_time": 39.98257279396057,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 3,
+          "success": true
+        },
+        {
+          "question": "Explain Newton's second law of motion and its applications.",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 39.982627391815186,
+          "success": false
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "answer": "Contractual liability and tort liability arise from different legal bases and involve distinct duties, remedies, and underlying rationales.\n\n1. **Source of the duty**\n   - *Contractual liability* stems from a binding agreement between parties. The obligations are defined by the terms of that contract; failure to meet these obligations constitutes a breach of contract [Source: Context 1 \u2013 Breach Of Contract (Event); Context 2 \u2013 Contractualobligations (Concept)].\n   - *Tort liability* arises from ",
+          "confidence": 0.96,
+          "response_time": 39.775140047073364,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 4,
+          "success": true
+        },
+        {
+          "question": "How does contractual liability differ from tort liability?",
+          "domain": "law",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 39.775169134140015,
+          "success": false
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "answer": "The aggregate\u2011demand (AD) curve shifts whenever one of its components\u2014consumption, investment, government purchases, or net exports\u2014changes. The main determinants that cause such shifts are:\n\n1. **Consumer wealth and expectations** \u2013 changes in household wealth or expectations about future income/taxes alter consumption.\n2. **Real interest rates** \u2013 higher real rates raise the cost of borrowing, reducing both consumer spending and business investment; lower rates have the opposite effect.\n3. **F",
+          "confidence": 0.85,
+          "response_time": 145.96023631095886,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 4,
+          "success": true
+        },
+        {
+          "question": "What factors cause shifts in the aggregate demand curve?",
+          "domain": "economics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 145.96024870872498,
+          "success": false
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "answer": "In an elastic collision the total linear momentum of the isolated system remains constant; that is, the vector sum of the momenta of all objects before the impact equals the vector sum after the impact. This conservation is expressed mathematically as\n\n\\[\\sum_{i} m_i \\mathbf{v}_{i,\\;{\\text{initial}}} = \\sum_{i} m_i \\mathbf{v}_{i,\\;{\\text{final}}}\\]\n\nwhere \\(m_i\\) is the mass of each object and \\(\\mathbf{v}\\) its velocity. The process that enforces this equality is captured by the **Momentumequat",
+          "confidence": 0.96,
+          "response_time": 41.84971356391907,
+          "iterations": 0,
+          "external_info_used": false,
+          "citations_count": 2,
+          "success": true
+        },
+        {
+          "question": "How is momentum conserved in elastic collisions?",
+          "domain": "physics",
+          "error": "'QAResponse' object has no attribute 'iterations'",
+          "response_time": 41.84972596168518,
+          "success": false
+        }
+      ],
+      "metrics": {
+        "avg_confidence": 0.9333333333333332,
+        "avg_response_time": 138.3561973174413,
+        "total_questions": 6,
+        "successful_responses": 6
+      }
+    }
+  ]
+}

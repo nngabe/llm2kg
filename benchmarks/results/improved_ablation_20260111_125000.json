@@ -1,0 +1,494 @@
+{
+  "timestamp": "2026-01-11T12:50:00.519135",
+  "study_type": "improved_hybrid_rag",
+  "description": "Keywords + Vector \u2192 Fixed N-hop Sampling ablation study",
+  "results": [
+    {
+      "config_name": "no_planning_baseline",
+      "config_description": "No planning, direct vector search (previous best)",
+      "config_params": {
+        "vector_limit": 5,
+        "max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "use_retrieval_planning": false,
+        "use_followup_planning": false
+      },
+      "timestamp": "2026-01-10T22:27:27.337678",
+      "duration_ms": 2469233,
+      "test_case_count": 20,
+      "overall_score": NaN,
+      "overall_passed": false,
+      "layer_scores": [
+        {
+          "layer_name": "retrieval",
+          "score": NaN,
+          "passed": false,
+          "metric_scores": {
+            "Contextual Precision": 0.26249999998145834,
+            "Contextual Recall": NaN,
+            "Graph Traversal Efficiency": 0.2763888888888889,
+            "Subgraph Connectivity": 0.1222222222222222
+          }
+        },
+        {
+          "layer_name": "agentic",
+          "score": 0.8685416666666667,
+          "passed": false,
+          "metric_scores": {
+            "Tool Selection Accuracy": 0.8975000000000002,
+            "Argument Correctness": 0.7666666666666667,
+            "Loop Efficiency": 0.9099999999999999,
+            "Rejection Sensitivity": 0.9
+          }
+        },
+        {
+          "layer_name": "integrity",
+          "score": 0.9666666666666667,
+          "passed": false,
+          "metric_scores": {
+            "Schema Adherence": 1.0,
+            "Entity Disambiguation": 1.0,
+            "Source Citation Accuracy": 0.9
+          }
+        },
+        {
+          "layer_name": "generation",
+          "score": 0.461376266521587,
+          "passed": false,
+          "metric_scores": {
+            "Faithfulness": 0.21279724851807233,
+            "Answer Relevance": 0.703626819728874,
+            "Citation Recall": 0.46770473131781454
+          }
+        }
+      ],
+      "per_category_scores": {
+        "all": 0.8024999999999999
+      },
+      "cypher_errors": 1,
+      "errors": []
+    },
+    {
+      "config_name": "old_planning",
+      "config_description": "Old CLaRa-style entity/relationship planning",
+      "config_params": {
+        "vector_limit": 5,
+        "max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "use_retrieval_planning": true,
+        "use_followup_planning": false
+      },
+      "timestamp": "2026-01-11T00:40:13.114094",
+      "duration_ms": 2983335,
+      "test_case_count": 20,
+      "overall_score": NaN,
+      "overall_passed": false,
+      "layer_scores": [
+        {
+          "layer_name": "retrieval",
+          "score": NaN,
+          "passed": false,
+          "metric_scores": {
+            "Contextual Precision": 0.15416666665520834,
+            "Contextual Recall": NaN,
+            "Graph Traversal Efficiency": 0.34541666666666665,
+            "Subgraph Connectivity": 0.18833333333333332
+          }
+        },
+        {
+          "layer_name": "agentic",
+          "score": 0.8026041666666668,
+          "passed": false,
+          "metric_scores": {
+            "Tool Selection Accuracy": 0.8295833333333335,
+            "Argument Correctness": 0.6458333333333333,
+            "Loop Efficiency": 0.785,
+            "Rejection Sensitivity": 0.95
+          }
+        },
+        {
+          "layer_name": "integrity",
+          "score": 0.9583333333333334,
+          "passed": false,
+          "metric_scores": {
+            "Schema Adherence": 1.0,
+            "Entity Disambiguation": 1.0,
+            "Source Citation Accuracy": 0.875
+          }
+        },
+        {
+          "layer_name": "generation",
+          "score": 0.47878925608828293,
+          "passed": false,
+          "metric_scores": {
+            "Faithfulness": 0.24283644717855252,
+            "Answer Relevance": 0.7897697354497109,
+            "Citation Recall": 0.4037615856365856
+          }
+        }
+      ],
+      "per_category_scores": {
+        "all": 0.7884999999999998
+      },
+      "cypher_errors": 3,
+      "errors": []
+    },
+    {
+      "config_name": "followup_v4h4",
+      "config_description": "Follow-up planning: v4_h4 primary + v3_h2 secondary",
+      "config_params": {
+        "vector_limit": 5,
+        "max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "use_retrieval_planning": false,
+        "use_followup_planning": true,
+        "primary_vector_limit": 4,
+        "primary_max_hops": 4,
+        "secondary_vector_limit": 3,
+        "secondary_max_hops": 2,
+        "planning_reasoning": false
+      },
+      "timestamp": "2026-01-11T02:51:15.864894",
+      "duration_ms": 1765214,
+      "test_case_count": 20,
+      "overall_score": NaN,
+      "overall_passed": false,
+      "layer_scores": [
+        {
+          "layer_name": "retrieval",
+          "score": NaN,
+          "passed": false,
+          "metric_scores": {
+            "Contextual Precision": 0.32083333330124997,
+            "Contextual Recall": NaN,
+            "Graph Traversal Efficiency": 0.3367857142857143,
+            "Subgraph Connectivity": 0.28809523809523807
+          }
+        },
+        {
+          "layer_name": "agentic",
+          "score": 0.7481249999999999,
+          "passed": false,
+          "metric_scores": {
+            "Tool Selection Accuracy": 0.7558333333333334,
+            "Argument Correctness": 0.5691666666666666,
+            "Loop Efficiency": 0.7674999999999998,
+            "Rejection Sensitivity": 0.9
+          }
+        },
+        {
+          "layer_name": "integrity",
+          "score": 0.9833333333333334,
+          "passed": false,
+          "metric_scores": {
+            "Schema Adherence": 1.0,
+            "Entity Disambiguation": 1.0,
+            "Source Citation Accuracy": 0.95
+          }
+        },
+        {
+          "layer_name": "generation",
+          "score": 0.50724529020617,
+          "passed": false,
+          "metric_scores": {
+            "Faithfulness": 0.30247499497070435,
+            "Answer Relevance": 0.7364446722433673,
+            "Citation Recall": 0.48281620340443865
+          }
+        }
+      ],
+      "per_category_scores": {
+        "all": 0.6385
+      },
+      "cypher_errors": 5,
+      "errors": []
+    },
+    {
+      "config_name": "followup_v5h5",
+      "config_description": "Follow-up planning: v5_h5 primary + v3_h2 secondary",
+      "config_params": {
+        "vector_limit": 5,
+        "max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "use_retrieval_planning": false,
+        "use_followup_planning": true,
+        "primary_vector_limit": 5,
+        "primary_max_hops": 5,
+        "secondary_vector_limit": 3,
+        "secondary_max_hops": 2,
+        "planning_reasoning": false
+      },
+      "timestamp": "2026-01-11T04:46:20.632403",
+      "duration_ms": 1764965,
+      "test_case_count": 20,
+      "overall_score": NaN,
+      "overall_passed": false,
+      "layer_scores": [
+        {
+          "layer_name": "retrieval",
+          "score": NaN,
+          "passed": false,
+          "metric_scores": {
+            "Contextual Precision": 0.3166666666375,
+            "Contextual Recall": NaN,
+            "Graph Traversal Efficiency": 0.3367857142857143,
+            "Subgraph Connectivity": 0.28809523809523807
+          }
+        },
+        {
+          "layer_name": "agentic",
+          "score": 0.7312499999999998,
+          "passed": false,
+          "metric_scores": {
+            "Tool Selection Accuracy": 0.7233333333333333,
+            "Argument Correctness": 0.5341666666666667,
+            "Loop Efficiency": 0.7674999999999998,
+            "Rejection Sensitivity": 0.9
+          }
+        },
+        {
+          "layer_name": "integrity",
+          "score": 0.9833333333333334,
+          "passed": false,
+          "metric_scores": {
+            "Schema Adherence": 1.0,
+            "Entity Disambiguation": 1.0,
+            "Source Citation Accuracy": 0.95
+          }
+        },
+        {
+          "layer_name": "generation",
+          "score": 0.49971239144730545,
+          "passed": false,
+          "metric_scores": {
+            "Faithfulness": 0.2673462981843989,
+            "Answer Relevance": 0.733021936763578,
+            "Citation Recall": 0.49876893939393946
+          }
+        }
+      ],
+      "per_category_scores": {
+        "all": 0.6385
+      },
+      "cypher_errors": 5,
+      "errors": []
+    },
+    {
+      "config_name": "followup_v4h6",
+      "config_description": "Follow-up planning: v4_h6 primary + v3_h2 secondary",
+      "config_params": {
+        "vector_limit": 5,
+        "max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "use_retrieval_planning": false,
+        "use_followup_planning": true,
+        "primary_vector_limit": 4,
+        "primary_max_hops": 6,
+        "secondary_vector_limit": 3,
+        "secondary_max_hops": 2,
+        "planning_reasoning": false
+      },
+      "timestamp": "2026-01-11T06:39:28.787739",
+      "duration_ms": 1763667,
+      "test_case_count": 20,
+      "overall_score": NaN,
+      "overall_passed": false,
+      "layer_scores": [
+        {
+          "layer_name": "retrieval",
+          "score": NaN,
+          "passed": false,
+          "metric_scores": {
+            "Contextual Precision": 0.16666666665250002,
+            "Contextual Recall": NaN,
+            "Graph Traversal Efficiency": 0.3367857142857143,
+            "Subgraph Connectivity": 0.28809523809523807
+          }
+        },
+        {
+          "layer_name": "agentic",
+          "score": 0.7460416666666666,
+          "passed": false,
+          "metric_scores": {
+            "Tool Selection Accuracy": 0.7475000000000002,
+            "Argument Correctness": 0.5691666666666666,
+            "Loop Efficiency": 0.7674999999999998,
+            "Rejection Sensitivity": 0.9
+          }
+        },
+        {
+          "layer_name": "integrity",
+          "score": 0.9833333333333334,
+          "passed": false,
+          "metric_scores": {
+            "Schema Adherence": 1.0,
+            "Entity Disambiguation": 1.0,
+            "Source Citation Accuracy": 0.95
+          }
+        },
+        {
+          "layer_name": "generation",
+          "score": 0.5193504339856635,
+          "passed": false,
+          "metric_scores": {
+            "Faithfulness": 0.3198306962645199,
+            "Answer Relevance": 0.7380669435651243,
+            "Citation Recall": 0.5001536621273462
+          }
+        }
+      ],
+      "per_category_scores": {
+        "all": 0.6385
+      },
+      "cypher_errors": 5,
+      "errors": []
+    },
+    {
+      "config_name": "followup_reasoning_v4h4",
+      "config_description": "Follow-up + reasoning: v4_h4 primary + v3_h2 secondary",
+      "config_params": {
+        "vector_limit": 5,
+        "max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "use_retrieval_planning": false,
+        "use_followup_planning": true,
+        "primary_vector_limit": 4,
+        "primary_max_hops": 4,
+        "secondary_vector_limit": 3,
+        "secondary_max_hops": 2,
+        "planning_reasoning": true
+      },
+      "timestamp": "2026-01-11T08:37:58.790658",
+      "duration_ms": 1760206,
+      "test_case_count": 20,
+      "overall_score": NaN,
+      "overall_passed": false,
+      "layer_scores": [
+        {
+          "layer_name": "retrieval",
+          "score": NaN,
+          "passed": false,
+          "metric_scores": {
+            "Contextual Precision": 0.28749999997229164,
+            "Contextual Recall": NaN,
+            "Graph Traversal Efficiency": 0.3367857142857143,
+            "Subgraph Connectivity": 0.28809523809523807
+          }
+        },
+        {
+          "layer_name": "agentic",
+          "score": 0.7466666666666667,
+          "passed": false,
+          "metric_scores": {
+            "Tool Selection Accuracy": 0.7308333333333333,
+            "Argument Correctness": 0.5883333333333334,
+            "Loop Efficiency": 0.7674999999999998,
+            "Rejection Sensitivity": 0.9
+          }
+        },
+        {
+          "layer_name": "integrity",
+          "score": 0.9833333333333334,
+          "passed": false,
+          "metric_scores": {
+            "Schema Adherence": 1.0,
+            "Entity Disambiguation": 1.0,
+            "Source Citation Accuracy": 0.95
+          }
+        },
+        {
+          "layer_name": "generation",
+          "score": 0.49719912872781374,
+          "passed": false,
+          "metric_scores": {
+            "Faithfulness": 0.2746261424166089,
+            "Answer Relevance": 0.7285499061175537,
+            "Citation Recall": 0.48842133764927886
+          }
+        }
+      ],
+      "per_category_scores": {
+        "all": 0.6385
+      },
+      "cypher_errors": 5,
+      "errors": []
+    },
+    {
+      "config_name": "followup_reasoning_v5h5",
+      "config_description": "Follow-up + reasoning: v5_h5 primary + v3_h2 secondary",
+      "config_params": {
+        "vector_limit": 5,
+        "max_hops": 2,
+        "compression_enabled": true,
+        "web_search_enabled": false,
+        "use_retrieval_planning": false,
+        "use_followup_planning": true,
+        "primary_vector_limit": 5,
+        "primary_max_hops": 5,
+        "secondary_vector_limit": 3,
+        "secondary_max_hops": 2,
+        "planning_reasoning": true
+      },
+      "timestamp": "2026-01-11T10:37:02.924210",
+      "duration_ms": 1763129,
+      "test_case_count": 20,
+      "overall_score": NaN,
+      "overall_passed": false,
+      "layer_scores": [
+        {
+          "layer_name": "retrieval",
+          "score": NaN,
+          "passed": false,
+          "metric_scores": {
+            "Contextual Precision": 0.32499999997,
+            "Contextual Recall": NaN,
+            "Graph Traversal Efficiency": 0.3367857142857143,
+            "Subgraph Connectivity": 0.28809523809523807
+          }
+        },
+        {
+          "layer_name": "agentic",
+          "score": 0.7407291666666665,
+          "passed": false,
+          "metric_scores": {
+            "Tool Selection Accuracy": 0.75125,
+            "Argument Correctness": 0.5441666666666667,
+            "Loop Efficiency": 0.7674999999999998,
+            "Rejection Sensitivity": 0.9
+          }
+        },
+        {
+          "layer_name": "integrity",
+          "score": 0.9833333333333334,
+          "passed": false,
+          "metric_scores": {
+            "Schema Adherence": 1.0,
+            "Entity Disambiguation": 1.0,
+            "Source Citation Accuracy": 0.95
+          }
+        },
+        {
+          "layer_name": "generation",
+          "score": 0.49107787444099743,
+          "passed": false,
+          "metric_scores": {
+            "Faithfulness": 0.26618526275066523,
+            "Answer Relevance": 0.7302788800528466,
+            "Citation Recall": 0.4767694805194805
+          }
+        }
+      ],
+      "per_category_scores": {
+        "all": 0.6385
+      },
+      "cypher_errors": 5,
+      "errors": []
+    }
+  ]
+}

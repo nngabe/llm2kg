@@ -1,0 +1,71 @@
+{
+  "timestamp": "2026-01-07T06:01:28.854791",
+  "results": [
+    {
+      "config_name": "baseline",
+      "config_description": "All features ON (default)",
+      "timestamp": "2026-01-06T23:18:30.787326",
+      "duration_ms": 4119391,
+      "test_case_count": 20,
+      "overall_score": 0.5179916584103981,
+      "overall_passed": false,
+      "layer_scores": [],
+      "errors": []
+    },
+    {
+      "config_name": "no_planning",
+      "config_description": "Disable retrieval planning",
+      "timestamp": "2026-01-07T00:30:57.191336",
+      "duration_ms": 3153777,
+      "test_case_count": 20,
+      "overall_score": 0.5540037777244838,
+      "overall_passed": false,
+      "layer_scores": [],
+      "errors": []
+    },
+    {
+      "config_name": "no_compression",
+      "config_description": "Disable context compression",
+      "timestamp": "2026-01-07T01:30:27.328207",
+      "duration_ms": 4538247,
+      "test_case_count": 20,
+      "overall_score": 0.5198082136193836,
+      "overall_passed": false,
+      "layer_scores": [],
+      "errors": []
+    },
+    {
+      "config_name": "no_web",
+      "config_description": "Disable web search",
+      "timestamp": "2026-01-07T02:51:51.868833",
+      "duration_ms": 4343040,
+      "test_case_count": 20,
+      "overall_score": 0.5277990975267013,
+      "overall_passed": false,
+      "layer_scores": [],
+      "errors": []
+    },
+    {
+      "config_name": "no_auto_ingest",
+      "config_description": "Disable auto document ingestion",
+      "timestamp": "2026-01-07T04:07:05.167167",
+      "duration_ms": 4066380,
+      "test_case_count": 20,
+      "overall_score": 0.5135486703911197,
+      "overall_passed": false,
+      "layer_scores": [],
+      "errors": []
+    },
+    {
+      "config_name": "minimal",
+      "config_description": "All features OFF (graph lookup only)",
+      "timestamp": "2026-01-07T05:18:05.743816",
+      "duration_ms": 1825082,
+      "test_case_count": 20,
+      "overall_score": 0.5397499173035039,
+      "overall_passed": false,
+      "layer_scores": [],
+      "errors": []
+    }
+  ]
+}

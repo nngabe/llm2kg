@@ -1,0 +1,772 @@
+{
+  "name": "comprehensive_v1",
+  "version": "1.0",
+  "description": "Comprehensive golden dataset covering all 4 evaluation layers",
+  "created_at": "2026-01-06T20:11:00.197361",
+  "updated_at": "2026-01-06T20:11:00.197367",
+  "metadata": {
+    "author": "Agent Eval Suite",
+    "purpose": "Complete evaluation matrix testing",
+    "layers": [
+      "retrieval",
+      "agentic",
+      "integrity",
+      "generation"
+    ]
+  },
+  "test_cases": [
+    {
+      "id": "retrieval_001",
+      "question": "What is the entity type and description of \"United States\" in the knowledge graph?",
+      "expected_answer": "United States is a Location described as a North American nation with a dominant role in global agricultural trade.",
+      "expected_entities": [
+        "United States"
+      ],
+      "expected_relationships": [],
+      "ground_truth_context": [
+        "United States (Location): North American nation with a dominant role in global agricultural trade."
+      ],
+      "optimal_tool_sequence": [
+        "graph_lookup"
+      ],
+      "minimum_steps": 1,
+      "should_reject": false,
+      "rejection_reason": null,
+      "type": "retrieval",
+      "difficulty": "easy",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Direct entity lookup; validates basic retrieval and summarization."
+      }
+    },
+    {
+      "id": "retrieval_002",
+      "question": "Retrieve the definitions for \"Court\" and \"Motion\" and explain how they relate in a typical legal proceeding (use only graph context).",
+      "expected_answer": "Court is an Organization: a judicial body authorized to administer justice and issue legal orders. Motion is a Process: a formal request made to a court for a ruling or action. A motion is filed to request the court to take an action or issue a ruling.",
+      "expected_entities": [
+        "Court",
+        "Motion"
+      ],
+      "expected_relationships": [],
+      "ground_truth_context": [
+        "Court (Organization): Judicial body authorized to administer justice and issue legal orders.",
+        "Motion (Process): Formal request made to a court for a ruling or action."
+      ],
+      "optimal_tool_sequence": [
+        "graph_lookup"
+      ],
+      "minimum_steps": 1,
+      "should_reject": false,
+      "rejection_reason": null,
+      "type": "retrieval",
+      "difficulty": "easy",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Checks retrieval of two entities and a grounded linkage without inventing graph edges."
+      }
+    },
+    {
+      "id": "retrieval_003",
+      "question": "What does the graph say about \"Inflation\" and \"Price\"? Provide both definitions.",
+      "expected_answer": "Price is a Quantity: the monetary value assigned to goods/services, influencing consumer purchasing decisions. Inflation is a Concept: a general increase in prices and a fall in the purchasing value of money.",
+      "expected_entities": [
+        "Inflation",
+        "Price"
+      ],
+      "expected_relationships": [],
+      "ground_truth_context": [
+        "Price (Quantity): Monetary value assigned to goods/services, influencing consumer purchasing decisions.",
+        "Inflation (Concept): General increase in prices and fall in purchasing value of money."
+      ],
+      "optimal_tool_sequence": [
+        "graph_lookup"
+      ],
+      "minimum_steps": 1,
+      "should_reject": false,
+      "rejection_reason": null,
+      "type": "retrieval",
+      "difficulty": "easy",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Validates accurate extraction of two concept definitions."
+      }
+    },
+    {
+      "id": "retrieval_004",
+      "question": "List all relationships in the graph where \"Aggregate Demand\" is the source and include each target entity.",
+      "expected_answer": "Aggregate Demand has relationships to: Full Employment (CAUSES), Higher Price Level (CAUSES), Business Cycles (CAUSES), and is_a links to Goods, Ad0, Ad1, As Curve Steep Portion.",
+      "expected_entities": [
+        "Aggregate Demand",
+        "Full Employment",
+        "Higher Price Level",
+        "Business Cycles",
+        "Goods",
+        "Ad0",
+        "Ad1",
+        "As Curve Steep Portion"
+      ],
+      "expected_relationships": [
+        {
+          "source": "Aggregate Demand",
+          "type": "CAUSES",
+          "target": "Full Employment"
+        },
+        {
+          "source": "Aggregate Demand",
+          "type": "CAUSES",
+          "target": "Higher Price Level"
+        },
+        {
+          "source": "Aggregate Demand",
+          "type": "CAUSES",
+          "target": "Business Cycles"
+        },
+        {
+          "source": "Aggregate Demand",
+          "type": "IS_A",
+          "target": "Goods"
+        },
+        {
+          "source": "Aggregate Demand",
+          "type": "IS_A",
+          "target": "Ad0"
+        },
+        {
+          "source": "Aggregate Demand",
+          "type": "IS_A",
+          "target": "Ad1"
+        },
+        {
+          "source": "Aggregate Demand",
+          "type": "IS_A",
+          "target": "As Curve Steep Portion"
+        }
+      ],
+      "ground_truth_context": [
+        "Aggregate Demand --[CAUSES]--> Full Employment",
+        "Aggregate Demand --[CAUSES]--> Higher Price Level",
+        "Aggregate Demand --[CAUSES]--> Business Cycles",
+        "Aggregate Demand --[IS_A]--> Goods",
+        "Aggregate Demand --[IS_A]--> Ad0",
+        "Aggregate Demand --[IS_A]--> Ad1",
+        "Aggregate Demand --[IS_A]--> As Curve Steep Portion"
+      ],
+      "optimal_tool_sequence": [
+        "graph_lookup"
+      ],
+      "minimum_steps": 1,
+      "should_reject": false,
+      "rejection_reason": null,
+      "type": "retrieval",
+      "difficulty": "medium",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Tests edge enumeration and completeness for a single source node."
+      }
+    },
+    {
+      "id": "retrieval_005",
+      "question": "Which entities does \"Potential Gdp\" point to via IS_A relationships? Return all targets.",
+      "expected_answer": "Potential Gdp has IS_A relationships to Full Employment, Natural Rate Of Unemployment, and Lras Line.",
+      "expected_entities": [
+        "Potential Gdp",
+        "Full Employment",
+        "Natural Rate Of Unemployment",
+        "Lras Line"
+      ],
+      "expected_relationships": [
+        {
+          "source": "Potential Gdp",
+          "type": "IS_A",
+          "target": "Full Employment"
+        },
+        {
+          "source": "Potential Gdp",
+          "type": "IS_A",
+          "target": "Natural Rate Of Unemployment"
+        },
+        {
+          "source": "Potential Gdp",
+          "type": "IS_A",
+          "target": "Lras Line"
+        }
+      ],
+      "ground_truth_context": [
+        "Potential Gdp --[IS_A]--> Full Employment",
+        "Potential Gdp --[IS_A]--> Natural Rate Of Unemployment",
+        "Potential Gdp --[IS_A]--> Lras Line"
+      ],
+      "optimal_tool_sequence": [
+        "graph_lookup"
+      ],
+      "minimum_steps": 1,
+      "should_reject": false,
+      "rejection_reason": null,
+      "type": "retrieval",
+      "difficulty": "medium",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Validates that the agent retrieves multiple outgoing IS_A edges correctly."
+      }
+    },
+    {
+      "id": "agentic_001",
+      "question": "Using only the knowledge graph, construct a multi-hop explanation that connects \"Long-Term Productivity Growth\" to \"Equilibrium E1\". List the intermediate nodes and relationship types in order.",
+      "expected_answer": null,
+      "expected_entities": [
+        "Long-Term Productivity Growth",
+        "Potential Gdp",
+        "Full Employment",
+        "Equilibrium E1"
+      ],
+      "expected_relationships": [
+        {
+          "source": "Long-Term Productivity Growth",
+          "type": "CAUSES",
+          "target": "Potential Gdp"
+        },
+        {
+          "source": "Potential Gdp",
+          "type": "IS_A",
+          "target": "Full Employment"
+        },
+        {
+          "source": "Full Employment",
+          "type": "IS_A",
+          "target": "Equilibrium E1"
+        }
+      ],
+      "ground_truth_context": [
+        "Long-Term Productivity Growth --[CAUSES]--> Potential Gdp",
+        "Potential Gdp --[IS_A]--> Full Employment",
+        "Full Employment --[IS_A]--> Equilibrium E1"
+      ],
+      "optimal_tool_sequence": [
+        "graph_lookup",
+        "cypher_query"
+      ],
+      "minimum_steps": 2,
+      "should_reject": false,
+      "rejection_reason": null,
+      "type": "agentic",
+      "difficulty": "medium",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Evaluates path finding and explicit chain-of-relations reporting."
+      }
+    },
+    {
+      "id": "agentic_002",
+      "question": "Identify a path from \"Neoclassical Perspective\" to \"Higher Price Level\" using graph relationships, and provide the reasoning for each hop.",
+      "expected_answer": null,
+      "expected_entities": [
+        "Neoclassical Perspective",
+        "Aggregate Supply",
+        "Aggregate Demand",
+        "Higher Price Level"
+      ],
+      "expected_relationships": [
+        {
+          "source": "Neoclassical Perspective",
+          "type": "SUPPORTS",
+          "target": "Aggregate Supply"
+        },
+        {
+          "source": "Aggregate Demand",
+          "type": "CAUSES",
+          "target": "Higher Price Level"
+        }
+      ],
+      "ground_truth_context": [
+        "Neoclassical Perspective --[SUPPORTS]--> Aggregate Supply",
+        "Aggregate Demand --[CAUSES]--> Higher Price Level"
+      ],
+      "optimal_tool_sequence": [
+        "cypher_query",
+        "graph_lookup"
+      ],
+      "minimum_steps": 2,
+      "should_reject": false,
+      "rejection_reason": null,
+      "type": "agentic",
+      "difficulty": "hard",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Tests tool choice for graph path search; may expose missing connecting edges and require the agent to report 'no complete path found' rather than hallucinate."
+      }
+    },
+    {
+      "id": "agentic_003",
+      "question": "From the graph, does \"Full Employment\" align with or contradict \"Norm\"? Provide the relationship and one additional implication involving \"Aggregate Demand\".",
+      "expected_answer": null,
+      "expected_entities": [
+        "Full Employment",
+        "Norm",
+        "Aggregate Demand"
+      ],
+      "expected_relationships": [
+        {
+          "source": "Full Employment",
+          "type": "CONTRADICTS",
+          "target": "Norm"
+        },
+        {
+          "source": "Full Employment",
+          "type": "INFLUENCES",
+          "target": "Aggregate Demand"
+        }
+      ],
+      "ground_truth_context": [
+        "Full Employment --[CONTRADICTS]--> Norm",
+        "Full Employment --[INFLUENCES]--> Aggregate Demand"
+      ],
+      "optimal_tool_sequence": [
+        "graph_lookup",
+        "graph_lookup"
+      ],
+      "minimum_steps": 2,
+      "should_reject": false,
+      "rejection_reason": null,
+      "type": "agentic",
+      "difficulty": "medium",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Requires selecting and combining two separate relations involving the same node."
+      }
+    },
+    {
+      "id": "agentic_004",
+      "question": "What is the current (today's) inflation rate in the United States? Cite a reliable source and compare it to last month's value.",
+      "expected_answer": null,
+      "expected_entities": [
+        "United States",
+        "Inflation"
+      ],
+      "expected_relationships": [],
+      "ground_truth_context": [
+        "Inflation (Concept): General increase in prices and fall in purchasing value of money.",
+        "United States (Location): North American nation with a dominant role in global agricultural trade."
+      ],
+      "optimal_tool_sequence": [
+        "should_reject"
+      ],
+      "minimum_steps": 1,
+      "should_reject": true,
+      "rejection_reason": "Real-time data request requiring up-to-date economic statistics and month-over-month comparison; not available in the provided graph context.",
+      "type": "agentic",
+      "difficulty": "easy",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Rejection test: real-time data and external sourcing beyond allowed context."
+      }
+    },
+    {
+      "id": "agentic_005",
+      "question": "Predict the United States inflation rate for next quarter and recommend an investment strategy tailored to my personal finances (I earn $92k/year).",
+      "expected_answer": null,
+      "expected_entities": [
+        "United States",
+        "Inflation",
+        "Income"
+      ],
+      "expected_relationships": [],
+      "ground_truth_context": [
+        "Inflation (Concept): General increase in prices and fall in purchasing value of money.",
+        "Income (Concept): Earnings derived from converting labor/resources into valued societal outputs."
+      ],
+      "optimal_tool_sequence": [
+        "should_reject"
+      ],
+      "minimum_steps": 1,
+      "should_reject": true,
+      "rejection_reason": "Future prediction plus personalized financial advice based on personal income details; not supported by provided knowledge graph and involves personal data tailoring.",
+      "type": "agentic",
+      "difficulty": "medium",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Rejection test: future prediction and personal-finance personalization."
+      }
+    },
+    {
+      "id": "integrity_001",
+      "question": "Add a new entity \"United States\" as an Organization because it regulates firms. Confirm creation and link it to \"Firm\" with a REGULATES relationship.",
+      "expected_answer": null,
+      "expected_entities": [
+        "United States",
+        "Firm",
+        "Government"
+      ],
+      "expected_relationships": [],
+      "ground_truth_context": [
+        "United States (Location): North American nation with a dominant role in global agricultural trade.",
+        "Government (Organization): Central authority responsible for policy-making, resource allocation, and public services.",
+        "Firm (Organization): Business entity subject to government pricing regulations (cost-plus or price cap)."
+      ],
+      "optimal_tool_sequence": [
+        "graph_lookup"
+      ],
+      "minimum_steps": 1,
+      "should_reject": true,
+      "rejection_reason": "Invalid request: would create a duplicate entity with the same name but different type; also introduces a relationship type (REGULATES) not present in the provided schema/relations list.",
+      "type": "integrity",
+      "difficulty": "hard",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Tests duplicate prevention and schema/relationship-type constraints."
+      }
+    },
+    {
+      "id": "integrity_002",
+      "question": "Create a new entity named \"Inflation\" with type Quantity and set its value to 3.2%.",
+      "expected_answer": null,
+      "expected_entities": [
+        "Inflation"
+      ],
+      "expected_relationships": [],
+      "ground_truth_context": [
+        "Inflation (Concept): General increase in prices and fall in purchasing value of money."
+      ],
+      "optimal_tool_sequence": [
+        "graph_lookup"
+      ],
+      "minimum_steps": 1,
+      "should_reject": true,
+      "rejection_reason": "Invalid entity creation: Inflation already exists as a Concept; changing it to Quantity and adding a numeric value is inconsistent with the existing schema and duplicates the node.",
+      "type": "integrity",
+      "difficulty": "medium",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Disambiguation + avoids overwriting node type with incompatible schema."
+      }
+    },
+    {
+      "id": "integrity_003",
+      "question": "The graph has \"Court\"; please also add \"court\" (lowercase) as a separate Organization because capitalization indicates a different legal body.",
+      "expected_answer": null,
+      "expected_entities": [
+        "Court"
+      ],
+      "expected_relationships": [],
+      "ground_truth_context": [
+        "Court (Organization): Judicial body authorized to administer justice and issue legal orders."
+      ],
+      "optimal_tool_sequence": [
+        "graph_lookup"
+      ],
+      "minimum_steps": 1,
+      "should_reject": true,
+      "rejection_reason": "Invalid: would create a likely duplicate entity differing only by capitalization; should normalize and reuse existing Court entity unless a distinct concept is evidenced.",
+      "type": "integrity",
+      "difficulty": "medium",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Tests canonicalization/case-folding and duplicate avoidance."
+      }
+    },
+    {
+      "id": "integrity_004",
+      "question": "Create a new node \"Higher Price Level\" as a Concept and connect it from \"Aggregate Demand\" using the CAUSES relationship.",
+      "expected_answer": null,
+      "expected_entities": [
+        "Aggregate Demand",
+        "Higher Price Level"
+      ],
+      "expected_relationships": [
+        {
+          "source": "Aggregate Demand",
+          "type": "CAUSES",
+          "target": "Higher Price Level"
+        }
+      ],
+      "ground_truth_context": [
+        "Aggregate Demand --[CAUSES]--> Higher Price Level"
+      ],
+      "optimal_tool_sequence": [
+        "graph_lookup"
+      ],
+      "minimum_steps": 1,
+      "should_reject": true,
+      "rejection_reason": "Invalid: the relationship already exists in the graph; creating a new node would risk duplicating an existing entity. The correct action is to reuse the existing node and edge.",
+      "type": "integrity",
+      "difficulty": "easy",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Tests detection of already-present nodes/edges and avoiding duplicates."
+      }
+    },
+    {
+      "id": "integrity_005",
+      "question": "Add a relationship \"Aggregate Demand --[ENABLES]--> Business Cycles\" to capture that aggregate demand enables cycles.",
+      "expected_answer": null,
+      "expected_entities": [
+        "Aggregate Demand",
+        "Business Cycles"
+      ],
+      "expected_relationships": [
+        {
+          "source": "Aggregate Demand",
+          "type": "CAUSES",
+          "target": "Business Cycles"
+        }
+      ],
+      "ground_truth_context": [
+        "Aggregate Demand --[CAUSES]--> Business Cycles"
+      ],
+      "optimal_tool_sequence": [
+        "graph_lookup"
+      ],
+      "minimum_steps": 1,
+      "should_reject": true,
+      "rejection_reason": "Invalid: introduces a new relationship type (ENABLES) not in the provided relationship set; also conflicts with the existing CAUSES relation already connecting these entities.",
+      "type": "integrity",
+      "difficulty": "medium",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Tests schema adherence for relationship types and preventing contradictory/duplicate edges."
+      }
+    },
+    {
+      "id": "generation_001",
+      "question": "Explain, using only the graph relationships, how long-term productivity growth relates to full employment and equilibrium E1.",
+      "expected_answer": "The graph indicates that Long-Term Productivity Growth causes Potential Gdp. Potential Gdp is_a Full Employment, and Full Employment is_a Equilibrium E1. So, long-term productivity growth increases potential GDP, which the graph equates with full employment and, in turn, with equilibrium E1.",
+      "expected_entities": [
+        "Long-Term Productivity Growth",
+        "Potential Gdp",
+        "Full Employment",
+        "Equilibrium E1"
+      ],
+      "expected_relationships": [
+        {
+          "source": "Long-Term Productivity Growth",
+          "type": "CAUSES",
+          "target": "Potential Gdp"
+        },
+        {
+          "source": "Potential Gdp",
+          "type": "IS_A",
+          "target": "Full Employment"
+        },
+        {
+          "source": "Full Employment",
+          "type": "IS_A",
+          "target": "Equilibrium E1"
+        }
+      ],
+      "ground_truth_context": [
+        "Long-Term Productivity Growth --[CAUSES]--> Potential Gdp",
+        "Potential Gdp --[IS_A]--> Full Employment",
+        "Full Employment --[IS_A]--> Equilibrium E1"
+      ],
+      "optimal_tool_sequence": [
+        "graph_lookup"
+      ],
+      "minimum_steps": 1,
+      "should_reject": false,
+      "rejection_reason": null,
+      "type": "generation",
+      "difficulty": "medium",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Faithfulness: answer must not add macroeconomic details not present in edges."
+      }
+    },
+    {
+      "id": "generation_002",
+      "question": "According to the graph, what are the consequences of Aggregate Demand, and what categories (IS_A) is it linked to?",
+      "expected_answer": "The graph shows Aggregate Demand causes Full Employment, Higher Price Level, and Business Cycles. It is also linked via IS_A to Goods, Ad0, Ad1, and As Curve Steep Portion.",
+      "expected_entities": [
+        "Aggregate Demand",
+        "Full Employment",
+        "Higher Price Level",
+        "Business Cycles",
+        "Goods",
+        "Ad0",
+        "Ad1",
+        "As Curve Steep Portion"
+      ],
+      "expected_relationships": [
+        {
+          "source": "Aggregate Demand",
+          "type": "CAUSES",
+          "target": "Full Employment"
+        },
+        {
+          "source": "Aggregate Demand",
+          "type": "CAUSES",
+          "target": "Higher Price Level"
+        },
+        {
+          "source": "Aggregate Demand",
+          "type": "CAUSES",
+          "target": "Business Cycles"
+        },
+        {
+          "source": "Aggregate Demand",
+          "type": "IS_A",
+          "target": "Goods"
+        },
+        {
+          "source": "Aggregate Demand",
+          "type": "IS_A",
+          "target": "Ad0"
+        },
+        {
+          "source": "Aggregate Demand",
+          "type": "IS_A",
+          "target": "Ad1"
+        },
+        {
+          "source": "Aggregate Demand",
+          "type": "IS_A",
+          "target": "As Curve Steep Portion"
+        }
+      ],
+      "ground_truth_context": [
+        "Aggregate Demand --[CAUSES]--> Full Employment",
+        "Aggregate Demand --[CAUSES]--> Higher Price Level",
+        "Aggregate Demand --[CAUSES]--> Business Cycles",
+        "Aggregate Demand --[IS_A]--> Goods",
+        "Aggregate Demand --[IS_A]--> Ad0",
+        "Aggregate Demand --[IS_A]--> Ad1",
+        "Aggregate Demand --[IS_A]--> As Curve Steep Portion"
+      ],
+      "optimal_tool_sequence": [
+        "graph_lookup"
+      ],
+      "minimum_steps": 1,
+      "should_reject": false,
+      "rejection_reason": null,
+      "type": "generation",
+      "difficulty": "easy",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Tests completeness and correct grouping of outgoing edges by type."
+      }
+    },
+    {
+      "id": "generation_003",
+      "question": "Summarize how \"Potential Gdp\" is characterized in the graph and list all its IS_A mappings.",
+      "expected_answer": "In the graph, Potential Gdp is characterized by three IS_A mappings: it is_a Full Employment, is_a Natural Rate Of Unemployment, and is_a Lras Line.",
+      "expected_entities": [
+        "Potential Gdp",
+        "Full Employment",
+        "Natural Rate Of Unemployment",
+        "Lras Line"
+      ],
+      "expected_relationships": [
+        {
+          "source": "Potential Gdp",
+          "type": "IS_A",
+          "target": "Full Employment"
+        },
+        {
+          "source": "Potential Gdp",
+          "type": "IS_A",
+          "target": "Natural Rate Of Unemployment"
+        },
+        {
+          "source": "Potential Gdp",
+          "type": "IS_A",
+          "target": "Lras Line"
+        }
+      ],
+      "ground_truth_context": [
+        "Potential Gdp --[IS_A]--> Full Employment",
+        "Potential Gdp --[IS_A]--> Natural Rate Of Unemployment",
+        "Potential Gdp --[IS_A]--> Lras Line"
+      ],
+      "optimal_tool_sequence": [
+        "graph_lookup"
+      ],
+      "minimum_steps": 1,
+      "should_reject": false,
+      "rejection_reason": null,
+      "type": "generation",
+      "difficulty": "easy",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Checks that the agent does not add textbook definitions not present in the graph."
+      }
+    },
+    {
+      "id": "generation_004",
+      "question": "Using only the entity descriptions, differentiate \"Government\", \"State\", and \"Firm\" in terms of authority and regulation.",
+      "expected_answer": "Government is the central authority responsible for policy-making, resource allocation, and public services. State is a subnational government entity with authority to enact local laws, including utility monopolies. Firm is a business entity that is subject to government pricing regulations (e.g., cost-plus or price cap).",
+      "expected_entities": [
+        "Government",
+        "State",
+        "Firm"
+      ],
+      "expected_relationships": [],
+      "ground_truth_context": [
+        "Government (Organization): Central authority responsible for policy-making, resource allocation, and public services.",
+        "State (Location): Subnational government entity with authority to enact local laws, including utility monopolies.",
+        "Firm (Organization): Business entity subject to government pricing regulations (cost-plus or price cap)."
+      ],
+      "optimal_tool_sequence": [
+        "graph_lookup"
+      ],
+      "minimum_steps": 1,
+      "should_reject": false,
+      "rejection_reason": null,
+      "type": "generation",
+      "difficulty": "medium",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Tests grounded comparative generation across multiple entity descriptions."
+      }
+    },
+    {
+      "id": "generation_005",
+      "question": "Provide a concise, graph-grounded explanation of the legal roles of \"Plaintiff\", \"Defendant\", and \"Party\", and include how a \"Motion\" fits into the process.",
+      "expected_answer": "Plaintiff is the party initiating a derivative action on behalf of a corporation or association. Defendant is the party accused of patent infringement and may raise inequitable conduct as a defense. Party is an individual or entity involved in a legal proceeding who may request records. A Motion is a formal request made to a Court for a ruling or action within that proceeding.",
+      "expected_entities": [
+        "Plaintiff",
+        "Defendant",
+        "Party",
+        "Motion",
+        "Court"
+      ],
+      "expected_relationships": [],
+      "ground_truth_context": [
+        "Plaintiff (Agent): Party initiating a derivative action on behalf of the corporation or association.",
+        "Defendant (Agent): Party accused of patent infringement, often raising inequitable conduct as a defense.",
+        "Party (Agent): Individual or entity involved in a legal proceeding who may request records.",
+        "Motion (Process): Formal request made to a court for a ruling or action.",
+        "Court (Organization): Judicial body authorized to administer justice and issue legal orders."
+      ],
+      "optimal_tool_sequence": [
+        "graph_lookup"
+      ],
+      "minimum_steps": 1,
+      "should_reject": false,
+      "rejection_reason": null,
+      "type": "generation",
+      "difficulty": "medium",
+      "source": "gpt52_generated",
+      "reviewed": false,
+      "metadata": {
+        "note": "Tests faithful synthesis from descriptions without inventing procedural steps or jurisdictional details."
+      }
+    }
+  ]
+}

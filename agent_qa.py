@@ -17,6 +17,8 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional, Literal
 from enum import Enum
 
+from json_repair import repair_json
+
 from pydantic import BaseModel, Field
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -27,11 +29,22 @@ from neo4j import GraphDatabase
 
 from langgraph.graph import StateGraph, START, END
 
-from planned_graphrag import PlannedGraphRAG, RetrievalPlan, parse_retrieval_plan
-from prompts.retrieval_prompts import format_retrieval_plan_prompt
+from planned_graphrag import (
+    PlannedGraphRAG,
+    ImprovedGraphRAG,
+    FollowUpGraphRAG,
+    RetrievalPlan,
+    FollowUpPlan,
+    parse_retrieval_plan,
+    parse_follow_up_plan,
+)
+from prompts.retrieval_prompts import format_retrieval_plan_prompt, format_follow_up_plan_prompt
 
 # KG extraction imports for auto document ingestion
 from agent_skb import KnowledgeGraphAgent, AgentState as SKBAgentState
+
+# Uncertainty metrics
+from uncertainty_metrics import UncertaintyCalculator, UncertaintyScores
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -47,10 +60,8 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434")
 
 # Ollama model configuration (benchmark winner: Pair D)
-# Main model: Complex reasoning, ReAct loop, answer synthesis
+# Main model: Complex reasoning, ReAct loop, answer synthesis, compression, planning
 OLLAMA_MAIN_MODEL = os.getenv("OLLAMA_MAIN_MODEL", "nemotron-3-nano:30b")
-# Utility model: Compression, planning, Cypher generation
-OLLAMA_UTILITY_MODEL = os.getenv("OLLAMA_UTILITY_MODEL", "ministral-3:14b")
 
 MAX_ITERATIONS = 5
 CONTEXT_WINDOW_SIZE = 8000  # Max tokens for context
@@ -102,6 +113,10 @@ class QAResponse(BaseModel):
     )
     reasoning_steps: List[ThoughtStep] = Field(default_factory=list)
     confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    uncertainty: Optional[UncertaintyScores] = Field(
+        default=None,
+        description="Detailed uncertainty metrics (perplexity, semantic entropy, embedding consistency)"
+    )
 
 
 class ContextItem(BaseModel):
@@ -145,6 +160,10 @@ class QAAgentState(BaseModel):
     citations: List[Citation] = Field(default_factory=list)
     external_info_used: bool = False
     confidence: float = 0.0
+    uncertainty_scores: Optional[UncertaintyScores] = Field(
+        default=None,
+        description="Detailed uncertainty metrics"
+    )
 
     # Error handling
     error: Optional[str] = None
@@ -213,12 +232,10 @@ Guidelines:
 2. Cite sources using [Source: X] notation
 3. If web search was used, explicitly state: "According to external sources..."
 4. Note any conflicting information or uncertainties
-5. Rate your confidence (0-1) based on source quality and completeness
 
 Respond in this JSON format:
 {{
     "answer": "Your comprehensive answer with citations",
-    "confidence": 0.0-1.0,
     "citations": [
         {{
             "source_type": "graph|document|web_search",
@@ -445,17 +462,39 @@ class ReActQAAgent:
         auto_add_documents: bool = True,
         use_retrieval_planning: bool = True,
         compression_enabled: bool = True,
+        use_improved_retrieval: bool = False,
+        use_followup_planning: bool = False,
+        planning_reasoning: bool = False,
+        max_hops: int = 2,
+        vector_limit: int = 5,
+        primary_vector_limit: int = 5,
+        primary_max_hops: int = 4,
+        secondary_vector_limit: int = 3,
+        secondary_max_hops: int = 2,
+        n_generations: int = 3,
+        skip_uncertainty: bool = False,
     ):
         """
         Initialize the ReAct Q&A agent.
 
         Args:
-            llm: Language model to use. Defaults to GPT-4.
+            llm: Language model to use. Defaults to Nemotron-3-Nano.
             neo4j_loader: Neo4j loader for graph operations.
             web_search_enabled: Whether to allow web searches.
             auto_add_documents: Whether to automatically add web results to DB.
             use_retrieval_planning: Whether to use CLaRa-style retrieval planning.
             compression_enabled: Whether to compress context after retrieval.
+            use_improved_retrieval: Use ImprovedGraphRAG (vector + fixed hop sampling).
+            use_followup_planning: Use FollowUpGraphRAG (follow-up questions + dual vector search).
+            planning_reasoning: Enable detailed thinking for follow-up planning (nemotron).
+            max_hops: Maximum hops for graph traversal (1, 2, or 3).
+            vector_limit: Maximum entities per keyword from vector search.
+            primary_vector_limit: Max entities for original query (FollowUpGraphRAG).
+            primary_max_hops: Max hops for original query (FollowUpGraphRAG).
+            secondary_vector_limit: Max entities per follow-up question.
+            secondary_max_hops: Max hops for follow-up traversal.
+            n_generations: Number of generations for uncertainty metrics (default: 3).
+            skip_uncertainty: Skip uncertainty computation for faster inference.
         """
         # Nemotron-3-Nano: A/B testing showed temp=0 performs equally well
         # and is more deterministic. Keeping original settings.
@@ -470,19 +509,58 @@ class ReActQAAgent:
         self.auto_add_documents = auto_add_documents
         self.use_retrieval_planning = use_retrieval_planning
         self.compression_enabled = compression_enabled
+        self.use_improved_retrieval = use_improved_retrieval
+        self.use_followup_planning = use_followup_planning
+        self.planning_reasoning = planning_reasoning
+        self.max_hops = max_hops
+        self.vector_limit = vector_limit
+        self.n_generations = n_generations
+        self.skip_uncertainty = skip_uncertainty
 
-        # Initialize utility LLM for planning/compression (smaller, faster model)
-        self.utility_llm = ChatOllama(
-            model=OLLAMA_UTILITY_MODEL,
-            base_url=OLLAMA_HOST,
-            temperature=0,
-        )
+        # Initialize uncertainty calculator (uses main LLM with diversity settings for sampling)
+        self.uncertainty_calculator = None
+        if not skip_uncertainty:
+            self.uncertainty_calculator = UncertaintyCalculator(
+                llm=self.llm,
+                embeddings=self.neo4j_loader.embedding_model,
+                ollama_host=OLLAMA_HOST,
+                model=OLLAMA_MAIN_MODEL,
+            )
+            logger.info(f"Uncertainty calculator initialized (n_generations={n_generations})")
 
-        # Initialize PlannedGraphRAG for retrieval planning (uses utility model)
-        self.planned_graphrag = PlannedGraphRAG(
-            llm=self.utility_llm,
-            compression_enabled=compression_enabled,
-        )
+        # Initialize GraphRAG - choose between original, improved, or follow-up
+        # NOTE: All GraphRAG instances now use main LLM (utility_llm removed)
+        self.planned_graphrag = None
+        self.improved_graphrag = None
+        self.followup_graphrag = None
+
+        if use_followup_planning:
+            # Follow-up question planning with dual vector search
+            self.followup_graphrag = FollowUpGraphRAG(
+                planning_llm=self.llm,
+                utility_llm=self.llm,  # Use main LLM for all tasks
+                primary_vector_limit=primary_vector_limit,
+                primary_max_hops=primary_max_hops,
+                secondary_vector_limit=secondary_vector_limit,
+                secondary_max_hops=secondary_max_hops,
+                compression_enabled=compression_enabled,
+                planning_reasoning=planning_reasoning,
+            )
+            logger.info(f"Using FollowUpGraphRAG (v{primary_vector_limit}_h{primary_max_hops} + "
+                       f"v{secondary_vector_limit}_h{secondary_max_hops}, reasoning={planning_reasoning})")
+        elif use_improved_retrieval:
+            self.improved_graphrag = ImprovedGraphRAG(
+                llm=self.llm,  # Use main LLM
+                max_hops=max_hops,
+                vector_limit=vector_limit,
+                compression_enabled=compression_enabled,
+            )
+            logger.info(f"Using ImprovedGraphRAG (max_hops={max_hops}, vector_limit={vector_limit})")
+        else:
+            self.planned_graphrag = PlannedGraphRAG(
+                llm=self.llm,  # Use main LLM
+                compression_enabled=compression_enabled,
+            )
 
         # Initialize KG extraction agent for auto document ingestion
         self._kg_extraction_agent = None
@@ -618,13 +696,17 @@ class ReActQAAgent:
         """
         Execute the retrieval plan and return compressed context.
 
-        Uses PlannedGraphRAG to:
+        Uses FollowUpGraphRAG, ImprovedGraphRAG, or PlannedGraphRAG to:
         1. Look up targeted entities with N-hop traversal
-        2. Execute relationship pattern queries
+        2. Execute relationship pattern queries (PlannedGraphRAG only)
         3. Compress retrieved context to relevant facts
         """
         plan = state.retrieval_plan
         question = state.question
+
+        # NEW: Use FollowUpGraphRAG if enabled (generates its own plan with follow-up questions)
+        if self.use_followup_planning and self.followup_graphrag:
+            return self._retrieve_with_followup_planning(question)
 
         if not plan or (not plan.entity_targets and not plan.relationship_queries):
             # Fallback to basic retrieval
@@ -632,7 +714,48 @@ class ReActQAAgent:
             return self._retrieve_initial_node(state)
 
         try:
-            # Execute plan using PlannedGraphRAG
+            # Use ImprovedGraphRAG if enabled (Keywords + Vector → Fixed Hop Sampling)
+            if self.use_improved_retrieval and self.improved_graphrag:
+                # Use entity_targets as keywords for vector search
+                keywords = plan.entity_targets + plan.information_needs[:3]
+                graph_context = self.improved_graphrag.retrieve_with_keywords(keywords, question)
+
+                # Convert to ContextItems (simplified format from ImprovedGraphRAG)
+                context = []
+                for entity_ctx in graph_context.entities:
+                    content = f"[{entity_ctx.entity_name}]"
+                    if entity_ctx.entity_data.get("description"):
+                        content += f"\n  {entity_ctx.entity_data['description']}"
+                    if entity_ctx.relationships:
+                        content += "\n  Relationships:"
+                        seen = set()
+                        for rel in entity_ctx.relationships[:10]:
+                            rel_key = f"{rel.get('source', '?')}-{rel.get('rel_type', '?')}-{rel.get('target', '?')}"
+                            if rel_key not in seen:
+                                content += f"\n    - {rel.get('source', '?')} --[{rel.get('rel_type', '?')}]--> {rel.get('target', '?')}"
+                                seen.add(rel_key)
+
+                    context.append(ContextItem(
+                        source_type="entity",
+                        content=content,
+                        source_id=entity_ctx.entity_name,
+                        relevance_score=entity_ctx.entity_data.get("score", 1.0),
+                        metadata={"from_improved": True, "hops": self.max_hops},
+                    ))
+
+                context_formatted = self._format_context(context)
+                compressed = graph_context.compressed_text
+
+                logger.info(f"ImprovedGraphRAG: {len(context)} entities, "
+                           f"{len(graph_context.raw_text)} → {len(compressed)} chars")
+
+                return {
+                    "context": context,
+                    "context_formatted": context_formatted,
+                    "compressed_context": compressed,
+                }
+
+            # Use original PlannedGraphRAG
             graph_context = self.planned_graphrag.retrieve_with_plan(plan, question)
 
             # Convert to ContextItems
@@ -693,6 +816,100 @@ class ReActQAAgent:
             # Fallback to basic retrieval
             return self._retrieve_initial_node(state)
 
+    def _retrieve_with_followup_planning(self, question: str) -> Dict[str, Any]:
+        """
+        Retrieve context using FollowUpGraphRAG (follow-up questions + dual vector search).
+
+        This combines planning and retrieval:
+        1. Generate follow-up questions from the original query
+        2. Primary search: Original query (v5_h4 by default)
+        3. Secondary search: Follow-up questions (v3_h2 by default)
+        4. Merge and compress results
+        """
+        try:
+            # FollowUpGraphRAG handles planning internally
+            graph_context = self.followup_graphrag.retrieve_with_follow_ups(question)
+
+            # Convert to ContextItems
+            context = []
+            for entity_ctx in graph_context.entities:
+                content = f"[{entity_ctx.entity_name}]"
+                if entity_ctx.entity_data.get("description"):
+                    content += f"\n  {entity_ctx.entity_data['description']}"
+
+                # Include search source info
+                search_source = entity_ctx.entity_data.get("search_source", "unknown")
+                if "followup" in search_source:
+                    followup_q = entity_ctx.entity_data.get("followup_question", "")
+                    content += f"\n  (from follow-up: {followup_q[:50]}...)" if followup_q else ""
+
+                if entity_ctx.relationships:
+                    content += "\n  Relationships:"
+                    seen = set()
+                    for rel in entity_ctx.relationships[:10]:
+                        rel_key = f"{rel.get('source', '?')}-{rel.get('rel_type', '?')}-{rel.get('target', '?')}"
+                        if rel_key not in seen:
+                            content += f"\n    - {rel.get('source', '?')} --[{rel.get('rel_type', '?')}]--> {rel.get('target', '?')}"
+                            seen.add(rel_key)
+
+                context.append(ContextItem(
+                    source_type="entity",
+                    content=content,
+                    source_id=entity_ctx.entity_name,
+                    relevance_score=entity_ctx.entity_data.get("score", 1.0),
+                    metadata={
+                        "from_followup": True,
+                        "search_source": search_source,
+                    },
+                ))
+
+            context_formatted = self._format_context(context)
+            compressed = graph_context.compressed_text
+
+            logger.info(f"FollowUpGraphRAG: {len(context)} entities, "
+                       f"{len(graph_context.raw_text)} → {len(compressed)} chars")
+
+            return {
+                "context": context,
+                "context_formatted": context_formatted,
+                "compressed_context": compressed,
+            }
+
+        except Exception as e:
+            logger.error(f"Follow-up retrieval failed: {e}")
+            # Fallback to direct vector search
+            if self.improved_graphrag:
+                return self._retrieve_initial_node_improved(question)
+            return {"context": [], "context_formatted": "", "compressed_context": ""}
+
+    def _retrieve_initial_node_improved(self, question: str) -> Dict[str, Any]:
+        """Fallback retrieval using ImprovedGraphRAG."""
+        try:
+            graph_context = self.improved_graphrag.retrieve_direct(question)
+
+            context = []
+            for entity_ctx in graph_context.entities:
+                content = f"[{entity_ctx.entity_name}]"
+                if entity_ctx.entity_data.get("description"):
+                    content += f"\n  {entity_ctx.entity_data['description']}"
+
+                context.append(ContextItem(
+                    source_type="entity",
+                    content=content,
+                    source_id=entity_ctx.entity_name,
+                    relevance_score=entity_ctx.entity_data.get("score", 1.0),
+                    metadata={"fallback": True},
+                ))
+
+            return {
+                "context": context,
+                "context_formatted": self._format_context(context),
+                "compressed_context": graph_context.compressed_text,
+            }
+        except Exception as e:
+            logger.error(f"Fallback retrieval failed: {e}")
+            return {"context": [], "context_formatted": "", "compressed_context": ""}
+
     def _compress_observation_node(self, state: QAAgentState) -> Dict[str, Any]:
         """
         Compress the tool observation before recording it (CLaRa-style).
@@ -709,7 +926,15 @@ class ReActQAAgent:
         try:
             # Compress observation if it's long
             if len(observation) > 500 and self.compression_enabled:
-                compressed = self.planned_graphrag.compress_observation(observation, question)
+                # Use whichever GraphRAG is available for compression
+                if self.followup_graphrag:
+                    compressed = self.followup_graphrag.compress_observation(observation, question)
+                elif self.improved_graphrag:
+                    compressed = self.improved_graphrag.compress_observation(observation, question)
+                elif self.planned_graphrag:
+                    compressed = self.planned_graphrag.compress_observation(observation, question)
+                else:
+                    compressed = observation[:500]  # Fallback: truncate
                 logger.debug(f"Compressed observation from {len(observation)} to {len(compressed)} chars")
             else:
                 compressed = observation
@@ -742,7 +967,42 @@ class ReActQAAgent:
         question = state.question
         context = []
 
-        # Vector search on entities
+        # Use ImprovedGraphRAG if enabled (with fixed hop traversal)
+        if self.use_improved_retrieval and self.improved_graphrag:
+            graph_context = self.improved_graphrag.retrieve_direct(question)
+
+            # Convert to ContextItems
+            for entity_ctx in graph_context.entities:
+                content = f"[{entity_ctx.entity_name}]"
+                if entity_ctx.entity_data.get("description"):
+                    content += f"\n  {entity_ctx.entity_data['description']}"
+                if entity_ctx.relationships:
+                    content += "\n  Relationships:"
+                    seen = set()
+                    for rel in entity_ctx.relationships[:10]:
+                        rel_key = f"{rel.get('source', '?')}-{rel.get('rel_type', '?')}-{rel.get('target', '?')}"
+                        if rel_key not in seen:
+                            content += f"\n    - {rel.get('source', '?')} --[{rel.get('rel_type', '?')}]--> {rel.get('target', '?')}"
+                            seen.add(rel_key)
+
+                context.append(ContextItem(
+                    source_type="entity",
+                    content=content,
+                    source_id=entity_ctx.entity_name,
+                    relevance_score=entity_ctx.entity_data.get("score", 1.0),
+                    metadata={"from_improved": True, "hops": self.max_hops},
+                ))
+
+            context_formatted = self._format_context(context)
+            compressed = graph_context.compressed_text
+
+            return {
+                "context": context,
+                "context_formatted": context_formatted,
+                "compressed_context": compressed,
+            }
+
+        # Fallback to basic neo4j_loader vector search
         entities = self.neo4j_loader.vector_search(question, limit=5)
         for entity in entities:
             context.append(ContextItem(
@@ -839,13 +1099,36 @@ class ReActQAAgent:
 
             # Parse response
             content = response.content
+            if not content or not content.strip():
+                logger.warning("Empty LLM response in think node, using fallback")
+                return {
+                    "ready_to_answer": True,
+                    "current_thought": "Unable to generate thought due to empty response.",
+                    "error": "Empty LLM response",
+                }
+
             # Try to extract JSON
             if "```json" in content:
                 content = content.split("```json")[1].split("```")[0]
             elif "```" in content:
                 content = content.split("```")[1].split("```")[0]
 
-            parsed = json.loads(content)
+            # Check for empty content after extraction
+            if not content or not content.strip():
+                logger.warning("Empty JSON content after extraction in think node")
+                return {
+                    "ready_to_answer": True,
+                    "current_thought": "Unable to parse response.",
+                    "error": "Empty JSON content",
+                }
+
+            # Try to repair malformed JSON before parsing
+            try:
+                repaired_content = repair_json(content)
+                parsed = json.loads(repaired_content)
+            except Exception as repair_err:
+                logger.warning(f"JSON repair failed, trying raw parse: {repair_err}")
+                parsed = json.loads(content)
 
             thought = parsed.get("thought", "")
             ready_to_answer = parsed.get("ready_to_answer", False)
@@ -1114,21 +1397,59 @@ class ReActQAAgent:
 
             # Parse response
             content = response.content
+            if not content or not content.strip():
+                logger.warning("Empty LLM response in synthesize, using fallback")
+                return {
+                    "final_answer": "I was unable to generate an answer due to an empty response.",
+                    "confidence": 0.0,
+                }
+
             if "```json" in content:
                 content = content.split("```json")[1].split("```")[0]
             elif "```" in content:
                 content = content.split("```")[1].split("```")[0]
 
-            parsed = json.loads(content)
+            # Check for empty content after extraction
+            if not content or not content.strip():
+                logger.warning("Empty JSON content after extraction in synthesize")
+                return {
+                    "final_answer": "I was unable to parse the response.",
+                    "confidence": 0.0,
+                }
+
+            # Try to repair malformed JSON before parsing
+            try:
+                repaired_content = repair_json(content)
+                parsed = json.loads(repaired_content)
+            except Exception as repair_err:
+                logger.warning(f"JSON repair failed, trying raw parse: {repair_err}")
+                parsed = json.loads(content)
+
+            # Handle case where LLM returns a list instead of dict
+            if isinstance(parsed, list):
+                # Try to find a dict in the list
+                for item in parsed:
+                    if isinstance(item, dict) and "answer" in item:
+                        parsed = item
+                        break
+                else:
+                    # No valid dict found, create fallback
+                    parsed = {"answer": str(parsed[0]) if parsed else "I was unable to generate an answer."}
 
             answer = parsed.get("answer", "I was unable to generate an answer.")
-            confidence = parsed.get("confidence", 0.5)
 
             # Build citations
             citations = []
             for cit in parsed.get("citations", []):
+                # Normalize source_type to valid enum values
+                source_type = cit.get("source_type", "graph")
+                if source_type in ("graph_query", "cypher_query", "graph_lookup", "knowledge_graph"):
+                    source_type = "graph"
+                elif source_type not in ("graph", "document", "web_search"):
+                    source_type = "graph"  # Default fallback
+
                 citations.append(Citation(
-                    source_type=cit.get("source_type", "graph"),
+                    source_type=source_type,
                     source_id=cit.get("source_id", "unknown"),
                     source_title=cit.get("source_title"),
                     excerpt=cit.get("excerpt", ""),
@@ -1139,10 +1460,31 @@ class ReActQAAgent:
                 if not answer.startswith("According to external"):
                     answer = f"[Note: This answer includes information from web search.]\n\n{answer}"
 
+            # Compute uncertainty metrics (replaces LLM self-reported confidence)
+            uncertainty_scores = None
+            confidence = 0.5  # Default fallback
+
+            if self.uncertainty_calculator is not None:
+                try:
+                    uncertainty_scores = self.uncertainty_calculator.compute_all(
+                        question=state.question,
+                        answer=answer,
+                        context=state.context_formatted[:CONTEXT_WINDOW_SIZE],
+                        n_generations=self.n_generations,
+                    )
+                    confidence = uncertainty_scores.combined_confidence
+                    logger.info(f"Uncertainty metrics computed: confidence={confidence:.2f}")
+                except Exception as ue:
+                    logger.warning(f"Uncertainty calculation failed: {ue}")
+                    confidence = 0.5
+            else:
+                logger.debug("Uncertainty calculation skipped (skip_uncertainty=True)")
+
             return {
                 "final_answer": answer,
                 "citations": citations,
                 "confidence": confidence,
+                "uncertainty_scores": uncertainty_scores,
             }
 
         except Exception as e:
@@ -1160,7 +1502,7 @@ class ReActQAAgent:
             question: The question to answer.
 
         Returns:
-            QAResponse with answer, citations, and reasoning.
+            QAResponse with answer, citations, reasoning, and uncertainty metrics.
         """
         initial_state = QAAgentState(question=question)
 
@@ -1174,6 +1516,7 @@ class ReActQAAgent:
                 external_info_used=final_state.get("external_info_used", False),
                 reasoning_steps=final_state.get("thought_history", []),
                 confidence=final_state.get("confidence", 0.0),
+                uncertainty=final_state.get("uncertainty_scores"),
             )
 
         except Exception as e:
@@ -1190,6 +1533,8 @@ class ReActQAAgent:
             self.neo4j_loader.close()
         if self.planned_graphrag:
             self.planned_graphrag.close()
+        if self.improved_graphrag:
+            self.improved_graphrag.close()
 
 
 # --- ASYNC WRAPPER FOR CHAINLIT ---
@@ -1237,12 +1582,29 @@ def main():
     parser.add_argument("--no-web", action="store_true", help="Disable web search")
     parser.add_argument("--no-planning", action="store_true", help="Disable retrieval planning")
     parser.add_argument("--no-compression", action="store_true", help="Disable context compression")
+    parser.add_argument("--followup", action="store_true", help="Use FollowUpGraphRAG (follow-up questions + dual vector search)")
+    parser.add_argument("--reasoning", action="store_true", help="Enable detailed thinking for follow-up planning")
+    parser.add_argument("--primary-vec", type=int, default=5, help="Primary vector limit (default: 5)")
+    parser.add_argument("--primary-hops", type=int, default=4, help="Primary max hops (default: 4)")
+    parser.add_argument("--secondary-vec", type=int, default=3, help="Secondary vector limit (default: 3)")
+    parser.add_argument("--secondary-hops", type=int, default=2, help="Secondary max hops (default: 2)")
+    parser.add_argument("--n-generations", type=int, default=3, help="Number of generations for uncertainty metrics (default: 3)")
+    parser.add_argument("--skip-uncertainty", action="store_true", help="Skip uncertainty computation for faster inference")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Show detailed uncertainty metrics")
     args = parser.parse_args()
 
     agent = ReActQAAgent(
         web_search_enabled=not args.no_web,
-        use_retrieval_planning=not args.no_planning,
+        use_retrieval_planning=not args.no_planning and not args.followup,
         compression_enabled=not args.no_compression,
+        use_followup_planning=args.followup,
+        planning_reasoning=args.reasoning,
+        primary_vector_limit=args.primary_vec,
+        primary_max_hops=args.primary_hops,
+        secondary_vector_limit=args.secondary_vec,
+        secondary_max_hops=args.secondary_hops,
+        n_generations=args.n_generations,
+        skip_uncertainty=args.skip_uncertainty,
     )
 
     try:
@@ -1262,6 +1624,16 @@ def main():
 
                 print(f"Answer: {response.answer}\n")
                 print(f"Confidence: {response.confidence:.2f}")
+                if args.verbose and response.uncertainty:
+                    u = response.uncertainty
+                    print(f"\nUncertainty Scores:")
+                    if u.perplexity >= 0:
+                        print(f"  Perplexity: {u.perplexity:.2f} (normalized: {u.perplexity_normalized:.2f})")
+                    else:
+                        print(f"  Perplexity: N/A (logprobs not supported by model)")
+                    print(f"  Semantic Entropy: {u.semantic_entropy:.2f} (normalized: {u.semantic_entropy_normalized:.2f})")
+                    print(f"  Embedding Consistency: {u.embedding_consistency:.2f}")
+                    print(f"  Combined Confidence: {u.combined_confidence:.2%}")
                 print(f"External sources used: {response.external_info_used}")
                 if response.citations:
                     print(f"Citations: {len(response.citations)}")
@@ -1274,7 +1646,21 @@ def main():
             print(f"Question: {args.question}")
             print(f"\nAnswer: {response.answer}")
             print(f"\nConfidence: {response.confidence:.2f}")
+            if args.verbose and response.uncertainty:
+                u = response.uncertainty
+                print(f"\nUncertainty Scores:")
+                if u.perplexity >= 0:
+                    print(f"  Perplexity: {u.perplexity:.2f} (normalized: {u.perplexity_normalized:.2f})")
+                else:
+                    print(f"  Perplexity: N/A (logprobs not supported by model)")
+                print(f"  Semantic Entropy: {u.semantic_entropy:.2f} (normalized: {u.semantic_entropy_normalized:.2f})")
+                print(f"  Embedding Consistency: {u.embedding_consistency:.2f}")
+                print(f"  Combined Confidence: {u.combined_confidence:.2%}")
             print(f"External sources used: {response.external_info_used}")
+            if response.citations:
+                print(f"\nCitations: {len(response.citations)}")
+                for cit in response.citations:
+                    print(f"  - [{cit.source_type}] {cit.source_id}")
 
         else:
             parser.print_help()

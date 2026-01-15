@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate golden test cases using GPT-5.2 for the Enterprise Evaluation Suite.
+Generate golden test cases using GPT-5.2 for the Agent Evaluation Suite.
 
 This script:
 1. Queries Neo4j for existing entities/relationships
@@ -393,7 +393,7 @@ def save_golden_dataset(test_cases: List[Dict], output_path: str):
         "created_at": datetime.now().isoformat(),
         "updated_at": datetime.now().isoformat(),
         "metadata": {
-            "author": "Enterprise Eval Suite",
+            "author": "Agent Eval Suite",
             "purpose": "Complete evaluation matrix testing",
             "layers": ["retrieval", "agentic", "integrity", "generation"],
         },
@@ -444,7 +444,7 @@ def main():
         logger.info(f"  {layer}: {count}")
 
     # Save dataset
-    output_path = "benchmarks/enterprise_eval/golden/datasets/comprehensive_v1.json"
+    output_path = "benchmarks/agent_eval/golden/datasets/comprehensive_v1.json"
     save_golden_dataset(test_cases, output_path)
 
     driver.close()
