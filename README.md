@@ -81,20 +81,25 @@ The QA agent uses ReAct (Reasoning + Acting) for multi-step question answering:
 |---------|-----------|---------|-------------|
 | **Retrieval Planning** | `use_retrieval_planning` | True | CLaRa-style entity/relationship planning |
 | **Context Compression** | `compression_enabled` | True | Compresses observations to relevant facts |
+| **Wikipedia Search** | `wiki_search_enabled` | True | Search Wikipedia for encyclopedic facts |
 | **Web Search** | `web_search_enabled` | True | External search via Tavily API |
 | **Auto Ingestion** | `auto_add_documents` | True | Adds web results to knowledge graph |
 
 **Agent Tools:**
 - `graph_lookup(entity_name)` - Look up entity and relationships
-- `cypher_query(query)` - Execute Neo4j Cypher queries
+- `wiki_search(query)` - Search Wikipedia for encyclopedic information
 - `web_search(query)` - Search the web (when enabled)
+- `cypher_query(query)` - Execute Neo4j Cypher queries
 - `finish(answer)` - Complete with final answer
+
+**Tool Priority:** The agent prioritizes sources in order: Knowledge Graph → Wikipedia → Web Search
 
 ```python
 # Minimal agent (graph lookup only)
 agent = ReActQAAgent(
     use_retrieval_planning=False,
     compression_enabled=False,
+    wiki_search_enabled=False,
     web_search_enabled=False,
     auto_add_documents=False,
 )
@@ -163,6 +168,7 @@ Tests impact of each agent feature:
 | `baseline` | All features ON (default) |
 | `no_planning` | Disable retrieval planning |
 | `no_compression` | Disable context compression |
+| `no_wiki` | Disable Wikipedia search |
 | `no_web` | Disable web search |
 | `no_auto_ingest` | Disable auto document ingestion |
 | `followup_v*h*` | Follow-up question planning with configurable vector/hop limits |

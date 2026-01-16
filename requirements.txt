@@ -2,6 +2,7 @@ neo4j>=5.18.0
 neo4j-graphrag     
 langchain>=0.2.0
 langchain-community
+wikipedia
 langchain-neo4j   
 langchain-openai            
 langchain-google-genai 
@@ -31,3 +32,7 @@ wandb>=0.18.0
 # Cloud storage
 pydrive2>=1.19.0
 huggingface_hub>=0.25.0
+
+# Agent optimization
+optuna>=3.0.0
+nvidia-nemo-agent-toolkit>=1.0.0

@@ -14,7 +14,7 @@ import os
 import json
 import logging
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Literal
+from typing import List, Dict, Any, Optional, Literal, Tuple
 from enum import Enum
 
 from json_repair import repair_json
@@ -45,6 +45,9 @@ from agent_skb import KnowledgeGraphAgent, AgentState as SKBAgentState
 
 # Uncertainty metrics
 from uncertainty_metrics import UncertaintyCalculator, UncertaintyScores
+
+# Wikipedia search
+from langchain_community.document_loaders import WikipediaLoader
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -171,18 +174,21 @@ class QAAgentState(BaseModel):
 
 # --- PROMPTS ---
 
-SYSTEM_PROMPT = """You are a knowledgeable research assistant with access to a knowledge graph and web search.
+SYSTEM_PROMPT = """You are a knowledgeable research assistant with access to a knowledge graph, Wikipedia, and web search.
 Your goal is to answer questions accurately using available information sources.
 
 Available tools:
 1. graph_lookup(entity_name) - Look up an entity in the knowledge graph
-2. web_search(query) - Search the web for information (use only when graph doesn't have the answer)
-3. cypher_query(query) - Run a Cypher query on the knowledge graph
-4. entity_resolve(entity_name, context) - Disambiguate an entity name
+2. wiki_search(query) - Search Wikipedia for encyclopedic information
+3. web_search(query) - Search the web for information (use only when graph and wiki don't have the answer)
+4. cypher_query(query) - Run a Cypher query on the knowledge graph
+5. entity_resolve(entity_name, context) - Disambiguate an entity name
 
 Guidelines:
-- ALWAYS try the knowledge graph first before using web search
-- When using web search, clearly note that external information was used
+- ALWAYS try the knowledge graph first before using external sources
+- Use wiki_search for general knowledge, definitions, and encyclopedic facts
+- Use web_search for current events or when wiki doesn't have the answer
+- When using external sources, clearly note that external information was used
 - Provide citations for all claims
 - If information conflicts between sources, note the discrepancy
 - Be honest about uncertainty"""
@@ -209,7 +215,7 @@ Respond in this JSON format:
     "thought": "Your reasoning about what to do next",
     "ready_to_answer": true/false,
     "action": {{
-        "tool_name": "graph_lookup|web_search|cypher_query|entity_resolve|none",
+        "tool_name": "graph_lookup|wiki_search|web_search|cypher_query|entity_resolve|none",
         "arguments": {{"key": "value"}}
     }}
 }}
@@ -473,6 +479,11 @@ class ReActQAAgent:
         secondary_max_hops: int = 2,
         n_generations: int = 3,
         skip_uncertainty: bool = False,
+        wiki_search_enabled: bool = True,
+        wiki_max_results: int = 2,
+        parse_response_max_retries: int = 2,
+        tool_call_max_retries: int = 1,
+        pass_tool_errors_to_agent: bool = True,
     ):
         """
         Initialize the ReAct Q&A agent.
@@ -495,6 +506,11 @@ class ReActQAAgent:
             secondary_max_hops: Max hops for follow-up traversal.
             n_generations: Number of generations for uncertainty metrics (default: 3).
             skip_uncertainty: Skip uncertainty computation for faster inference.
+            wiki_search_enabled: Whether to allow Wikipedia searches.
+            wiki_max_results: Maximum Wikipedia articles to return per search (default: 2).
+            parse_response_max_retries: Max retries for JSON parse failures (default: 2).
+            tool_call_max_retries: Max retries for failed tool calls (default: 1).
+            pass_tool_errors_to_agent: Pass tool errors to agent for recovery (default: True).
         """
         # Nemotron-3-Nano: A/B testing showed temp=0 performs equally well
         # and is more deterministic. Keeping original settings.
@@ -516,6 +532,11 @@ class ReActQAAgent:
         self.vector_limit = vector_limit
         self.n_generations = n_generations
         self.skip_uncertainty = skip_uncertainty
+        self.wiki_search_enabled = wiki_search_enabled
+        self.wiki_max_results = wiki_max_results
+        self.parse_response_max_retries = parse_response_max_retries
+        self.tool_call_max_retries = tool_call_max_retries
+        self.pass_tool_errors_to_agent = pass_tool_errors_to_agent
 
         # Initialize uncertainty calculator (uses main LLM with diversity settings for sampling)
         self.uncertainty_calculator = None
@@ -1091,72 +1112,92 @@ class ReActQAAgent:
             context=context_to_use,
         )
 
-        try:
-            response = self.llm.invoke([
-                SystemMessage(content=SYSTEM_PROMPT),
-                HumanMessage(content=prompt),
-            ])
-
-            # Parse response
-            content = response.content
-            if not content or not content.strip():
-                logger.warning("Empty LLM response in think node, using fallback")
-                return {
-                    "ready_to_answer": True,
-                    "current_thought": "Unable to generate thought due to empty response.",
-                    "error": "Empty LLM response",
-                }
-
-            # Try to extract JSON
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0]
-            elif "```" in content:
-                content = content.split("```")[1].split("```")[0]
-
-            # Check for empty content after extraction
-            if not content or not content.strip():
-                logger.warning("Empty JSON content after extraction in think node")
-                return {
-                    "ready_to_answer": True,
-                    "current_thought": "Unable to parse response.",
-                    "error": "Empty JSON content",
-                }
-
-            # Try to repair malformed JSON before parsing
+        # Retry loop for parse failures (NeMo-style)
+        last_parse_error = None
+        for attempt in range(self.parse_response_max_retries + 1):
             try:
-                repaired_content = repair_json(content)
-                parsed = json.loads(repaired_content)
-            except Exception as repair_err:
-                logger.warning(f"JSON repair failed, trying raw parse: {repair_err}")
-                parsed = json.loads(content)
+                response = self.llm.invoke([
+                    SystemMessage(content=SYSTEM_PROMPT),
+                    HumanMessage(content=prompt),
+                ])
 
-            thought = parsed.get("thought", "")
-            ready_to_answer = parsed.get("ready_to_answer", False)
-            action_data = parsed.get("action", {})
+                # Parse response
+                content = response.content
+                if not content or not content.strip():
+                    logger.warning("Empty LLM response in think node, using fallback")
+                    return {
+                        "ready_to_answer": True,
+                        "current_thought": "Unable to generate thought due to empty response.",
+                        "error": "Empty LLM response",
+                    }
 
-            pending_action = None
-            if not ready_to_answer and action_data.get("tool_name", "none") != "none":
-                pending_action = ToolCall(
-                    tool_name=action_data["tool_name"],
-                    arguments=action_data.get("arguments", {}),
-                )
+                # Try to extract JSON
+                if "```json" in content:
+                    content = content.split("```json")[1].split("```")[0]
+                elif "```" in content:
+                    content = content.split("```")[1].split("```")[0]
 
-            return {
-                "current_thought": thought,
-                "ready_to_answer": ready_to_answer,
-                "pending_action": pending_action,
-                "iteration_count": state.iteration_count + 1,
-            }
+                # Check for empty content after extraction
+                if not content or not content.strip():
+                    logger.warning("Empty JSON content after extraction in think node")
+                    return {
+                        "ready_to_answer": True,
+                        "current_thought": "Unable to parse response.",
+                        "error": "Empty JSON content",
+                    }
 
-        except Exception as e:
-            logger.error(f"Think node error: {e}")
-            return {
-                "ready_to_answer": True,
-                "error": str(e),
-            }
+                # Try to repair malformed JSON before parsing
+                try:
+                    repaired_content = repair_json(content)
+                    parsed = json.loads(repaired_content)
+                except Exception as repair_err:
+                    logger.warning(f"JSON repair failed, trying raw parse: {repair_err}")
+                    parsed = json.loads(content)
+
+                # Successfully parsed - break out of retry loop
+                break
+
+            except json.JSONDecodeError as e:
+                last_parse_error = e
+                if attempt < self.parse_response_max_retries:
+                    logger.warning(f"JSON parse retry {attempt + 1}/{self.parse_response_max_retries}: {e}")
+                    continue
+                else:
+                    # Final attempt failed
+                    logger.error(f"JSON parse failed after {self.parse_response_max_retries + 1} attempts: {e}")
+                    return {
+                        "ready_to_answer": True,
+                        "current_thought": f"Unable to parse response after {self.parse_response_max_retries + 1} attempts.",
+                        "error": f"JSON parse error: {str(e)}",
+                    }
+            except Exception as e:
+                logger.error(f"Think node error: {e}")
+                return {
+                    "ready_to_answer": True,
+                    "error": str(e),
+                }
+
+        # Process parsed result (reached via break)
+        thought = parsed.get("thought", "")
+        ready_to_answer = parsed.get("ready_to_answer", False)
+        action_data = parsed.get("action", {})
+
+        pending_action = None
+        if not ready_to_answer and action_data.get("tool_name", "none") != "none":
+            pending_action = ToolCall(
+                tool_name=action_data["tool_name"],
+                arguments=action_data.get("arguments", {}),
+            )
+
+        return {
+            "current_thought": thought,
+            "ready_to_answer": ready_to_answer,
+            "pending_action": pending_action,
+            "iteration_count": state.iteration_count + 1,
+        }
 
     def _execute_action_node(self, state: QAAgentState) -> Dict[str, Any]:
-        """Execute the pending action."""
+        """Execute the pending action with retry logic."""
         if not state.pending_action:
             return {"last_observation": "No action to execute"}
 
@@ -1164,103 +1205,135 @@ class ReActQAAgent:
         tool_name = action.tool_name
         args = action.arguments
 
-        try:
-            if tool_name == "graph_lookup":
-                result = self.neo4j_loader.get_entity_with_relationships(
-                    entity_name=args.get("entity_name", ""),
-                )
-                observation = self._format_graph_lookup_result(result)
+        # Tool call retry loop (NeMo-style)
+        last_error = None
+        for attempt in range(self.tool_call_max_retries + 1):
+            try:
+                if tool_name == "graph_lookup":
+                    result = self.neo4j_loader.get_entity_with_relationships(
+                        entity_name=args.get("entity_name", ""),
+                    )
+                    observation = self._format_graph_lookup_result(result)
 
-                # Add to context if found
-                new_context = list(state.context)
-                if result.get("found"):
-                    new_context.append(ContextItem(
-                        source_type="entity",
-                        content=observation,
-                        source_id=args.get("entity_name", "unknown"),
-                        relevance_score=1.0,
-                    ))
+                    # Add to context if found
+                    new_context = list(state.context)
+                    if result.get("found"):
+                        new_context.append(ContextItem(
+                            source_type="entity",
+                            content=observation,
+                            source_id=args.get("entity_name", "unknown"),
+                            relevance_score=1.0,
+                        ))
 
-                return {
-                    "last_observation": observation,
-                    "context": new_context,
-                    "context_formatted": self._format_context(new_context),
-                }
+                    return {
+                        "last_observation": observation,
+                        "context": new_context,
+                        "context_formatted": self._format_context(new_context),
+                    }
 
-            elif tool_name == "web_search":
-                if not self.web_search_enabled or not self._web_search_tool:
-                    return {"last_observation": "Web search is not enabled"}
+                elif tool_name == "wiki_search":
+                    if not self.wiki_search_enabled:
+                        return {"last_observation": "Wikipedia search is not enabled"}
 
-                result = self._web_search_tool.execute(
-                    query=args.get("query", ""),
-                    num_results=args.get("num_results", 5),
-                )
-                observation = self._format_web_search_result(result)
+                    query = args.get("query", "")
+                    observation, new_context = self._execute_wiki_search(query, state.context)
 
-                # Add to context and optionally extract KG to database
-                new_context = list(state.context)
-                for item in result.get("results", []):
-                    new_context.append(ContextItem(
-                        source_type="web",
-                        content=f"[Web: {item.get('title', 'Untitled')}]\n{item.get('snippet', '')}",
-                        source_id=item.get("url", "unknown"),
-                        relevance_score=item.get("score", 0.5),
-                        metadata={
-                            "domain": item.get("domain"),
-                            "trust_level": item.get("trust_level"),
-                        },
-                    ))
+                    return {
+                        "last_observation": observation,
+                        "context": new_context,
+                        "context_formatted": self._format_context(new_context),
+                        "external_info_used": True,
+                    }
 
-                    # Extract KG from web content using same pipeline as agent_skb.py
-                    if self.auto_add_documents and self._kg_extraction_agent:
-                        try:
-                            self._extract_kg_from_web_result(item)
-                        except Exception as e:
-                            logger.warning(f"Failed to extract KG from web result: {e}")
+                elif tool_name == "web_search":
+                    if not self.web_search_enabled or not self._web_search_tool:
+                        return {"last_observation": "Web search is not enabled"}
 
-                return {
-                    "last_observation": observation,
-                    "context": new_context,
-                    "context_formatted": self._format_context(new_context),
-                    "external_info_used": True,
-                }
+                    result = self._web_search_tool.execute(
+                        query=args.get("query", ""),
+                        num_results=args.get("num_results", 5),
+                    )
+                    observation = self._format_web_search_result(result)
 
-            elif tool_name == "cypher_query":
-                query = args.get("query", "")
-                params = args.get("params", {})
-                result = self.neo4j_loader.run_cypher(query, params)
-                observation = f"Query returned {len(result)} results:\n{json.dumps(result[:10], indent=2, default=str)}"
+                    # Add to context and optionally extract KG to database
+                    new_context = list(state.context)
+                    for item in result.get("results", []):
+                        new_context.append(ContextItem(
+                            source_type="web",
+                            content=f"[Web: {item.get('title', 'Untitled')}]\n{item.get('snippet', '')}",
+                            source_id=item.get("url", "unknown"),
+                            relevance_score=item.get("score", 0.5),
+                            metadata={
+                                "domain": item.get("domain"),
+                                "trust_level": item.get("trust_level"),
+                            },
+                        ))
 
-                return {"last_observation": observation}
+                        # Extract KG from web content using same pipeline as agent_skb.py
+                        if self.auto_add_documents and self._kg_extraction_agent:
+                            try:
+                                self._extract_kg_from_web_result(item)
+                            except Exception as e:
+                                logger.warning(f"Failed to extract KG from web result: {e}")
 
-            elif tool_name == "entity_resolve":
-                entity_name = args.get("entity_name", "")
-                context = args.get("context", "")
+                    return {
+                        "last_observation": observation,
+                        "context": new_context,
+                        "context_formatted": self._format_context(new_context),
+                        "external_info_used": True,
+                    }
 
-                # Vector search for disambiguation
-                entities = self.neo4j_loader.vector_search(
-                    f"{entity_name} {context}",
-                    limit=5,
-                )
+                elif tool_name == "cypher_query":
+                    query = args.get("query", "")
+                    params = args.get("params", {})
+                    result = self.neo4j_loader.run_cypher(query, params)
+                    observation = f"Query returned {len(result)} results:\n{json.dumps(result[:10], indent=2, default=str)}"
 
-                candidates = []
-                for entity in entities:
-                    candidates.append({
-                        "name": entity.get("name", entity.get("id")),
-                        "type": entity.get("ontology_type", entity.get("open_type")),
-                        "description": entity.get("description", "")[:200],
-                        "score": entity.get("score", 0),
-                    })
+                    return {"last_observation": observation}
 
-                observation = f"Found {len(candidates)} candidates:\n{json.dumps(candidates, indent=2)}"
-                return {"last_observation": observation}
+                elif tool_name == "entity_resolve":
+                    entity_name = args.get("entity_name", "")
+                    context = args.get("context", "")
 
-            else:
-                return {"last_observation": f"Unknown tool: {tool_name}"}
+                    # Vector search for disambiguation
+                    entities = self.neo4j_loader.vector_search(
+                        f"{entity_name} {context}",
+                        limit=5,
+                    )
 
-        except Exception as e:
-            logger.error(f"Action execution error: {e}")
-            return {"last_observation": f"Error executing {tool_name}: {str(e)}"}
+                    candidates = []
+                    for entity in entities:
+                        candidates.append({
+                            "name": entity.get("name", entity.get("id")),
+                            "type": entity.get("ontology_type", entity.get("open_type")),
+                            "description": entity.get("description", "")[:200],
+                            "score": entity.get("score", 0),
+                        })
+
+                    observation = f"Found {len(candidates)} candidates:\n{json.dumps(candidates, indent=2)}"
+                    return {"last_observation": observation}
+
+                else:
+                    return {"last_observation": f"Unknown tool: {tool_name}"}
+
+            except Exception as e:
+                last_error = e
+                if attempt < self.tool_call_max_retries:
+                    logger.warning(f"Tool call retry {attempt + 1}/{self.tool_call_max_retries} for {tool_name}: {e}")
+                    continue
+                else:
+                    # Final attempt failed
+                    error_msg = f"Error executing {tool_name} after {self.tool_call_max_retries + 1} attempts: {str(e)}"
+                    logger.error(error_msg)
+
+                    # Pass error to agent if configured (allows agent to recover)
+                    if self.pass_tool_errors_to_agent:
+                        return {"last_observation": error_msg}
+                    else:
+                        raise
+
+        # Shouldn't reach here, but safety return
+        return {"last_observation": f"Tool {tool_name} failed: {last_error}"}
 
     def _format_graph_lookup_result(self, result: Dict[str, Any]) -> str:
         """Format graph lookup result."""
@@ -1304,6 +1377,58 @@ class ReActQAAgent:
             parts.append(f"   Snippet: {item.get('snippet', '')[:200]}...")
 
         return "\n".join(parts)
+
+    def _execute_wiki_search(
+        self,
+        query: str,
+        current_context: List[ContextItem],
+    ) -> Tuple[str, List[ContextItem]]:
+        """Execute Wikipedia search and return formatted results.
+
+        Args:
+            query: Search query for Wikipedia
+            current_context: Current context items
+
+        Returns:
+            Tuple of (observation string, updated context list)
+        """
+        try:
+            loader = WikipediaLoader(query=query, load_max_docs=self.wiki_max_results)
+            docs = loader.load()
+
+            if not docs:
+                return "No Wikipedia articles found for this query.", list(current_context)
+
+            # Format results
+            parts = [f"Found {len(docs)} Wikipedia article(s):"]
+            new_context = list(current_context)
+
+            for doc in docs:
+                source = doc.metadata.get("source", "Wikipedia")
+                title = doc.metadata.get("title", "Untitled")
+                content = doc.page_content[:1500]  # Limit content length
+
+                parts.append(f"\n[Wikipedia: {title}]")
+                parts.append(f"Source: {source}")
+                parts.append(f"Content: {content}...")
+
+                new_context.append(ContextItem(
+                    source_type="document",
+                    content=f"[Wikipedia: {title}]\n{content}",
+                    source_id=source,
+                    relevance_score=0.9,
+                    metadata={
+                        "source": "wikipedia",
+                        "title": title,
+                        "trust_level": "high",
+                    },
+                ))
+
+            return "\n".join(parts), new_context
+
+        except Exception as e:
+            logger.error(f"Wikipedia search error: {e}")
+            return f"Wikipedia search failed: {str(e)}", list(current_context)
 
     def _extract_kg_from_web_result(self, web_result: Dict[str, Any]) -> None:
         """
@@ -1580,6 +1705,8 @@ def main():
     parser.add_argument("--question", "-q", type=str, help="Question to answer")
     parser.add_argument("--interactive", "-i", action="store_true", help="Interactive mode")
     parser.add_argument("--no-web", action="store_true", help="Disable web search")
+    parser.add_argument("--no-wiki", action="store_true", help="Disable Wikipedia search")
+    parser.add_argument("--wiki-results", type=int, default=2, help="Max Wikipedia results (default: 2)")
     parser.add_argument("--no-planning", action="store_true", help="Disable retrieval planning")
     parser.add_argument("--no-compression", action="store_true", help="Disable context compression")
     parser.add_argument("--followup", action="store_true", help="Use FollowUpGraphRAG (follow-up questions + dual vector search)")
@@ -1591,6 +1718,14 @@ def main():
     parser.add_argument("--n-generations", type=int, default=3, help="Number of generations for uncertainty metrics (default: 3)")
     parser.add_argument("--skip-uncertainty", action="store_true", help="Skip uncertainty computation for faster inference")
     parser.add_argument("--verbose", "-v", action="store_true", help="Show detailed uncertainty metrics")
+
+    # Retry and robustness flags (NeMo-style)
+    parser.add_argument("--parse-retries", type=int, default=2, help="Max retries for JSON parse failures (default: 2)")
+    parser.add_argument("--tool-retries", type=int, default=1, help="Max retries for failed tool calls (default: 1)")
+
+    # Profiling flags
+    parser.add_argument("--profile", action="store_true", help="Enable performance profiling")
+
     args = parser.parse_args()
 
     agent = ReActQAAgent(
@@ -1605,7 +1740,17 @@ def main():
         secondary_max_hops=args.secondary_hops,
         n_generations=args.n_generations,
         skip_uncertainty=args.skip_uncertainty,
+        wiki_search_enabled=not args.no_wiki,
+        wiki_max_results=args.wiki_results,
+        parse_response_max_retries=args.parse_retries,
+        tool_call_max_retries=args.tool_retries,
     )
+
+    # Initialize profiler if requested
+    profiler = None
+    if args.profile:
+        from agent_profiler import AgentProfiler, print_profile_report
+        profiler = AgentProfiler()
 
     try:
         if args.interactive:
@@ -1642,7 +1787,18 @@ def main():
                 print()
 
         elif args.question:
+            # Start profiler if enabled
+            if profiler:
+                profiler.start(args.question)
+
             response = agent.answer_question(args.question)
+
+            # Finish profiler and print report
+            if profiler:
+                profile_report = profiler.finish(response.answer)
+                print_profile_report(profile_report)
+                print()
+
             print(f"Question: {args.question}")
             print(f"\nAnswer: {response.answer}")
             print(f"\nConfidence: {response.confidence:.2f}")
