@@ -5,6 +5,7 @@ An end-to-end GraphRAG (Graph Retrieval-Augmented Generation) system that builds
 
 - **Agentic KG Construction**: Autonomous agent builds knowledge graphs with dynamic ontology extraction
 - **ReAct QA Agent**: Reasoning + Acting agent for knowledge graph Q&A with hybrid retrieval
+- **Agent Optimization**: NeMo-style prompt optimization, Optuna hyperparameter tuning, and profiling
 - **Uncertainty Metrics**: Objective confidence scoring (perplexity, semantic entropy, embedding consistency)
 - **RAGAS Evaluation**: 3-layer evaluation framework with 8 metrics (no LLM-as-judge)
 - **Web Interface**: Interactive Chainlit app with graph visualization
@@ -180,30 +181,123 @@ Tests impact of each agent feature:
 - Follow-up planning can improve multi-hop reasoning questions
 - Run your own ablation study to find optimal config for your use case
 
+## Agent Optimization
+
+NeMo-Agent-Toolkit inspired optimization suite for improving agent performance.
+
+### Prompt Optimization (`prompt_optimizer.py`)
+
+Genetic algorithm-based prompt evolution with 6 mutation operators:
+
+| Operator | Purpose |
+|----------|---------|
+| **Tighten** | Remove redundancies and verbosity |
+| **Reorder** | Optimize instruction sequence |
+| **Constrain** | Add explicit rules and boundaries |
+| **Harden** | Enhance error handling |
+| **Defuse** | Replace vague language with measurable actions |
+| **Format-lock** | Enforce JSON/XML output schemas |
+
+```bash
+# Apply all mutation operators to a prompt
+python prompt_optimizer.py --prompt "Your system prompt" --objective "Answer questions accurately" --all-operators
+
+# Apply single operator
+python prompt_optimizer.py --prompt "Your prompt" --objective "Q&A" --operator tighten
+```
+
+### Hyperparameter Tuning (`hyperparameter_optimizer.py`)
+
+Optuna-based multi-objective optimization for agent parameters:
+
+| Parameter | Range | Description |
+|-----------|-------|-------------|
+| `temperature` | 0.0-1.0 | LLM sampling temperature |
+| `top_p` | 0.5-1.0 | Nucleus sampling parameter |
+| `max_iterations` | 3-10 | Maximum ReAct loop iterations |
+| `parse_response_max_retries` | 1-5 | JSON parse retry limit |
+
+```bash
+# Run hyperparameter optimization
+python hyperparameter_optimizer.py --n-trials 50 --output-dir optimization_results
+```
+
+### Agent Profiler (`agent_profiler.py`)
+
+Performance tracking with bottleneck detection:
+
+```bash
+# Profile agent execution
+python agent_qa.py --question "What is monetary policy?" --profile
+
+# Standalone profiler demo
+python agent_profiler.py --demo
+```
+
+**Metrics tracked:**
+- Per-tool execution latency
+- LLM call timing
+- Step-by-step breakdown
+- Automatic bottleneck identification
+
+### Trajectory Evaluation (`benchmarks/trajectory_evaluator.py`)
+
+Score intermediate reasoning quality:
+
+| Metric | Description |
+|--------|-------------|
+| **Thought Relevance** | Are thoughts relevant to the question? |
+| **Tool Selection** | Are tool choices appropriate? |
+| **Reasoning Coherence** | Is reasoning consistent across steps? |
+| **Efficiency** | Minimal steps to reach answer? |
+
+```bash
+# Run trajectory evaluation demo
+python benchmarks/trajectory_evaluator.py --demo
+```
+
+### Retry Logic (NeMo-style)
+
+Robust error handling with configurable retries:
+
+```bash
+# Configure retry behavior
+python agent_qa.py --question "What is inflation?" --parse-retries 3 --tool-retries 2
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--parse-retries` | 2 | Max retries for JSON parse failures |
+| `--tool-retries` | 1 | Max retries for failed tool calls |
+
 ## Project Structure
 
 ```
 llm2kg/
-├── agent_skb.py          # Knowledge graph construction agent
-├── agent_qa.py           # ReAct QA agent
-├── uncertainty_metrics.py # Confidence scoring (perplexity, entropy, consistency)
-├── planned_graphrag.py   # CLaRa-style retrieval planning
-├── ontologies.py         # Dynamic ontology extraction
-├── graphrag.py           # GraphRAG retrieval utilities
-├── skb_graphrag.py       # SKB-specific GraphRAG
+├── agent_skb.py              # Knowledge graph construction agent
+├── agent_qa.py               # ReAct QA agent
+├── uncertainty_metrics.py    # Confidence scoring (perplexity, entropy, consistency)
+├── prompt_optimizer.py       # GA-based prompt optimization (NeMo-style)
+├── hyperparameter_optimizer.py # Optuna-based hyperparameter tuning
+├── agent_profiler.py         # Performance profiling and bottleneck detection
+├── planned_graphrag.py       # CLaRa-style retrieval planning
+├── ontologies.py             # Dynamic ontology extraction
+├── graphrag.py               # GraphRAG retrieval utilities
+├── skb_graphrag.py           # SKB-specific GraphRAG
 ├── frontend/
-│   └── app.py            # Chainlit web application
-├── prompts/              # LLM prompts and templates
+│   └── app.py                # Chainlit web application
+├── prompts/                  # LLM prompts and templates
 ├── benchmarks/
-│   ├── agent_eval/       # RAGAS-based evaluation framework
-│   │   ├── config.py     # Thresholds and LLM configuration
-│   │   ├── runner.py     # Evaluation orchestrator
-│   │   └── metrics/      # RAGAS + formula-based metrics
+│   ├── agent_eval/           # RAGAS-based evaluation framework
+│   │   ├── config.py         # Thresholds and LLM configuration
+│   │   ├── runner.py         # Evaluation orchestrator
+│   │   └── metrics/          # RAGAS + formula-based metrics
+│   ├── trajectory_evaluator.py # Reasoning quality scoring
 │   ├── run_complete_eval.py
 │   ├── followup_ablation_study.py
 │   └── improved_ablation_study.py
-├── tests/                # Test suites
-├── finetuning/           # SFT and DPO training pipelines
+├── tests/                    # Test suites
+├── finetuning/               # SFT and DPO training pipelines
 └── docker-compose.yml
 ```
 
@@ -227,3 +321,4 @@ Source: [cais/wmdp-mmlu-auxiliary-corpora](https://huggingface.co/datasets/cais/
 - Google API key (primary) or OpenAI API key (fallback) for RAGAS evaluation
 - Tavily API key (optional, for web search)
 - RAGAS package (`pip install ragas`)
+- Optuna package (`pip install optuna`) for hyperparameter optimization

@@ -20,6 +20,7 @@ datasets
 torch 
 tabulate 
 tqdm
+chainlit
 
 # Fine-tuning dependencies
 peft>=0.12.0

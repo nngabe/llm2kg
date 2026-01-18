@@ -35,6 +35,8 @@ services:
   llm-app:
     build: .
     container_name: llm_knowledge_graph_app
+    ports:
+      - "8000:8000"  # Chainlit web interface
     depends_on:
       neo4j-db:
         condition: service_healthy
