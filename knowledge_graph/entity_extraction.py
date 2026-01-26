@@ -58,7 +58,7 @@ class OntologyDiscoveryPipeline:
         sample_size: int = 50,
         falkordb_host: str = FALKORDB_HOST,
         falkordb_port: int = FALKORDB_PORT,
-        llm_model: str = "gpt-4o-mini",  # graphrag_sdk default
+        llm_model: str = "nemotron-3-nano:30b",  # Ollama model
     ):
         """
         Initialize the ontology discovery pipeline.
@@ -317,7 +317,7 @@ class GraphitiEntityExtractor:
         ontology: Optional[Dict[str, Any]] = None,
         falkordb_host: str = FALKORDB_HOST,
         falkordb_port: int = FALKORDB_PORT,
-        llm_model: str = "gpt-4o-mini",
+        llm_model: str = "nemotron-3-nano:30b",
     ):
         """
         Initialize the Graphiti entity extractor.
@@ -507,7 +507,7 @@ Respond with JSON in this format:
 }}"""
 
             llm = ChatOllama(
-                model="qwen3:8b",
+                model="nemotron-3-nano:30b",
                 base_url=OLLAMA_HOST,
                 temperature=0.0,
             )
