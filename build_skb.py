@@ -57,7 +57,11 @@ class Neo4jLoader:
                 model="qwen3-embedding:8b",
             )
         elif provider=='openai':
-            self.embedding_model = OpenAIEmbeddings(model="text-embedding-3-small")
+            # Always use qwen3-embedding:8b for consistent 4096-dim vectors
+            self.embedding_model = OllamaEmbeddings(
+                base_url="http://host.docker.internal:11434",
+                model="qwen3-embedding:8b",
+            )
 
     def close(self):
         self.driver.close()
@@ -72,7 +76,7 @@ class Neo4jLoader:
         FOR (n:Entity)
         ON (n.embedding)
         OPTIONS {indexConfig: {
-         `vector.dimensions`: 1536,
+         `vector.dimensions`: 4096,
          `vector.similarity_function`: 'cosine'
         }}
         """

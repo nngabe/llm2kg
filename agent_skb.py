@@ -252,13 +252,21 @@ class Neo4jAgentLoader:
             )
             self.embedding_dim = 4096
         elif provider == 'openai':
-            self.embedding_model_name = DEFAULT_OPENAI_EMBEDDING_MODEL
-            self.embedding_model = OpenAIEmbeddings(model=self.embedding_model_name)
-            self.embedding_dim = 1536
+            # Always use qwen3-embedding:8b for consistent 4096-dim vectors
+            self.embedding_model_name = DEFAULT_LOCAL_EMBEDDING_MODEL
+            self.embedding_model = OllamaEmbeddings(
+                base_url="http://host.docker.internal:11434",
+                model=self.embedding_model_name,
+            )
+            self.embedding_dim = 4096
         else:
-            self.embedding_model_name = DEFAULT_OPENAI_EMBEDDING_MODEL
-            self.embedding_model = OpenAIEmbeddings(model=self.embedding_model_name)
-            self.embedding_dim = 1536
+            # Always use qwen3-embedding:8b for consistent 4096-dim vectors
+            self.embedding_model_name = DEFAULT_LOCAL_EMBEDDING_MODEL
+            self.embedding_model = OllamaEmbeddings(
+                base_url="http://host.docker.internal:11434",
+                model=self.embedding_model_name,
+            )
+            self.embedding_dim = 4096
 
     def close(self):
         self.driver.close()

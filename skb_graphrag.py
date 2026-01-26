@@ -1,6 +1,7 @@
 import os
 from typing import List, Dict, Any
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
+from langchain_ollama import OllamaEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from neo4j import GraphDatabase
@@ -13,7 +14,10 @@ NEO4J_PASSWORD = os.environ["NEO4J_PASSWORD"]
 class GraphRAG:
     def __init__(self):
         self.driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-        self.embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+        self.embeddings = OllamaEmbeddings(
+            model="qwen3-embedding:8b",
+            base_url="http://host.docker.internal:11434",
+        )
         self.llm = ChatOpenAI(model="gpt-5-mini", temperature=0)
 
     def close(self):

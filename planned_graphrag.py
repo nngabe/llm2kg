@@ -26,6 +26,11 @@ from langchain_core.prompts import ChatPromptTemplate
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434")
 OLLAMA_UTILITY_MODEL = os.getenv("OLLAMA_UTILITY_MODEL", "ministral-3:14b")
 
+# FalkorDB configuration
+FALKORDB_HOST = os.getenv("FALKORDB_HOST", "host.docker.internal")
+FALKORDB_PORT = int(os.getenv("FALKORDB_PORT", "6379"))
+FALKORDB_GRAPH = os.getenv("FALKORDB_GRAPH", "wikidata")
+
 from prompts.retrieval_prompts import (
     format_compression_prompt,
     format_pattern_to_cypher_prompt,
@@ -35,6 +40,157 @@ from prompts.retrieval_prompts import (
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# FALKORDB DRIVER WRAPPER
+# =============================================================================
+
+class FalkorDBDriverWrapper:
+    """Wrapper to provide Neo4j-like interface for FalkorDB."""
+
+    def __init__(self, host: str = FALKORDB_HOST, port: int = FALKORDB_PORT, graph_name: str = FALKORDB_GRAPH):
+        from falkordb import FalkorDB
+        self.client = FalkorDB(host=host, port=port)
+        self.graph = self.client.select_graph(graph_name)
+        self.graph_name = graph_name
+
+    def close(self):
+        pass  # FalkorDB client doesn't require explicit close
+
+    def session(self):
+        """Return a context manager that provides session-like interface."""
+        return FalkorDBSessionWrapper(self.graph)
+
+
+class FalkorDBSessionWrapper:
+    """Session wrapper for FalkorDB to provide Neo4j-like interface."""
+
+    def __init__(self, graph):
+        self.graph = graph
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    def run(self, query: str, **params):
+        """Run a Cypher query and return results."""
+        result = self.graph.query(query, params)
+        return FalkorDBResultWrapper(result)
+
+
+class FalkorDBResultWrapper:
+    """Wrapper to provide Neo4j-like result interface for FalkorDB."""
+
+    def __init__(self, result):
+        self.result = result
+        self.result_set = result.result_set
+        self._index = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._index >= len(self.result_set):
+            raise StopIteration
+        record = self.result_set[self._index]
+        self._index += 1
+        return FalkorDBRecordWrapper(record, self.result.header if hasattr(self.result, 'header') else [])
+
+    def single(self):
+        """Return single result or None."""
+        if self.result_set:
+            return FalkorDBRecordWrapper(self.result_set[0], self.result.header if hasattr(self.result, 'header') else [])
+        return None
+
+
+class FalkorDBRecordWrapper:
+    """Wrapper to provide Neo4j-like record interface for FalkorDB."""
+
+    def __init__(self, record, header):
+        self._record = record
+        # FalkorDB header format is [[type, name], ...] - extract just names
+        self._header = []
+        if header:
+            for h in header:
+                if isinstance(h, (list, tuple)) and len(h) >= 2:
+                    self._header.append(h[1])  # Get the name from [type, name]
+                else:
+                    self._header.append(str(h))
+
+        # Build a lookup dict for named access
+        self._data = {}
+        for i, h in enumerate(self._header):
+            if i < len(self._record):
+                val = self._record[i]
+                # Convert FalkorDB node to dict
+                if hasattr(val, 'properties'):
+                    self._data[h] = dict(val.properties)
+                elif hasattr(val, 'items'):  # Already dict-like
+                    self._data[h] = dict(val)
+                else:
+                    self._data[h] = val
+
+    def __getitem__(self, key):
+        if isinstance(key, str):
+            if key in self._data:
+                return self._data[key]
+            # Try case-insensitive lookup
+            for k, v in self._data.items():
+                if str(k).lower() == key.lower():
+                    return v
+            raise KeyError(key)
+        else:
+            # Integer index access
+            if key < len(self._record):
+                val = self._record[key]
+                if hasattr(val, 'properties'):
+                    return dict(val.properties)
+                return val
+            raise IndexError(key)
+
+    def get(self, key, default=None):
+        """Get with default value support."""
+        try:
+            return self[key]
+        except (KeyError, IndexError):
+            return default
+
+    def keys(self):
+        """Return available keys."""
+        return self._data.keys()
+
+    def values(self):
+        """Return values."""
+        return self._data.values()
+
+    def items(self):
+        """Return items."""
+        return self._data.items()
+
+
+def create_driver(backend: str = "neo4j", **kwargs):
+    """Factory function to create the appropriate driver.
+
+    Args:
+        backend: "neo4j" or "falkordb"
+        **kwargs: Connection parameters
+
+    Returns:
+        Neo4j driver or FalkorDBDriverWrapper
+    """
+    if backend.lower() == "falkordb":
+        host = kwargs.get('host', FALKORDB_HOST)
+        port = kwargs.get('port', FALKORDB_PORT)
+        graph_name = kwargs.get('graph_name', FALKORDB_GRAPH)
+        return FalkorDBDriverWrapper(host=host, port=port, graph_name=graph_name)
+    else:
+        neo4j_uri = kwargs.get('uri') or os.getenv("NEO4J_URI", "neo4j://host.docker.internal:7687")
+        neo4j_user = kwargs.get('user') or os.getenv("NEO4J_USERNAME", "neo4j")
+        neo4j_password = kwargs.get('password') or os.getenv("NEO4J_PASSWORD", "password")
+        return GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
 
 
 # =============================================================================
@@ -110,6 +266,8 @@ class PlannedGraphRAG:
         neo4j_uri: str = None,
         neo4j_user: str = None,
         neo4j_password: str = None,
+        backend: str = "neo4j",
+        graph_name: str = FALKORDB_GRAPH,
         llm: Optional[Any] = None,
         embedding_model: Optional[Any] = None,
         compression_enabled: bool = True,
@@ -118,17 +276,23 @@ class PlannedGraphRAG:
         Initialize PlannedGraphRAG.
 
         Args:
-            neo4j_uri: Neo4j connection URI
-            neo4j_user: Neo4j username
-            neo4j_password: Neo4j password
+            neo4j_uri: Neo4j connection URI (only used for neo4j backend)
+            neo4j_user: Neo4j username (only used for neo4j backend)
+            neo4j_password: Neo4j password (only used for neo4j backend)
+            backend: Database backend ("neo4j" or "falkordb")
+            graph_name: FalkorDB graph name (only used for falkordb backend)
             llm: LLM for compression and pattern conversion
             embedding_model: Embedding model for vector search
             compression_enabled: Whether to compress retrieved context
         """
-        neo4j_uri = neo4j_uri or os.getenv("NEO4J_URI", "neo4j://host.docker.internal:7687")
-        neo4j_user = neo4j_user or os.getenv("NEO4J_USERNAME", "neo4j")
-        neo4j_password = neo4j_password or os.getenv("NEO4J_PASSWORD", "password")
-        self.driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
+        self.backend = backend.lower()
+        if self.backend == "falkordb":
+            self.driver = create_driver(backend="falkordb", graph_name=graph_name)
+        else:
+            neo4j_uri = neo4j_uri or os.getenv("NEO4J_URI", "neo4j://host.docker.internal:7687")
+            neo4j_user = neo4j_user or os.getenv("NEO4J_USERNAME", "neo4j")
+            neo4j_password = neo4j_password or os.getenv("NEO4J_PASSWORD", "password")
+            self.driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
         self.llm = llm or ChatOllama(
             model=OLLAMA_UTILITY_MODEL,
             base_url=OLLAMA_HOST,
@@ -210,31 +374,32 @@ class PlannedGraphRAG:
             ctx.entity_data = dict(record["e"])
             ctx.entity_data["labels"] = record["labels"]
 
-            # Get relationships up to max_hops
+            # Get relationships - use simple query for FalkorDB compatibility
             if max_hops >= 1:
-                rel_query = f"""
-                MATCH (e)-[r*1..{max_hops}]-(other)
+                # Use simpler 1-hop query that works with both Neo4j and FalkorDB
+                rel_query = """
+                MATCH (e)-[r]-(other)
                 WHERE toLower(e.name) = toLower($name) OR toLower(e.id) = toLower($name)
-                WITH e, r as rels, other
-                UNWIND rels as rel
                 RETURN DISTINCT
-                    type(rel) as rel_type,
-                    properties(rel) as rel_props,
-                    other,
-                    labels(other) as other_labels,
-                    startNode(rel) = e as is_outgoing
+                    type(r) as rel_type,
+                    other.name as other_name,
+                    other.description as other_desc,
+                    labels(other) as other_labels
                 LIMIT 30
                 """
                 rel_result = session.run(rel_query, name=entity_name)
 
                 for rec in rel_result:
-                    other = dict(rec["other"])
-                    other["labels"] = rec["other_labels"]
+                    other = {
+                        "name": rec.get("other_name", "Unknown"),
+                        "description": rec.get("other_desc", ""),
+                        "labels": rec.get("other_labels", []),
+                    }
                     ctx.relationships.append({
                         "type": rec["rel_type"],
-                        "properties": dict(rec["rel_props"]) if rec["rel_props"] else {},
+                        "properties": {},
                         "other_entity": other,
-                        "direction": "outgoing" if rec["is_outgoing"] else "incoming",
+                        "direction": "outgoing",  # Simplified
                     })
 
         return ctx
@@ -582,6 +747,8 @@ class ImprovedGraphRAG:
         neo4j_uri: str = None,
         neo4j_user: str = None,
         neo4j_password: str = None,
+        backend: str = "neo4j",
+        graph_name: str = FALKORDB_GRAPH,
         llm: Optional[Any] = None,
         embedding_model: Optional[Any] = None,
         max_hops: int = 2,
@@ -592,19 +759,25 @@ class ImprovedGraphRAG:
         Initialize ImprovedGraphRAG.
 
         Args:
-            neo4j_uri: Neo4j connection URI
-            neo4j_user: Neo4j username
-            neo4j_password: Neo4j password
+            neo4j_uri: Neo4j connection URI (only used for neo4j backend)
+            neo4j_user: Neo4j username (only used for neo4j backend)
+            neo4j_password: Neo4j password (only used for neo4j backend)
+            backend: Database backend ("neo4j" or "falkordb")
+            graph_name: FalkorDB graph name (only used for falkordb backend)
             llm: LLM for keyword extraction and compression
             embedding_model: Embedding model for vector search
             max_hops: Maximum hops for graph traversal (1, 2, or 3)
             vector_limit: Maximum entities per keyword from vector search
             compression_enabled: Whether to compress retrieved context
         """
-        neo4j_uri = neo4j_uri or os.getenv("NEO4J_URI", "neo4j://host.docker.internal:7687")
-        neo4j_user = neo4j_user or os.getenv("NEO4J_USERNAME", "neo4j")
-        neo4j_password = neo4j_password or os.getenv("NEO4J_PASSWORD", "password")
-        self.driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
+        self.backend = backend.lower()
+        if self.backend == "falkordb":
+            self.driver = create_driver(backend="falkordb", graph_name=graph_name)
+        else:
+            neo4j_uri = neo4j_uri or os.getenv("NEO4J_URI", "neo4j://host.docker.internal:7687")
+            neo4j_user = neo4j_user or os.getenv("NEO4J_USERNAME", "neo4j")
+            neo4j_password = neo4j_password or os.getenv("NEO4J_PASSWORD", "password")
+            self.driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
         self.llm = llm or ChatOllama(
             model=OLLAMA_UTILITY_MODEL,
             base_url=OLLAMA_HOST,
@@ -778,31 +951,25 @@ class ImprovedGraphRAG:
 
     def _fixed_hop_traversal(self, entity_name: str, hops: int = 2) -> List[Dict[str, Any]]:
         """
-        Fixed template traversal - NO dynamic Cypher.
-
-        This query template NEVER changes, making it highly reliable.
+        Fixed template traversal - uses simple 1-hop query for FalkorDB compatibility.
 
         Args:
             entity_name: Starting entity name
-            hops: Number of hops (1, 2, or 3)
+            hops: Number of hops (ignored for FalkorDB compatibility, uses 1-hop)
 
         Returns:
             List of relationship dictionaries
         """
-        # Fixed template - parameterized only by hops count
-        # This avoids all LLM-generated Cypher failures
-        query = f"""
-        MATCH (e)-[r*1..{hops}]-(neighbor)
+        # Use simple 1-hop query for FalkorDB compatibility
+        query = """
+        MATCH (e)-[r]-(neighbor)
         WHERE toLower(e.name) = toLower($name)
-        WITH neighbor, r
-        UNWIND r as rel
         RETURN DISTINCT
             neighbor.name as neighbor_name,
             neighbor.description as neighbor_desc,
             labels(neighbor) as neighbor_labels,
-            type(rel) as rel_type,
-            startNode(rel).name as source,
-            endNode(rel).name as target
+            type(r) as rel_type,
+            e.name as source
         LIMIT 30
         """
 
@@ -813,12 +980,12 @@ class ImprovedGraphRAG:
                 relationships = []
                 for record in result:
                     relationships.append({
-                        "neighbor_name": record["neighbor_name"],
-                        "neighbor_desc": record["neighbor_desc"],
-                        "neighbor_labels": record["neighbor_labels"],
-                        "rel_type": record["rel_type"],
-                        "source": record["source"],
-                        "target": record["target"],
+                        "neighbor_name": record.get("neighbor_name", "Unknown"),
+                        "neighbor_desc": record.get("neighbor_desc", ""),
+                        "neighbor_labels": record.get("neighbor_labels", []),
+                        "rel_type": record.get("rel_type", "RELATED_TO"),
+                        "source": record.get("source", entity_name),
+                        "target": record.get("neighbor_name", "Unknown"),
                     })
                 return relationships
 
@@ -956,6 +1123,8 @@ class FollowUpGraphRAG:
         neo4j_uri: str = None,
         neo4j_user: str = None,
         neo4j_password: str = None,
+        backend: str = "neo4j",
+        graph_name: str = FALKORDB_GRAPH,
         planning_llm: Optional[Any] = None,
         utility_llm: Optional[Any] = None,
         embedding_model: Optional[Any] = None,
@@ -970,9 +1139,11 @@ class FollowUpGraphRAG:
         Initialize FollowUpGraphRAG.
 
         Args:
-            neo4j_uri: Neo4j connection URI
-            neo4j_user: Neo4j username
-            neo4j_password: Neo4j password
+            neo4j_uri: Neo4j connection URI (only used for neo4j backend)
+            neo4j_user: Neo4j username (only used for neo4j backend)
+            neo4j_password: Neo4j password (only used for neo4j backend)
+            backend: Database backend ("neo4j" or "falkordb")
+            graph_name: FalkorDB graph name (only used for falkordb backend)
             planning_llm: LLM for follow-up question generation (can have thinking enabled)
             utility_llm: LLM for compression (faster model)
             embedding_model: Embedding model for vector search
@@ -983,10 +1154,14 @@ class FollowUpGraphRAG:
             compression_enabled: Whether to compress retrieved context
             planning_reasoning: Whether to use detailed thinking prompt
         """
-        neo4j_uri = neo4j_uri or os.getenv("NEO4J_URI", "neo4j://host.docker.internal:7687")
-        neo4j_user = neo4j_user or os.getenv("NEO4J_USERNAME", "neo4j")
-        neo4j_password = neo4j_password or os.getenv("NEO4J_PASSWORD", "password")
-        self.driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
+        self.backend = backend.lower()
+        if self.backend == "falkordb":
+            self.driver = create_driver(backend="falkordb", graph_name=graph_name)
+        else:
+            neo4j_uri = neo4j_uri or os.getenv("NEO4J_URI", "neo4j://host.docker.internal:7687")
+            neo4j_user = neo4j_user or os.getenv("NEO4J_USERNAME", "neo4j")
+            neo4j_password = neo4j_password or os.getenv("NEO4J_PASSWORD", "password")
+            self.driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
 
         # Planning LLM (can be nemotron with thinking enabled)
         self.planning_llm = planning_llm or ChatOllama(
@@ -1160,19 +1335,17 @@ class FollowUpGraphRAG:
             return []
 
     def _fixed_hop_traversal(self, entity_name: str, hops: int = 2) -> List[Dict[str, Any]]:
-        """Fixed template traversal - NO dynamic Cypher."""
-        query = f"""
-        MATCH (e)-[r*1..{hops}]-(neighbor)
+        """Fixed template traversal - uses simple 1-hop query for FalkorDB compatibility."""
+        # Use simple 1-hop query for FalkorDB compatibility
+        query = """
+        MATCH (e)-[r]-(neighbor)
         WHERE toLower(e.name) = toLower($name)
-        WITH neighbor, r
-        UNWIND r as rel
         RETURN DISTINCT
             neighbor.name as neighbor_name,
             neighbor.description as neighbor_desc,
             labels(neighbor) as neighbor_labels,
-            type(rel) as rel_type,
-            startNode(rel).name as source,
-            endNode(rel).name as target
+            type(r) as rel_type,
+            e.name as source
         LIMIT 30
         """
 
@@ -1183,12 +1356,12 @@ class FollowUpGraphRAG:
                 relationships = []
                 for record in result:
                     relationships.append({
-                        "neighbor_name": record["neighbor_name"],
-                        "neighbor_desc": record["neighbor_desc"],
-                        "neighbor_labels": record["neighbor_labels"],
-                        "rel_type": record["rel_type"],
-                        "source": record["source"],
-                        "target": record["target"],
+                        "neighbor_name": record.get("neighbor_name", "Unknown"),
+                        "neighbor_desc": record.get("neighbor_desc", ""),
+                        "neighbor_labels": record.get("neighbor_labels", []),
+                        "rel_type": record.get("rel_type", "RELATED_TO"),
+                        "source": record.get("source", entity_name),
+                        "target": record.get("neighbor_name", "Unknown"),
                     })
                 return relationships
 

@@ -1,5 +1,6 @@
 neo4j>=5.18.0       
 neo4j-graphrag     
+falkordb
 langchain>=0.2.0
 langchain-community
 wikipedia
@@ -10,6 +11,8 @@ langchain-anthropic
 langchain-huggingface
 langchain-ollama
 langchain-text-splitters
+langchain-experimental>=0.3.0  # SemanticChunker for embedding-based splits
+scikit-learn>=1.3.0            # KMeans clustering for RAPTOR
 sentence-transformers
 pandas
 tiktoken         
@@ -37,3 +40,7 @@ huggingface_hub>=0.25.0
 # Agent optimization
 optuna>=3.0.0
 nvidia-nemo-agent-toolkit>=1.0.0
+
+# Knowledge Graph Pipeline (Stage 2 & 3)
+graphiti-core>=0.5.0
+graphrag-sdk>=0.5.0

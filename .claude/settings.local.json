@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m benchmarks.model_comparison:*)",
+      "Bash(curl:*)",
+      "Bash(ollama list:*)",
+      "Bash(python agent_skb.py:*)",
+      "Bash(python -m finetuning.scripts.01_generate_labels:*)",
+      "Bash(python3:*)",
+      "Bash(timeout 60 python:*)",
+      "Bash(tee:*)",
+      "Bash(python:*)",
+      "Bash(export TAVILY_API_KEY=\"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\")",
+      "Bash(timeout 180 python:*)",
+      "Bash(timeout 120 python:*)",
+      "Bash(cat:*)",
+      "Bash(grep:*)",
+      "Bash(timeout 300 python:*)",
+      "Bash(timeout 600 python3:*)",
+      "Bash(timeout 600 python:*)",
+      "Bash(timeout 900 python:*)",
+      "Bash(chmod:*)",
+      "Bash(~/.bashrc)",
+      "Bash(~/.profile)",
+      "Bash(export TAVILY_API_KEY=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)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:nvidia.github.io)",
+      "WebSearch",
+      "WebFetch(domain:docs.nvidia.com)",
+      "WebFetch(domain:developer.nvidia.com)",
+      "WebFetch(domain:towardsdatascience.com)",
+      "Bash(pip install:*)",
+      "Bash(sort:*)",
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ]
+  }
+}

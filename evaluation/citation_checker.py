@@ -64,9 +64,10 @@ class CitationChecker:
             if self._embedding_model_config:
                 self._embedding_model = self._embedding_model_config
             else:
-                from langchain_openai import OpenAIEmbeddings
-                self._embedding_model = OpenAIEmbeddings(
-                    model="text-embedding-3-small"
+                from langchain_ollama import OllamaEmbeddings
+                self._embedding_model = OllamaEmbeddings(
+                    model="qwen3-embedding:8b",
+                    base_url="http://host.docker.internal:11434",
                 )
 
     def verify_citation(

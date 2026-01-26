@@ -14,9 +14,13 @@ Run with: chainlit run frontend/app.py --port 8000
 """
 
 import os
+import sys
 import asyncio
 import logging
 from typing import Optional, Literal
+
+# Add parent directory to path for agent imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import chainlit as cl
 
@@ -42,14 +46,15 @@ async def chat_profiles():
     """Define available chat profiles (modes)."""
     return [
         cl.ChatProfile(
-            name="Classic",
-            markdown_description="Classic GraphRAG mode with entity extraction and visualization.",
-            icon="https://cdn-icons-png.flaticon.com/512/2103/2103633.png",
-        ),
-        cl.ChatProfile(
             name="Q&A Agent",
             markdown_description="ReAct agent with hybrid GraphRAG + web search. Best for complex questions.",
             icon="https://cdn-icons-png.flaticon.com/512/1998/1998614.png",
+            default=True,
+        ),
+        cl.ChatProfile(
+            name="Classic",
+            markdown_description="Classic GraphRAG mode with entity extraction and visualization.",
+            icon="https://cdn-icons-png.flaticon.com/512/2103/2103633.png",
         ),
         cl.ChatProfile(
             name="Research",
@@ -151,9 +156,16 @@ async def _init_qa_mode():
             ).send()
             cl.user_session.set("mode", "classic")
     except ImportError as e:
-        logger.warning(f"Q&A mode not available: {e}")
+        logger.error(f"Q&A mode import failed: {e}", exc_info=True)
         await cl.Message(
-            content="Q&A Agent mode not available. Using classic mode.",
+            content=f"Q&A Agent mode not available: {e}. Using classic mode.",
+            author="System",
+        ).send()
+        cl.user_session.set("mode", "classic")
+    except Exception as e:
+        logger.error(f"Q&A mode initialization error: {e}", exc_info=True)
+        await cl.Message(
+            content=f"Q&A Agent error: {e}. Using classic mode.",
             author="System",
         ).send()
         cl.user_session.set("mode", "classic")

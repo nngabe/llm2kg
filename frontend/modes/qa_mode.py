@@ -9,8 +9,12 @@ Handles question answering using ReAct agent with:
 """
 
 import os
+import sys
 import logging
 from typing import Optional, List, Dict, Any
+
+# Add parent directory to path for agent_qa import
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import chainlit as cl
 
@@ -43,17 +47,29 @@ class QAModeHandler:
         """
         try:
             from agent_qa import AsyncReActQAAgent
+            # Match agent_qa.py CLI defaults for consistent behavior
             self._agent = AsyncReActQAAgent(
                 web_search_enabled=True,
                 auto_add_documents=True,
+                use_retrieval_planning=True,
+                compression_enabled=True,
+                wiki_search_enabled=True,
+                wiki_max_results=2,
+                skip_uncertainty=True,  # Skip for faster UI response
+                parse_response_max_retries=2,
+                tool_call_max_retries=1,
             )
+            logger.info("Q&A Agent initialized successfully")
 
             from frontend.components.graph_visualizer import GraphVisualizer
             self._visualizer = GraphVisualizer(height="350px")
 
             return True
+        except ImportError as e:
+            logger.error(f"Failed to import Q&A agent modules: {e}", exc_info=True)
+            return False
         except Exception as e:
-            logger.error(f"Failed to initialize Q&A mode: {e}")
+            logger.error(f"Failed to initialize Q&A mode: {e}", exc_info=True)
             return False
 
     async def handle_message(self, message: cl.Message) -> None:

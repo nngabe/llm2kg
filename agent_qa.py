@@ -62,6 +62,11 @@ NEO4J_USER = os.getenv("NEO4J_USERNAME", "neo4j")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434")
 
+# FalkorDB configuration
+FALKORDB_HOST = os.getenv("FALKORDB_HOST", "host.docker.internal")
+FALKORDB_PORT = int(os.getenv("FALKORDB_PORT", "6379"))
+FALKORDB_GRAPH = os.getenv("FALKORDB_GRAPH", "wikidata")
+
 # Ollama model configuration (benchmark winner: Pair D)
 # Main model: Complex reasoning, ReAct loop, answer synthesis, compression, planning
 OLLAMA_MAIN_MODEL = os.getenv("OLLAMA_MAIN_MODEL", "nemotron-3-nano:30b")
@@ -450,6 +455,266 @@ class Neo4jQALoader:
             return [dict(record) for record in result]
 
 
+# --- FALKORDB LOADER ---
+
+class FalkorDBQALoader:
+    """FalkorDB loader for Q&A operations (alternative to Neo4jQALoader)."""
+
+    def __init__(
+        self,
+        host: str = FALKORDB_HOST,
+        port: int = FALKORDB_PORT,
+        graph_name: str = FALKORDB_GRAPH,
+        embedding_model: Optional[Any] = None,
+    ):
+        from falkordb import FalkorDB
+        self.client = FalkorDB(host=host, port=port)
+        self.graph = self.client.select_graph(graph_name)
+        self.graph_name = graph_name
+        self.embedding_model = embedding_model or OllamaEmbeddings(
+            model="qwen3-embedding:8b",
+            base_url=OLLAMA_HOST,
+            num_ctx=4096,
+        )
+
+    def close(self):
+        """Close the FalkorDB connection."""
+        pass  # FalkorDB client doesn't require explicit close
+
+    def vector_search(
+        self,
+        query: str,
+        limit: int = 5,
+        include_type: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Search entities by vector similarity using FalkorDB."""
+        try:
+            embedding = self.embedding_model.embed_query(query)
+
+            # Try FalkorDB vector search
+            # FalkorDB uses a different vector search syntax
+            cypher = """
+            CALL db.idx.vector.queryNodes('entity_embeddings', $limit, vecf32($embedding))
+            YIELD node, score
+            RETURN node, labels(node) as labels, score
+            ORDER BY score DESC
+            """
+            result = self.graph.query(cypher, {'embedding': embedding, 'limit': limit})
+
+            entities = []
+            for record in result.result_set:
+                node = record[0].properties if hasattr(record[0], 'properties') else dict(record[0])
+                entities.append({
+                    **node,
+                    'labels': record[1] if len(record) > 1 else [],
+                    'score': record[2] if len(record) > 2 else 1.0,
+                })
+            return entities
+
+        except Exception as e:
+            logger.debug(f"FalkorDB vector search failed: {e}")
+            # Fallback to text-based search
+            return self._text_search_entities(query, limit)
+
+    def _text_search_entities(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Fallback text-based entity search for FalkorDB."""
+        try:
+            cypher = """
+            MATCH (e)
+            WHERE toLower(e.name) CONTAINS toLower($query)
+            RETURN e, labels(e) as labels
+            LIMIT $limit
+            """
+            result = self.graph.query(cypher, {'query': query, 'limit': limit})
+
+            entities = []
+            for record in result.result_set:
+                node = record[0].properties if hasattr(record[0], 'properties') else dict(record[0])
+                entities.append({
+                    **node,
+                    'labels': record[1] if len(record) > 1 else [],
+                    'score': 0.5,  # Default score for text search
+                })
+            return entities
+
+        except Exception as e:
+            logger.debug(f"Text search failed: {e}")
+            return []
+
+    def get_entity_with_relationships(
+        self,
+        entity_name: str,
+        max_relationships: int = 20,
+    ) -> Dict[str, Any]:
+        """Get entity and its relationships from FalkorDB."""
+        # Find entity
+        entity_query = """
+        MATCH (e)
+        WHERE toLower(e.name) = toLower($name) OR toLower(e.id) = toLower($name)
+        RETURN e, labels(e) as labels
+        LIMIT 1
+        """
+        result = self.graph.query(entity_query, {'name': entity_name})
+
+        if not result.result_set:
+            return {"found": False, "entity_name": entity_name}
+
+        record = result.result_set[0]
+        entity = record[0].properties if hasattr(record[0], 'properties') else dict(record[0])
+        entity["labels"] = record[1] if len(record) > 1 else []
+
+        # Get relationships
+        rel_query = """
+        MATCH (e)-[r]-(other)
+        WHERE toLower(e.name) = toLower($name) OR toLower(e.id) = toLower($name)
+        RETURN type(r) as rel_type,
+               properties(r) as rel_props,
+               other,
+               labels(other) as other_labels,
+               startNode(r) = e as is_outgoing
+        LIMIT $limit
+        """
+        rel_result = self.graph.query(rel_query, {'name': entity_name, 'limit': max_relationships})
+
+        relationships = []
+        for rec in rel_result.result_set:
+            other_node = rec[2].properties if hasattr(rec[2], 'properties') else dict(rec[2])
+            other_node["labels"] = rec[3] if len(rec) > 3 else []
+            relationships.append({
+                "type": rec[0],
+                "properties": dict(rec[1]) if rec[1] else {},
+                "other_entity": other_node,
+                "direction": "outgoing" if rec[4] else "incoming",
+            })
+
+        return {
+            "found": True,
+            "entity": entity,
+            "relationships": relationships,
+        }
+
+    def search_documents(
+        self,
+        query: str,
+        limit: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Search DocumentChunk nodes by text matching in FalkorDB."""
+        try:
+            # Try to search DocumentChunk nodes
+            cypher = """
+            MATCH (d:DocumentChunk)
+            WHERE toLower(d.text) CONTAINS toLower($query)
+            RETURN d, d.text as content
+            LIMIT $limit
+            """
+            result = self.graph.query(cypher, {'query': query, 'limit': limit})
+
+            documents = []
+            for record in result.result_set:
+                doc = record[0].properties if hasattr(record[0], 'properties') else dict(record[0])
+                doc["content"] = record[1] if len(record) > 1 else doc.get("text", "")
+                doc["score"] = 0.5
+                documents.append(doc)
+
+            return documents
+        except Exception as e:
+            logger.debug(f"Document search not available: {e}")
+            return []
+
+    def add_document(
+        self,
+        url: str,
+        title: str,
+        content: str,
+        domain: str,
+        trust_level: str = "medium",
+        source_type: str = "web_search",
+    ) -> str:
+        """Add a document to FalkorDB."""
+        import uuid
+        from datetime import datetime
+        doc_id = str(uuid.uuid4())
+
+        try:
+            cypher = """
+            CREATE (d:Document {
+                id: $id,
+                url: $url,
+                title: $title,
+                content: $content,
+                domain: $domain,
+                trust_level: $trust_level,
+                source_type: $source_type,
+                added_at: $timestamp
+            })
+            RETURN d.id as id
+            """
+            result = self.graph.query(
+                cypher,
+                {
+                    'id': doc_id,
+                    'url': url,
+                    'title': title,
+                    'content': content[:10000],  # Limit content size
+                    'domain': domain,
+                    'trust_level': trust_level,
+                    'source_type': source_type,
+                    'timestamp': datetime.now().isoformat(),
+                }
+            )
+            return doc_id
+        except Exception as e:
+            logger.error(f"Error adding document to FalkorDB: {e}")
+            return doc_id
+
+    def run_cypher(
+        self,
+        query: str,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Run a Cypher query on FalkorDB."""
+        params = params or {}
+        result = self.graph.query(query, params)
+        results = []
+        for record in result.result_set:
+            # Convert FalkorDB result to dict
+            if len(record) == 1:
+                if hasattr(record[0], 'properties'):
+                    results.append(record[0].properties)
+                else:
+                    results.append({'value': record[0]})
+            else:
+                row = {}
+                for i, val in enumerate(record):
+                    if hasattr(val, 'properties'):
+                        row[f'col_{i}'] = val.properties
+                    else:
+                        row[f'col_{i}'] = val
+                results.append(row)
+        return results
+
+
+def create_qa_loader(
+    backend: str = "neo4j",
+    graph_name: str = FALKORDB_GRAPH,
+    **kwargs
+):
+    """Factory function to create the appropriate QA loader.
+
+    Args:
+        backend: "neo4j" or "falkordb"
+        graph_name: Name of the FalkorDB graph (only used for falkordb backend)
+        **kwargs: Additional arguments passed to the loader
+
+    Returns:
+        Neo4jQALoader or FalkorDBQALoader instance
+    """
+    if backend.lower() == "falkordb":
+        return FalkorDBQALoader(graph_name=graph_name, **kwargs)
+    else:
+        return Neo4jQALoader(**kwargs)
+
+
 # --- REACT AGENT ---
 
 class ReActQAAgent:
@@ -464,6 +729,9 @@ class ReActQAAgent:
         self,
         llm: Optional[Any] = None,
         neo4j_loader: Optional[Neo4jQALoader] = None,
+        db_loader: Optional[Any] = None,
+        backend: str = "neo4j",
+        graph_name: str = FALKORDB_GRAPH,
         web_search_enabled: bool = True,
         auto_add_documents: bool = True,
         use_retrieval_planning: bool = True,
@@ -490,7 +758,10 @@ class ReActQAAgent:
 
         Args:
             llm: Language model to use. Defaults to Nemotron-3-Nano.
-            neo4j_loader: Neo4j loader for graph operations.
+            neo4j_loader: Neo4j loader for graph operations (deprecated, use db_loader).
+            db_loader: Database loader for graph operations (Neo4j or FalkorDB).
+            backend: Database backend to use ("neo4j" or "falkordb").
+            graph_name: Name of the FalkorDB graph (only used for falkordb backend).
             web_search_enabled: Whether to allow web searches.
             auto_add_documents: Whether to automatically add web results to DB.
             use_retrieval_planning: Whether to use CLaRa-style retrieval planning.
@@ -520,7 +791,15 @@ class ReActQAAgent:
             temperature=0,
             num_ctx=8192,  # Increased context for complex reasoning
         )
-        self.neo4j_loader = neo4j_loader or Neo4jQALoader()
+
+        # Initialize database loader (supports Neo4j and FalkorDB)
+        self.backend = backend.lower()
+        if db_loader is not None:
+            self.neo4j_loader = db_loader
+        elif neo4j_loader is not None:
+            self.neo4j_loader = neo4j_loader
+        else:
+            self.neo4j_loader = create_qa_loader(backend=backend, graph_name=graph_name)
         self.web_search_enabled = web_search_enabled
         self.auto_add_documents = auto_add_documents
         self.use_retrieval_planning = use_retrieval_planning
@@ -558,6 +837,8 @@ class ReActQAAgent:
         if use_followup_planning:
             # Follow-up question planning with dual vector search
             self.followup_graphrag = FollowUpGraphRAG(
+                backend=self.backend,
+                graph_name=graph_name,
                 planning_llm=self.llm,
                 utility_llm=self.llm,  # Use main LLM for all tasks
                 primary_vector_limit=primary_vector_limit,
@@ -567,18 +848,22 @@ class ReActQAAgent:
                 compression_enabled=compression_enabled,
                 planning_reasoning=planning_reasoning,
             )
-            logger.info(f"Using FollowUpGraphRAG (v{primary_vector_limit}_h{primary_max_hops} + "
+            logger.info(f"Using FollowUpGraphRAG (backend={self.backend}, v{primary_vector_limit}_h{primary_max_hops} + "
                        f"v{secondary_vector_limit}_h{secondary_max_hops}, reasoning={planning_reasoning})")
         elif use_improved_retrieval:
             self.improved_graphrag = ImprovedGraphRAG(
+                backend=self.backend,
+                graph_name=graph_name,
                 llm=self.llm,  # Use main LLM
                 max_hops=max_hops,
                 vector_limit=vector_limit,
                 compression_enabled=compression_enabled,
             )
-            logger.info(f"Using ImprovedGraphRAG (max_hops={max_hops}, vector_limit={vector_limit})")
+            logger.info(f"Using ImprovedGraphRAG (backend={self.backend}, max_hops={max_hops}, vector_limit={vector_limit})")
         else:
             self.planned_graphrag = PlannedGraphRAG(
+                backend=self.backend,
+                graph_name=graph_name,
                 llm=self.llm,  # Use main LLM
                 compression_enabled=compression_enabled,
             )
@@ -1378,12 +1663,43 @@ class ReActQAAgent:
 
         return "\n".join(parts)
 
+    def _search_wiki_pages(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Search local WikiPage nodes by name.
+
+        Uses the WikiPage nodes built from Wikidata to find relevant
+        Wikipedia articles stored in Neo4j.
+
+        Args:
+            query: Search query string.
+            limit: Maximum number of results.
+
+        Returns:
+            List of matching WikiPage nodes with name, qid, and url.
+        """
+        try:
+            with self.neo4j_loader.driver.session() as session:
+                result = session.run("""
+                    MATCH (w:WikiPage)
+                    WHERE toLower(w.name) CONTAINS toLower($query)
+                    RETURN w.name as name, w.wikidata_id as qid, w.wikipedia_url as url
+                    ORDER BY size(w.name)
+                    LIMIT $limit
+                """, query=query, limit=limit)
+
+                return [dict(record) for record in result]
+        except Exception as e:
+            logger.debug(f"WikiPage search not available: {e}")
+            return []
+
     def _execute_wiki_search(
         self,
         query: str,
         current_context: List[ContextItem],
     ) -> Tuple[str, List[ContextItem]]:
         """Execute Wikipedia search and return formatted results.
+
+        First checks local WikiPage nodes from Wikidata, then falls back
+        to direct Wikipedia search if no local matches found.
 
         Args:
             query: Search query for Wikipedia
@@ -1393,6 +1709,57 @@ class ReActQAAgent:
             Tuple of (observation string, updated context list)
         """
         try:
+            # NEW: Check WikiPage nodes first
+            wiki_pages = self._search_wiki_pages(query, limit=self.wiki_max_results)
+
+            if wiki_pages:
+                # Use stored URLs/names to fetch content from Wikipedia
+                logger.info(f"Found {len(wiki_pages)} local WikiPage matches for '{query}'")
+                parts = [f"Found {len(wiki_pages)} matching WikiPage(s) in knowledge graph:"]
+                new_context = list(current_context)
+                docs_loaded = 0
+
+                for wp in wiki_pages:
+                    try:
+                        # Use the exact name for Wikipedia lookup
+                        loader = WikipediaLoader(query=wp["name"], load_max_docs=1)
+                        docs = loader.load()
+
+                        if docs:
+                            doc = docs[0]
+                            source = wp.get("url") or doc.metadata.get("source", "Wikipedia")
+                            title = doc.metadata.get("title", wp["name"])
+                            content = doc.page_content[:1500]
+
+                            parts.append(f"\n[WikiPage: {title}] (QID: {wp['qid']})")
+                            parts.append(f"Source: {source}")
+                            parts.append(f"Content: {content}...")
+
+                            new_context.append(ContextItem(
+                                source_type="document",
+                                content=f"[WikiPage: {title}]\n{content}",
+                                source_id=source,
+                                relevance_score=0.95,  # Higher score for local matches
+                                metadata={
+                                    "source": "wikipage",
+                                    "title": title,
+                                    "wikidata_id": wp["qid"],
+                                    "trust_level": "high",
+                                },
+                            ))
+                            docs_loaded += 1
+
+                    except Exception as e:
+                        logger.warning(f"Failed to load Wikipedia content for {wp['name']}: {e}")
+                        # Still include the WikiPage metadata even if content load fails
+                        parts.append(f"\n[WikiPage: {wp['name']}] (QID: {wp['qid']})")
+                        if wp.get("url"):
+                            parts.append(f"URL: {wp['url']}")
+
+                if docs_loaded > 0:
+                    return "\n".join(parts), new_context
+
+            # Fallback to direct Wikipedia search (existing logic)
             loader = WikipediaLoader(query=query, load_max_docs=self.wiki_max_results)
             docs = loader.load()
 
@@ -1704,6 +2071,10 @@ def main():
     parser = argparse.ArgumentParser(description="ReAct Q&A Agent with CLaRa-style Retrieval")
     parser.add_argument("--question", "-q", type=str, help="Question to answer")
     parser.add_argument("--interactive", "-i", action="store_true", help="Interactive mode")
+    parser.add_argument("--backend", type=str, default="neo4j", choices=["neo4j", "falkordb"],
+                        help="Database backend (default: neo4j)")
+    parser.add_argument("--graph", type=str, default=FALKORDB_GRAPH,
+                        help=f"FalkorDB graph name (default: {FALKORDB_GRAPH})")
     parser.add_argument("--no-web", action="store_true", help="Disable web search")
     parser.add_argument("--no-wiki", action="store_true", help="Disable Wikipedia search")
     parser.add_argument("--wiki-results", type=int, default=2, help="Max Wikipedia results (default: 2)")
@@ -1729,6 +2100,8 @@ def main():
     args = parser.parse_args()
 
     agent = ReActQAAgent(
+        backend=args.backend,
+        graph_name=args.graph,
         web_search_enabled=not args.no_web,
         use_retrieval_planning=not args.no_planning and not args.followup,
         compression_enabled=not args.no_compression,

@@ -1,7 +1,11 @@
 neo4j_data
 neo4j_plugins
+falkordb_data
 benchmarks/*.pkl
 benchmarks/*.txt
+.claude/
+*.js
+*.css
 
 
 # Python

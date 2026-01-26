@@ -12,7 +12,8 @@ from typing import List, Dict, Any, Optional
 from concurrent.futures import ThreadPoolExecutor
 
 from neo4j import GraphDatabase
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
+from langchain_ollama import OllamaEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
@@ -39,10 +40,13 @@ class ChainlitGraphRAG:
         neo4j_user: str = NEO4J_USER,
         neo4j_password: str = NEO4J_PASSWORD,
         llm_model: str = "gpt-4o-mini",
-        embedding_model: str = "text-embedding-3-small",
+        embedding_model: str = "qwen3-embedding:8b",
     ):
         self.driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
-        self.embeddings = OpenAIEmbeddings(model=embedding_model)
+        self.embeddings = OllamaEmbeddings(
+            model=embedding_model,
+            base_url="http://host.docker.internal:11434",
+        )
         self.llm = ChatOpenAI(model=llm_model, temperature=0)
         self.executor = ThreadPoolExecutor(max_workers=4)
 
