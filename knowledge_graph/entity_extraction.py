@@ -29,9 +29,13 @@ from .models import (
     ExtractionResult,
     ExtractedEntity,
     ExtractedRelationship,
+    Episode,
+    Community,
     PipelineConfig,
     EntityStatus,
+    FactStatus,
     ChunkStatus,
+    SourceType,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -343,6 +347,121 @@ class GraphitiEntityExtractor:
         # Lazy-loaded graphiti components
         self._graphiti = None
 
+        # Initialize Episode/Community schema
+        self.init_episode_schema()
+
+    def init_episode_schema(self):
+        """
+        Create Episode and Community indices for Zep-style temporal layer.
+
+        Creates indexes for efficient querying of:
+        - Episodes by episode_id, source_chunk_id, reference_time
+        - Communities by community_id
+        - Entities by valid_from, fact_status for temporal queries
+        """
+        indices = [
+            "CREATE INDEX FOR (ep:Episode) ON (ep.episode_id)",
+            "CREATE INDEX FOR (ep:Episode) ON (ep.source_chunk_id)",
+            "CREATE INDEX FOR (ep:Episode) ON (ep.reference_time)",
+            "CREATE INDEX FOR (c:Community) ON (c.community_id)",
+            "CREATE INDEX FOR (e:Entity) ON (e.valid_from)",
+            "CREATE INDEX FOR (e:Entity) ON (e.fact_status)",
+        ]
+        for idx in indices:
+            try:
+                self.graph.query(idx)
+                logger.debug(f"Created index: {idx}")
+            except Exception:
+                pass  # Index may already exist
+
+        logger.info("Episode and Community schema initialized")
+
+    def save_episode(self, episode: Episode) -> bool:
+        """
+        Persist Episode node and link to source DocumentChunk.
+
+        Args:
+            episode: Episode object to save.
+
+        Returns:
+            True if saved successfully, False otherwise.
+        """
+        timestamp = datetime.now(timezone.utc).isoformat()
+        ref_time = episode.reference_time.isoformat() if episode.reference_time else timestamp
+
+        try:
+            # Escape content for Cypher
+            content_escaped = episode.content[:2000].replace("'", "\\'").replace("\n", "\\n")
+            name_escaped = episode.name.replace("'", "\\'")
+            source_url = (episode.source_url or "").replace("'", "\\'")
+
+            # Create Episode node
+            self.graph.query(f"""
+                MERGE (ep:Episode {{episode_id: '{episode.episode_id}'}})
+                ON CREATE SET
+                    ep.name = '{name_escaped}',
+                    ep.content = '{content_escaped}',
+                    ep.source_type = '{episode.source_type}',
+                    ep.source_chunk_id = '{episode.source_chunk_id}',
+                    ep.source_url = '{source_url}',
+                    ep.reference_time = '{ref_time}',
+                    ep.created_at = '{timestamp}',
+                    ep.valid_from = '{ref_time}'
+            """)
+
+            # Link to DocumentChunk via DERIVED_FROM
+            self.graph.query(f"""
+                MATCH (ep:Episode {{episode_id: '{episode.episode_id}'}})
+                MATCH (c:DocumentChunk {{chunk_id: '{episode.source_chunk_id}'}})
+                MERGE (ep)-[:DERIVED_FROM]->(c)
+            """)
+
+            logger.debug(f"Saved Episode: {episode.episode_id}")
+            return True
+
+        except Exception as e:
+            logger.warning(f"Failed to save Episode {episode.episode_id}: {e}")
+            return False
+
+    def link_episode_to_entities(
+        self,
+        episode_id: str,
+        entity_ids: List[str],
+        confidence: float = 0.9,
+    ) -> int:
+        """
+        Create CONTAINS relationships from Episode to extracted Entities.
+
+        Args:
+            episode_id: Episode ID to link from.
+            entity_ids: List of Entity IDs to link to.
+            confidence: Confidence score for the relationships.
+
+        Returns:
+            Number of relationships created.
+        """
+        timestamp = datetime.now(timezone.utc).isoformat()
+        created = 0
+
+        for entity_id in entity_ids:
+            try:
+                self.graph.query(f"""
+                    MATCH (ep:Episode {{episode_id: '{episode_id}'}})
+                    MATCH (e:Entity {{entity_id: '{entity_id}'}})
+                    MERGE (ep)-[r:CONTAINS]->(e)
+                    ON CREATE SET
+                        r.confidence = {confidence},
+                        r.created_at = '{timestamp}'
+                """)
+                created += 1
+            except Exception as e:
+                logger.warning(f"Failed to link Episode {episode_id} to Entity {entity_id}: {e}")
+
+        if created > 0:
+            logger.debug(f"Created {created} CONTAINS relationships for Episode {episode_id}")
+
+        return created
+
     async def _get_graphiti(self):
         """Lazy load graphiti-core client."""
         if self._graphiti is None:
@@ -389,15 +508,18 @@ class GraphitiEntityExtractor:
         self,
         chunk: DocumentChunk,
         reference_time: Optional[datetime] = None,
+        create_episode: bool = True,
     ) -> ExtractionResult:
         """
         Extract entities and relationships from a single chunk.
 
         Uses graphiti's add_episode() pattern for temporal extraction.
+        Creates Episode node and CONTAINS relationships (Zep architecture).
 
         Args:
             chunk: DocumentChunk to process.
             reference_time: Reference time for temporal context.
+            create_episode: Whether to create Episode node (default True).
 
         Returns:
             ExtractionResult with extracted entities and relationships.
@@ -405,16 +527,48 @@ class GraphitiEntityExtractor:
         start_time = time.time()
         reference_time = reference_time or datetime.now(timezone.utc)
 
-        # Try graphiti extraction
+        # Step 1: Create Episode from chunk (Zep episodic layer)
+        episode = None
+        if create_episode:
+            source_type_val = chunk.source_type.value if chunk.source_type else "text"
+            episode = Episode(
+                name=f"chunk_{chunk.chunk_id}",
+                content=chunk.content,
+                source_chunk_id=chunk.chunk_id,
+                source_type=source_type_val,
+                source_url=chunk.source_url,
+                reference_time=reference_time,
+            )
+            self.save_episode(episode)
+
+        # Step 2: Try graphiti extraction
         graphiti = await self._get_graphiti()
         if graphiti is not None:
             try:
-                return await self._extract_with_graphiti(chunk, reference_time)
+                result = await self._extract_with_graphiti(chunk, reference_time)
             except Exception as e:
                 logger.warning(f"Graphiti extraction failed: {e}")
+                result = await self._extract_with_llm(chunk, reference_time)
+        else:
+            # Fallback to simple LLM extraction
+            result = await self._extract_with_llm(chunk, reference_time)
 
-        # Fallback to simple LLM extraction
-        return await self._extract_with_llm(chunk, reference_time)
+        # Step 3: Set fact_status to active for all entities
+        for entity in result.entities:
+            entity.fact_status = FactStatus.ACTIVE.value
+
+        # Step 4: Link Episode to Entities via CONTAINS
+        if episode and result.entities:
+            entity_ids = [e.entity_id for e in result.entities]
+            self.link_episode_to_entities(episode.episode_id, entity_ids)
+            episode.entity_ids = set(entity_ids)
+
+        # Add episode_id to result metadata
+        if episode:
+            result.metadata["episode_id"] = episode.episode_id
+
+        result.processing_time_seconds = time.time() - start_time
+        return result
 
     async def _extract_with_graphiti(
         self,
@@ -600,7 +754,8 @@ Respond with JSON in this format:
         """
         Save extracted entities to FalkorDB.
 
-        Creates Entity nodes with temporal metadata and EXTRACTED_FROM relationships.
+        Creates Entity nodes with bi-temporal metadata (Zep-style),
+        multi-source provenance, and EXTRACTED_FROM relationships.
         """
         if not entities:
             return 0
@@ -618,7 +773,14 @@ Respond with JSON in this format:
                 aliases_str = str(list(entity.aliases)) if entity.aliases else "[]"
                 valid_from_str = entity.valid_from.isoformat() if entity.valid_from else timestamp
 
-                # MERGE Entity node
+                # Multi-source provenance
+                source_urls_str = str(list(entity.source_urls)) if entity.source_urls else "[]"
+                source_types_str = str(list(entity.source_types)) if entity.source_types else "[]"
+
+                # Bi-temporal fields (Zep-style)
+                fact_status = entity.fact_status or "active"
+
+                # MERGE Entity node with bi-temporal and multi-source fields
                 if entity.embedding:
                     embed_str = str(entity.embedding)
                     self.graph.query(f"""
@@ -630,12 +792,16 @@ Respond with JSON in this format:
                             e.aliases = {aliases_str},
                             e.confidence = {entity.confidence},
                             e.status = '{entity.status.value}',
+                            e.source_urls = {source_urls_str},
+                            e.source_types = {source_types_str},
                             e.valid_from = '{valid_from_str}',
                             e.created_at = '{timestamp}',
+                            e.fact_status = '{fact_status}',
                             e.embedding = {embed_str}
                         ON MATCH SET
                             e.confidence = CASE WHEN {entity.confidence} > e.confidence
-                                           THEN {entity.confidence} ELSE e.confidence END
+                                           THEN {entity.confidence} ELSE e.confidence END,
+                            e.modified_at = '{timestamp}'
                     """)
                 else:
                     self.graph.query(f"""
@@ -647,11 +813,15 @@ Respond with JSON in this format:
                             e.aliases = {aliases_str},
                             e.confidence = {entity.confidence},
                             e.status = '{entity.status.value}',
+                            e.source_urls = {source_urls_str},
+                            e.source_types = {source_types_str},
                             e.valid_from = '{valid_from_str}',
-                            e.created_at = '{timestamp}'
+                            e.created_at = '{timestamp}',
+                            e.fact_status = '{fact_status}'
                         ON MATCH SET
                             e.confidence = CASE WHEN {entity.confidence} > e.confidence
-                                           THEN {entity.confidence} ELSE e.confidence END
+                                           THEN {entity.confidence} ELSE e.confidence END,
+                            e.modified_at = '{timestamp}'
                     """)
 
                 # Create EXTRACTED_FROM relationships to source chunks
@@ -778,44 +948,56 @@ class HybridEntityExtractor:
         self,
         limit: int = 100,
         status: Optional[str] = None,
+        source_type: Optional[str] = None,
     ) -> List[DocumentChunk]:
         """
-        Get document chunks for entity extraction.
+        Get document chunks for entity extraction from both WikiPage and WebPage sources.
 
         Args:
             limit: Maximum number of chunks.
             status: Optional status filter (e.g., "embedded").
+            source_type: Optional filter by source type ("wikipedia" or "webpage").
 
         Returns:
             List of DocumentChunk objects.
         """
         status_filter = f"AND c.status = '{status}'" if status else ""
+        source_type_filter = f"AND c.source_type = '{source_type}'" if source_type else ""
 
+        # Query chunks from both WikiPage and WebPage sources
         # Use OPTIONAL MATCH + NULL check instead of NOT EXISTS for FalkorDB compatibility
         result = self.graph.query(f"""
-            MATCH (w:WikiPage)-[:HAS_CHUNK]->(c:DocumentChunk)
+            MATCH (c:DocumentChunk)
+            WHERE c.source_id IS NOT NULL
             OPTIONAL MATCH (e:Entity)-[:EXTRACTED_FROM]->(c)
-            WITH w, c, e
-            WHERE e IS NULL {status_filter}
+            WITH c, e
+            WHERE e IS NULL {status_filter} {source_type_filter}
             RETURN c.chunk_id as chunk_id,
                    c.content as content,
                    c.chunk_index as chunk_index,
-                   w.wikidata_id as source_qid
+                   c.source_id as source_id,
+                   c.source_type as source_type,
+                   c.source_url as source_url
             LIMIT {limit}
         """)
 
         chunks = []
         for row in result.result_set:
+            source_type_val = row[4] or "wikipedia"
             chunk = DocumentChunk(
                 content=row[1],
-                source_qid=row[3],
                 chunk_index=row[2],
                 chunk_id=row[0],
+                source_id=row[3],
+                source_type=SourceType(source_type_val) if source_type_val else SourceType.WIKIPEDIA,
+                source_url=row[5],
+                # Backwards compatibility
+                source_qid=row[3] if source_type_val == "wikipedia" else None,
                 status=ChunkStatus.EMBEDDED,
             )
             chunks.append(chunk)
 
-        logger.info(f"Retrieved {len(chunks)} chunks for extraction")
+        logger.info(f"Retrieved {len(chunks)} chunks for extraction (source_type={source_type or 'all'})")
         return chunks
 
     async def process_chunk(
@@ -827,16 +1009,23 @@ class HybridEntityExtractor:
         Full extraction pipeline for a single chunk.
 
         Combines graphiti extraction with ontology-guided type assignment.
+        Adds multi-source provenance (source_urls, source_types) to entities.
         """
         reference_time = reference_time or datetime.now(timezone.utc)
 
         # Extract using graphiti
         result = await self.graphiti_extractor.extract_from_chunk(chunk, reference_time)
 
-        # Apply ontology type mapping to extracted entities
+        # Apply ontology type mapping and add multi-source provenance
         for entity in result.entities:
             mapped_type = self._map_entity_type(entity.name, entity.ontology_type)
             entity.ontology_type = mapped_type
+
+            # Add source URL and type from chunk
+            if chunk.source_url:
+                entity.source_urls.add(chunk.source_url)
+            if chunk.source_type:
+                entity.source_types.add(chunk.source_type.value)
 
         return result
 
@@ -979,7 +1168,7 @@ class HybridEntityExtractor:
         return stats
 
     def get_stats(self) -> Dict[str, Any]:
-        """Get extraction statistics from the graph."""
+        """Get extraction statistics from the graph including Zep temporal layers."""
         stats = {}
 
         try:
@@ -997,6 +1186,16 @@ class HybridEntityExtractor:
             for row in result.result_set:
                 stats["entities_by_type"][row[0] or "unknown"] = row[1]
 
+            # Count by fact_status (Zep temporal)
+            result = self.graph.query("""
+                MATCH (e:Entity)
+                WHERE e.fact_status IS NOT NULL
+                RETURN e.fact_status as status, count(e) as count
+            """)
+            stats["entities_by_fact_status"] = {}
+            for row in result.result_set:
+                stats["entities_by_fact_status"][row[0] or "unknown"] = row[1]
+
             # Count relationships
             result = self.graph.query("""
                 MATCH (e1:Entity)-[r]->(e2:Entity)
@@ -1012,6 +1211,26 @@ class HybridEntityExtractor:
                 RETURN count(r) as count
             """)
             stats["extracted_from_count"] = result.result_set[0][0] if result.result_set else 0
+
+            # Zep Episodic Layer stats
+            result = self.graph.query("MATCH (ep:Episode) RETURN count(ep) as count")
+            stats["total_episodes"] = result.result_set[0][0] if result.result_set else 0
+
+            # Count CONTAINS relationships (Episode -> Entity)
+            result = self.graph.query("MATCH ()-[r:CONTAINS]->() RETURN count(r) as count")
+            stats["contains_relationships"] = result.result_set[0][0] if result.result_set else 0
+
+            # Count DERIVED_FROM relationships (Episode -> DocumentChunk)
+            result = self.graph.query("MATCH ()-[r:DERIVED_FROM]->() RETURN count(r) as count")
+            stats["derived_from_relationships"] = result.result_set[0][0] if result.result_set else 0
+
+            # Zep Community Layer stats
+            result = self.graph.query("MATCH (c:Community) RETURN count(c) as count")
+            stats["total_communities"] = result.result_set[0][0] if result.result_set else 0
+
+            # Count BELONGS_TO relationships (Entity -> Community)
+            result = self.graph.query("MATCH ()-[r:BELONGS_TO]->() RETURN count(r) as count")
+            stats["belongs_to_relationships"] = result.result_set[0][0] if result.result_set else 0
 
         except Exception as e:
             logger.error(f"Failed to get stats: {e}")
@@ -1061,6 +1280,22 @@ def main():
         help="Only show current extraction statistics"
     )
     parser.add_argument(
+        "--detect-communities",
+        action="store_true",
+        help="Run Louvain community detection after extraction"
+    )
+    parser.add_argument(
+        "--community-min-size",
+        type=int,
+        default=3,
+        help="Minimum community size for detection (default: 3)"
+    )
+    parser.add_argument(
+        "--temporal-stats",
+        action="store_true",
+        help="Show temporal layer statistics (Episodes, Communities)"
+    )
+    parser.add_argument(
         "--verbose", "-v",
         action="store_true",
         help="Verbose output"
@@ -1084,6 +1319,28 @@ def main():
         graph_name=args.graph,
         ontology=ontology_dict,
     )
+
+    # Temporal stats mode
+    if args.temporal_stats:
+        from .temporal_queries import get_temporal_statistics
+        stats = get_temporal_statistics(extractor.graph)
+        print(f"\nTemporal Layer Statistics ({args.graph}):")
+        print("-" * 40)
+        print(f"Episodes: {stats.get('episodes', 0)}")
+        print(f"Communities: {stats.get('communities', 0)}")
+        print(f"CONTAINS relationships: {stats.get('contains_relationships', 0)}")
+        print(f"BELONGS_TO relationships: {stats.get('belongs_to_relationships', 0)}")
+        print(f"DERIVED_FROM relationships: {stats.get('derived_from_relationships', 0)}")
+        print(f"SUPERSEDES relationships: {stats.get('supersedes_relationships', 0)}")
+        if stats.get("entities_by_fact_status"):
+            print("\nEntities by fact_status:")
+            for status, count in stats["entities_by_fact_status"].items():
+                print(f"  {status}: {count}")
+        if stats.get("episodes_by_source_type"):
+            print("\nEpisodes by source_type:")
+            for stype, count in stats["episodes_by_source_type"].items():
+                print(f"  {stype}: {count}")
+        return
 
     # Stats-only mode
     if args.stats_only:
@@ -1133,6 +1390,28 @@ def main():
     print(f"Relationships extracted: {stats['total_relationships_extracted']}")
     print(f"Relationships saved: {stats['relationships_saved']}")
     print(f"Processing time: {stats['processing_time_seconds']:.2f}s")
+
+    # Run community detection if requested
+    if args.detect_communities:
+        print("\n" + "=" * 60)
+        print("COMMUNITY DETECTION")
+        print("=" * 60)
+
+        from .community_detection import EntityCommunityDetector
+
+        detector = EntityCommunityDetector(
+            graph=extractor.graph,
+            min_community_size=args.community_min_size,
+        )
+        community_count = detector.run()
+        print(f"Created {community_count} entity communities")
+
+        # Show community stats
+        comm_stats = detector.get_stats()
+        if comm_stats.get("communities"):
+            print("\nTop communities:")
+            for c in comm_stats["communities"][:5]:
+                print(f"  {c['name']}: {c['member_count']} members")
 
 
 if __name__ == "__main__":

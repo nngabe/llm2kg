@@ -1,0 +1,76 @@
+{
+  "benchmark_name": "GE Vernova KG QA Benchmark (Simple)",
+  "run_timestamp": "2026-01-30T01:08:30.728259",
+  "statistics": {
+    "total_questions": 3,
+    "successful": 3,
+    "failed": 0,
+    "avg_confidence": 0.5,
+    "external_info_used_count": 3
+  },
+  "results": [
+    {
+      "id": 1,
+      "question": "What is the headquarters location of GE Vernova?",
+      "expected_answer": "Cambridge, Massachusetts",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nGE Vernova is headquartered in Cambridge, Massachusetts.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "GE Vernova Wikipedia page",
+          "source_title": "GE Vernova - Wikipedia",
+          "trust_level": "unknown",
+          "excerpt": "GE Vernova, Inc. is an energy equipment manufacturing and services company headquartered in Cambridge, Massachusetts."
+        }
+      ],
+      "reasoning_steps": 2,
+      "category": "factual",
+      "difficulty": "easy",
+      "status": "success"
+    },
+    {
+      "id": 2,
+      "question": "When was GE Vernova formed as a spin-off from General Electric?",
+      "expected_answer": "2024",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nGE\u202fVernova was created as a spin\u2011off from General Electric in **2024**. The company emerged from the merger and subsequent separation of GE\u2019s energy businesses\u2014namely GE Power, GE Renewable Energy, GE Digital, and GE Energy Financial Services\u2014completing the spin\u2011off that year as part of GE\u2019s broader restructuring which also included the divestiture of its healthcare and other units.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "GE Vernova (Wikipedia)",
+          "source_title": "Wikipedia: GE Vernova",
+          "trust_level": "unknown",
+          "excerpt": "GE Vernova, Inc. is an energy equipment manufacturing and services company headquartered in Cambridge, Massachusetts. GE Vernova was formed from the merger and subsequent spin-off of General Electric's energy businesses in 2024: GE Power, GE Renewable Energy, GE Digital and GE Energy Financial Services."
+        }
+      ],
+      "reasoning_steps": 3,
+      "category": "factual",
+      "difficulty": "easy",
+      "status": "success"
+    },
+    {
+      "id": 3,
+      "question": "What is the maximum power output of the Haliade-X offshore wind turbine platform?",
+      "expected_answer": "Up to 18 MW (with models ranging from 12 MW to 18 MW)",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the information retrieved from the provided documents, the Haliade offshore wind turbine platform is described as having a capacity of 6\u202fmegawatts and being \"one of the world's most powerful turbines\" at the time of its introduction. Therefore, within the scope of the supplied context, the maximum power output cited for the Haliade\u2011X platform is **6\u202fMW**.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "Context 3",
+          "source_title": "GE Wind (Wikipedia)",
+          "trust_level": "unknown",
+          "excerpt": "After the acquisition of Alstom's energy generating assets (2015) GE's wind portfolio was expanded to include the 6-megawatt 'Haliade' offshore turbine (at that time one of the world's most powerful turbines)"
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "medium",
+      "status": "success"
+    }
+  ]
+}

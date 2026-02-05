@@ -1,0 +1,39 @@
+{
+  "benchmark": "GB10 Step-3.5-Flash Technical Questions",
+  "timestamp": "2026-02-04T00:27:17.453767",
+  "server": "http://192.168.4.38:8080/v1",
+  "results": [
+    {
+      "id": 5,
+      "question": "What is the combined cycle efficiency of GE Vernova's 9HA gas turbine?",
+      "expected": "Greater than 61% (up to 64% for newer configurations)",
+      "answer": "The combined cycle efficiency of GE Vernova's 9HA gas turbine is greater than 64% according to the company's specifications. This is based on the 9HA high efficiency, air-cooled gas turbine, which has a simple-cycle output of 448-571 MW and a combined-cycle efficiency exceeding 64% [Source: Context 1]. For context, the simple-cycle net efficiencies for the 9HA.01 and 9HA.02 models are 42.9% and 44.0% respectively, as detailed in specifications [Source: Context 2], but the combined-cycle configuration\u2014which integrates a steam turbine\u2014achieves significantly higher efficiency. The '>64%' figure represents a validated performance metric under ISO conditions with natural gas fuel, though actual efficiency may vary with project-specific conditions and fuel type [Source: Context 2 and Context 3].",
+      "confidence": 0.5,
+      "status": "success"
+    },
+    {
+      "id": 10,
+      "question": "What hydrogen blending capability do GE Vernova's 9HA gas turbines currently support?",
+      "expected": "50% hydrogen by volume, with a technology pathway to 100%",
+      "answer": "GE Vernova's 9HA gas turbines currently support up to 50% hydrogen blending capability. This is consistently stated across multiple sources: Context 1 explicitly mentions '50% hydrogen capability' for the 9HA turbines, Context 2 highlights '50% hydrogen (H2) capable' as a key feature, and Context 3 confirms that the turbines 'can operate on up to 50% hydrogen' with a pathway to 100% in the future. Therefore, the current operational limit is 50% hydrogen blending, though future advancements may allow for higher blends.",
+      "confidence": 0.5,
+      "status": "success"
+    },
+    {
+      "id": 13,
+      "question": "What is the voltage rating capability of GE Vernova's HVDC converter transformers?",
+      "expected": "Up to 800 kV DC and 1200 kV AC, with power ratings up to 2750 MVA",
+      "answer": "The retrieved context does not provide the voltage rating capability of GE Vernova's HVDC converter transformers. The documents include information on GE Grid Solutions' high-voltage capacitors (with ratings up to 25 kV) and a contract for high-voltage electrical systems for an offshore wind project, but none mention HVDC converter transformers or their voltage specifications. Therefore, based solely on the provided context, the requested information is unavailable.",
+      "confidence": 0.5,
+      "status": "success"
+    },
+    {
+      "id": 15,
+      "question": "What is the fast start capability of GE Vernova's LM2500XPRESS gas turbine package?",
+      "expected": "Five-minute fast start, capable of starting independent of the power grid",
+      "answer": "Based on the retrieved context, specific numerical fast start capability metrics (such as startup time in minutes or time to full load) for GE Vernova's LM2500XPRESS gas turbine package are not provided. The available documents offer only qualitative descriptions:\n\n- The LM2500 (the base model for the LM2500XPRESS package) is described as being \"Made for high cycling capability and multi-day start/stop cycles\" and as \"a reliable source for fast power when needed\" [Source: Context 1].\n- The LM2500XPRESS appears to be a package variant of the LM2500, listed alongside the LM2500 in GE Vernova's product catalog under \"Aeroderivative and heavy-duty gas turbines\" [Source: Context 2 and Context 3].\n\nHowever, the context does not contain concrete specifications such as exact start times, ramp rates, or other quantitative performance metrics for the LM2500XPRESS. The documents appear to be marketing or product overview materials that emphasize the turbine's flexibility and fast power capabilities without providing technical details. To obtain precise fast start capability data, one would need to consult official technical specification sheets or engineering documentation for the LM2500XPRESS package, which are not present in the retrieved context.",
+      "confidence": 0.5,
+      "status": "success"
+    }
+  ]
+}

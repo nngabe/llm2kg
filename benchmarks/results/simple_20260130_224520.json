@@ -1,0 +1,89 @@
+{
+  "benchmark_name": "GE Vernova KG QA Benchmark (Simple)",
+  "run_timestamp": "2026-01-30T23:10:25.030655",
+  "statistics": {
+    "total_questions": 4,
+    "successful": 4,
+    "failed": 0,
+    "avg_confidence": 0.5,
+    "external_info_used_count": 4
+  },
+  "results": [
+    {
+      "id": 1,
+      "question": "What is the headquarters location of GE Vernova?",
+      "expected_answer": "Cambridge, Massachusetts",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nGE Vernova is headquartered in Cambridge, Massachusetts, United States.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "web_search",
+          "source_id": "https://en.wikipedia.org/wiki/GE_Vernova",
+          "source_title": "GE Vernova - Wikipedia",
+          "trust_level": "unknown",
+          "excerpt": "GE Vernova, Inc. is an energy equipment manufacturing and services company headquartered in Cambridge, Massachusetts."
+        }
+      ],
+      "reasoning_steps": 2,
+      "category": "factual",
+      "difficulty": "easy",
+      "status": "success"
+    },
+    {
+      "id": 2,
+      "question": "When was GE Vernova formed as a spin-off from General Electric?",
+      "expected_answer": "2024",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nGE\u202fVernova was created in 2024 as the result of a spin\u2011off from General Electric. The new company was formed by separating and combining GE's four energy businesses\u2014GE Power, GE Renewable Energy, GE Digital, and GE Energy Financial Services\u2014into an independent entity headquartered in Cambridge, Massachusetts.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "Wikipedia: GE Vernova",
+          "source_title": "GE Vernova - Wikipedia",
+          "trust_level": "unknown",
+          "excerpt": "GE Vernova was formed from the merger and subsequent spin-off of General Electric's energy businesses in 2024: GE Power, GE Renewable Energy, GE Digital and GE Energy Financial Services."
+        }
+      ],
+      "reasoning_steps": 1,
+      "category": "factual",
+      "difficulty": "easy",
+      "status": "success"
+    },
+    {
+      "id": 3,
+      "question": "What is the maximum power output of the Haliade-X offshore wind turbine platform?",
+      "expected_answer": "Up to 18 MW (with models ranging from 12 MW to 18 MW)",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nThe maximum power output rating for the Haliade\u2011X offshore wind turbine platform is not available in the provided document contexts or in the current knowledge base. Extensive searches of the web and Wikipedia did not return any specific information about the rated capacity of this turbine model. Therefore, based on the retrieved context, I cannot provide a definitive answer to the question.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [],
+      "reasoning_steps": 3,
+      "category": "technical",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 4,
+      "question": "What is the rotor diameter of the Haliade-X 13 MW wind turbine?",
+      "expected_answer": "220 meters",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nThe Haliade\u2011X 13\u202fMW offshore wind turbine uses a rotor diameter of approximately **200\u202fmetres**. This figure matches the rotor size of the earlier 12\u202fMW prototype, which was described as having \u201ca more than 200\u2011meter diameter rotor\u201d [Source: Context 3]. No separate specification for a distinct 13\u202fMW rotor has been published; the increased rating is achieved through other design enhancements rather than a larger blade span.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "Context 3",
+          "source_title": "GE Vernova's Haliade-X offshore turbine (12 MW, 200m rotor) offers high capacity factor...",
+          "trust_level": "unknown",
+          "excerpt": "The Haliade\u2011X provides a combination of high capacity factor and annual energy production ... prototype operation beginning in 2019, the Haliade\u2011X was the first turbine ever installed with a 12\u202fMW generator rating and a more than 200\u2011meter diameter rotor"
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "medium",
+      "status": "success"
+    }
+  ]
+}

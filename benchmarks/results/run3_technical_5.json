@@ -1,0 +1,162 @@
+{
+  "benchmark_name": "GE Vernova Knowledge Graph QA Benchmark",
+  "run_timestamp": "2026-01-30T01:17:37.259666",
+  "statistics": {
+    "total_questions": 5,
+    "successful": 5,
+    "failed": 0,
+    "avg_confidence": 0.5,
+    "avg_reasoning_steps": 3.6,
+    "external_info_used_count": 5,
+    "by_category": {
+      "technical": {
+        "count": 5,
+        "avg_confidence": 0.5
+      }
+    },
+    "by_difficulty": {
+      "hard": {
+        "count": 3,
+        "avg_confidence": 0.5
+      },
+      "medium": {
+        "count": 2,
+        "avg_confidence": 0.5
+      }
+    }
+  },
+  "results": [
+    {
+      "id": 3,
+      "question": "What is the maximum power output of the Haliade-X offshore wind turbine platform?",
+      "expected_answer": "Up to 18 MW (with models ranging from 12 MW to 18 MW)",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nThe Haliade\u2011X offshore wind turbine platform has a maximum power output of **6 megawatts (6\u202fMW)**. This rating was highlighted when GE acquired Alstom Wind in 2015, adding the 6\u2011MW Haliade turbine to its portfolio and describing it as one of the world\u2019s most powerful turbines at that time.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "Wikipedia: GE Wind",
+          "source_title": "GE Wind - Wikipedia",
+          "trust_level": "unknown",
+          "excerpt": "After the acquisition of Alstom's energy generating assets (2015) GE's wind portfolio was expanded to include the 6-megawatt 'Haliade' offshore turbine (at that time one of the world's most powerful turbines)"
+        }
+      ],
+      "reasoning_steps": 2,
+      "category": "technical",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 4,
+      "question": "What is the rotor diameter of the Haliade-X 13 MW wind turbine?",
+      "expected_answer": "220 meters",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nThe rotor diameter of the Haliade\u2011X 13\u202fMW offshore wind turbine is not specified in any of the provided sources. Searches of Wikipedia, web results, and the knowledge graph did not return a concrete numerical value for this attribute, so its exact size cannot be confirmed from the available information.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "web_search",
+          "source_id": "no_results",
+          "source_title": "Web Search Result",
+          "trust_level": "unknown",
+          "excerpt": "No web search results found...."
+        },
+        {
+          "source_type": "document",
+          "source_id": "wiki_haliade_x",
+          "source_title": "Wikipedia \u2013 Haliade-X 13 MW turbine description",
+          "trust_level": "unknown",
+          "excerpt": "- No rotor\u2011diameter spec..."
+        },
+        {
+          "source_type": "graph",
+          "source_id": "entity_not_found",
+          "source_title": "Knowledge Graph Lookup",
+          "trust_level": "unknown",
+          "excerpt": "Entity 'Haliade-X 13 MW' not found in knowledge graph...."
+        },
+        {
+          "source_type": "document",
+          "source_id": "graph_resolve",
+          "source_title": "Entity Resolution Output",
+          "trust_level": "unknown",
+          "excerpt": "Found 0 candidates: []"
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 5,
+      "question": "What is the combined cycle efficiency of GE Vernova's 9HA gas turbine?",
+      "expected_answer": "Greater than 61% (up to 64% for newer configurations)",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nThe GE Vernova 9HA gas turbine is designed for a combined\u2011cycle efficiency of approximately 60\u202f%, with simple\u2011cycle efficiencies exceeding 45\u202f% and a typical target range approaching 60\u202f% [Source: Context 2].",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "Context 2",
+          "source_title": "Wikipedia: Gas-turbine engine",
+          "trust_level": "unknown",
+          "excerpt": "The 9HA is engineered for high efficiency: simple\u2011cycle efficiencies exceeding 45\u202f%, with combined\u2011cycle potential approaching \u224860\u202f% (typical target range)."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "hard",
+      "status": "success"
+    },
+    {
+      "id": 10,
+      "question": "What hydrogen blending capability do GE Vernova's 9HA gas turbines currently support?",
+      "expected_answer": "50% hydrogen by volume, with a technology pathway to 100%",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the currently available information, GE Vernova's 9HA gas turbine is designed for natural\u2011gas operation and can accept hydrogen blends, but the precise maximum hydrogen blending percentage that the turbine is certified to support has not been publicly disclosed. General guidance indicates that the allowable blend ratio is limited by factors such as material compatibility, flame speed, and emissions performance, meaning the turbine can be configured for low\u2011level hydrogen mixing (typically a few percent by energy) while maintaining reliability and meeting emission targets. No specific figure for the 9HA\u2019s hydrogen capability is provided in the sources examined.\n\n[Source: Wikipedia: Gas turbines \u2013 \"Hydrogen can be blended with natural gas, but the permissible blend ratio depends on material compatibility, flame speed, emissions...\"]",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "hard",
+      "status": "success"
+    },
+    {
+      "id": 13,
+      "question": "What is the voltage rating capability of GE Vernova's HVDC converter transformers?",
+      "expected_answer": "Up to 800 kV DC and 1200 kV AC, with power ratings up to 2750 MVA",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the available searches, there is no documented voltage rating capability for GE Vernova's HVDC converter transformers in the knowledge graph, Wikipedia, or web search results. Consequently, a definitive technical specification cannot be provided from the current data.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "graph",
+          "source_id": "GE Vernova not found",
+          "source_title": "Knowledge Graph Lookup",
+          "trust_level": "unknown",
+          "excerpt": "Entity 'GE Vernova' not found in knowledge graph."
+        },
+        {
+          "source_type": "graph",
+          "source_id": "No Wikipedia articles found",
+          "source_title": "Wikipedia Search Result",
+          "trust_level": "unknown",
+          "excerpt": "No Wikipedia articles found for this query."
+        },
+        {
+          "source_type": "web_search",
+          "source_id": "No web search results found",
+          "source_title": "Web Search Result",
+          "trust_level": "unknown",
+          "excerpt": "No web search results found."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "hard",
+      "status": "success"
+    }
+  ]
+}

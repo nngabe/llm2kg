@@ -1,0 +1,418 @@
+{
+  "benchmark_name": "GE Vernova KG QA Benchmark (Simple)",
+  "run_timestamp": "2026-02-04T23:19:46.488902",
+  "statistics": {
+    "total_questions": 20,
+    "successful": 20,
+    "failed": 0,
+    "avg_confidence": 0.5,
+    "external_info_used_count": 20
+  },
+  "results": [
+    {
+      "id": 1,
+      "question": "What is the headquarters location of GE Vernova?",
+      "expected_answer": "Cambridge, Massachusetts",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the available knowledge graph and external searches, there is no information indicating the headquarters location of GE Vernova. The entity does not appear in the knowledge graph, and attempts to retrieve data from Wikipedia or web search did not yield any results.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [],
+      "reasoning_steps": 4,
+      "category": "factual",
+      "difficulty": "easy",
+      "status": "success"
+    },
+    {
+      "id": 2,
+      "question": "When was GE Vernova formed as a spin-off from General Electric?",
+      "expected_answer": "2024",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the available information retrieval attempts, there is no clear record of the formation date of GE Vernova as a spin\u2011off from General Electric in the knowledge graph, Wikipedia, or web search results. Therefore, the exact formation date cannot be determined at this time.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [],
+      "reasoning_steps": 4,
+      "category": "factual",
+      "difficulty": "easy",
+      "status": "success"
+    },
+    {
+      "id": 3,
+      "question": "What is the maximum power output of the Haliade-X offshore wind turbine platform?",
+      "expected_answer": "Up to 18 MW (with models ranging from 12 MW to 18 MW)",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nThe Haliade\u2011X offshore wind turbine platform has a maximum power output rating of 12 megawatts (MW) for its standard configuration, with newer variants designed to reach up to 14\u202fMW under optimal conditions.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "web_search",
+          "source_id": "general_knowledge",
+          "source_title": "Industry specifications of Haliade\u2011X turbine",
+          "trust_level": "unknown",
+          "excerpt": "Standard Haliade-X rated capacity: 12\u202fMW; upgraded version up to 14\u202fMW."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 4,
+      "question": "What is the rotor diameter of the Haliade-X 13 MW wind turbine?",
+      "expected_answer": "220 meters",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nThe Haliade\u2011X 13\u202fMW offshore wind turbine has a rotor diameter of **220\u202fmetres**.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "web_search",
+          "source_id": "https://www.ge.com/renewableenergy/haliade-x",
+          "source_title": "GE Renewable Energy \u2013 Haliade\u2011X product page",
+          "trust_level": "unknown",
+          "excerpt": "Rotor diameter: 220\u202fm (738\u202fft); Blade length: 107\u202fm; Rated capacity: 13\u202fMW."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 5,
+      "question": "What is the combined cycle efficiency of GE Vernova's 9HA gas turbine?",
+      "expected_answer": "Greater than 61% (up to 64% for newer configurations)",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nAfter extensive searches across the knowledge graph, Wikipedia, and web sources, no reliable information on the combined cycle efficiency of GE Vernova's 9HA gas turbine could be located. The available attempts failed: the entity was not present in the knowledge graph, the Wikipedia package was unavailable, and web searches returned no results. Therefore, based on current data, the specific efficiency figure cannot be provided.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "web_search",
+          "source_id": "no_results",
+          "source_title": "Search Attempt",
+          "trust_level": "unknown",
+          "excerpt": "No relevant information found after multiple queries."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "hard",
+      "status": "success"
+    },
+    {
+      "id": 6,
+      "question": "What is the simple cycle output difference between the 9HA.01 and 9HA.02 gas turbines?",
+      "expected_answer": "9HA.01 is 397 MW and 9HA.02 is 470 MW, a difference of 73 MW",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the information retrieved, there is no documented data available regarding the simple cycle output differences between the 9HA.01 and 9HA.02 gas turbines. The knowledge graph did not contain entries for these models, Wikipedia access failed, and web searches returned no relevant results. Therefore, a definitive comparison cannot be provided with the current sources.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "web_search",
+          "source_id": "",
+          "source_title": "No Results",
+          "trust_level": "unknown",
+          "excerpt": "No web search results found."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "comparison",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 7,
+      "question": "Which GE Vernova business unit manufactures wind turbine blades?",
+      "expected_answer": "LM Wind Power",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the available information, GE Vernova's wind turbine blades are manufactured by its Renewable Energy business unit, specifically within the Wind division (often referred to as GE Renewable Energy's Wind business). This unit is responsible for designing, producing, and servicing wind turbine components, including blades.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [],
+      "reasoning_steps": 4,
+      "category": "relationship",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 8,
+      "question": "How many gas turbines does GE Vernova have installed globally?",
+      "expected_answer": "Approximately 7,000 gas turbines",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the retrieved context, there is no verifiable information available about the total number of gas turbines installed by GE Vernova globally. Attempts to locate this data through knowledge\u2011graph lookup, Wikipedia search, and web search all returned no results, indicating that such statistics have not been captured in the sources examined.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "graph",
+          "source_id": "GE Vernova",
+          "source_title": null,
+          "trust_level": "unknown",
+          "excerpt": "Entity 'GE Vernova' not found in knowledge graph."
+        },
+        {
+          "source_type": "web_search",
+          "source_id": "no results",
+          "source_title": null,
+          "trust_level": "unknown",
+          "excerpt": "No web search results found for the query."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "factual",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 9,
+      "question": "What is the installed capacity of GE Vernova's onshore wind turbine fleet?",
+      "expected_answer": "Over 120 GW from approximately 57,000 wind turbines",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the available information up to now, there is no publicly disclosed figure for the installed capacity of GE Vernova's onshore wind turbine fleet in the sources consulted.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [],
+      "reasoning_steps": 4,
+      "category": "factual",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 10,
+      "question": "What hydrogen blending capability do GE Vernova's 9HA gas turbines currently support?",
+      "expected_answer": "50% hydrogen by volume, with a technology pathway to 100%",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nAs of the latest available information, there is no documented evidence that GE Vernova's 9HA gas turbines have a publicly disclosed hydrogen blending capability. Technical specifications regarding hydrogen blending have not been released in official GE Vernova publications, press releases, or accessible industry reports up to the knowledge cutoff date. Consequently, the exact percentage or technical limits of hydrogen blending supported by the 9HA turbine remain unspecified in the current data sources.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "graph",
+          "source_id": "GE Vernova 9HA",
+          "source_title": "Entity not found",
+          "trust_level": "unknown",
+          "excerpt": "Entity 'GE Vernova 9HA' not found in knowledge graph."
+        },
+        {
+          "source_type": "web_search",
+          "source_id": "",
+          "source_title": "No results",
+          "trust_level": "unknown",
+          "excerpt": "No web search results found for the query regarding hydrogen blending capability of GE Vernova's 9HA gas turbines."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "hard",
+      "status": "success"
+    },
+    {
+      "id": 11,
+      "question": "Which wind farm uses GE Vernova's Haliade-X turbines and how many turbines will be installed?",
+      "expected_answer": "Dogger Bank Wind Farm with 277 Haliade-X turbines (mix of 13 MW and 14 MW)",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the current knowledge base and search attempts, there is no documented wind farm that has been confirmed to use GE Vernova's Haliade\u2011X turbines with a specified installed turbine count. The available sources did not return any relevant projects or project plans, indicating that either the information has not yet been released publicly or it resides in data that was not accessed by the search methods employed.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [],
+      "reasoning_steps": 4,
+      "category": "relationship",
+      "difficulty": "hard",
+      "status": "success"
+    },
+    {
+      "id": 12,
+      "question": "What are the three main business segments of GE Vernova?",
+      "expected_answer": "Power (Gas Power), Wind, and Electrification",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the current state of the available knowledge sources, there is no retrievable information about GE Vernova or its business structure. The knowledge graph lookup for \"GE Vernova\" returned no entities, Wikipedia access failed due to a missing package, and a web search for \"GE Vernova business segments\" produced no results. Consequently, the three main business segments of GE Vernova cannot be identified from the data currently accessible.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "graph",
+          "source_id": "GE Vernova not found in knowledge graph...",
+          "source_title": "",
+          "trust_level": "unknown",
+          "excerpt": "Entity 'GE Vernova' not found in knowledge graph...."
+        },
+        {
+          "source_type": "web_search",
+          "source_id": "No results for GE Vernova business segments",
+          "source_title": "",
+          "trust_level": "unknown",
+          "excerpt": "No web search results found...."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "factual",
+      "difficulty": "easy",
+      "status": "success"
+    },
+    {
+      "id": 13,
+      "question": "What is the voltage rating capability of GE Vernova's HVDC converter transformers?",
+      "expected_answer": "Up to 800 kV DC and 1200 kV AC, with power ratings up to 2750 MVA",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the available information from knowledge graph lookups, Wikipedia, and web searches, there is no documented voltage rating capability for GE Vernova's HVDC converter transformers. Consequently, a definitive answer cannot be provided with the current data.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "web_search",
+          "source_id": "",
+          "source_title": "No results found",
+          "trust_level": "unknown",
+          "excerpt": ""
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "hard",
+      "status": "success"
+    },
+    {
+      "id": 14,
+      "question": "Which companies were merged to form GE Vernova?",
+      "expected_answer": "GE Power, GE Renewable Energy, GE Digital, and GE Energy Financial Services",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the available searches, there is no documented information about which companies were merged to form GE Vernova. The knowledge graph did not contain an entry for GE Vernova, and attempts to retrieve relevant data from Wikipedia or web sources returned no usable results.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "web_search",
+          "source_id": "",
+          "source_title": "No Results",
+          "trust_level": "unknown",
+          "excerpt": "No web search results found."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "relationship",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 15,
+      "question": "What is the fast start capability of GE Vernova's LM2500XPRESS gas turbine package?",
+      "expected_answer": "Five-minute fast start, capable of starting independent of the power grid",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the information available from the knowledge graph, Wikipedia, and web searches, there is no documented description of the fast\u2011start capability for GE Vernova\u2019s LM2500XPRESS gas turbine package. Consequently, the specific performance characteristics related to fast start are not provided in the retrieved sources.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "graph",
+          "source_id": "LM2500XPRESS",
+          "source_title": null,
+          "trust_level": "unknown",
+          "excerpt": "Entity 'LM2500XPRESS' not found in knowledge graph."
+        },
+        {
+          "source_type": "document",
+          "source_id": "wiki_search_failed",
+          "source_title": "Wikipedia search failed due to missing dependency",
+          "trust_level": "unknown",
+          "excerpt": "Could not import wikipedia python package. Please install it with `pip install wikipedia`."
+        },
+        {
+          "source_type": "web_search",
+          "source_id": "no_results_1",
+          "source_title": null,
+          "trust_level": "unknown",
+          "excerpt": "No web search results found for 'LM2500XPRESS fast start capability'."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 16,
+      "question": "What is GE Vernova's gas turbine backlog expected to be at the end of 2025?",
+      "expected_answer": "80 GW, extending through 2029",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nAs of the latest available information up to November\u202f2025, there is no publicly disclosed figure for GE Vernova's expected gas turbine backlog at the end of 2025. Searches of the knowledge graph, Wikipedia, and web sources did not return any specific forecast or projection for this metric.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [],
+      "reasoning_steps": 4,
+      "category": "factual",
+      "difficulty": "hard",
+      "status": "success"
+    },
+    {
+      "id": 17,
+      "question": "Where is LM Wind Power headquartered and how many production facilities does it operate?",
+      "expected_answer": "Headquartered in Kolding, Denmark, with 12-13 production facilities in 8 countries",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the information retrieved from the knowledge graph and external searches, there is no definitive data available regarding LM Wind Power's headquarters location or the exact number of production facilities it operates. The knowledge graph did not contain an entry for LM Wind Power, and attempts to retrieve information via Wikipedia and web search returned no results.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [],
+      "reasoning_steps": 4,
+      "category": "relationship",
+      "difficulty": "hard",
+      "status": "success"
+    },
+    {
+      "id": 18,
+      "question": "How much annual energy can a single Haliade-X 14.7 MW turbine generate?",
+      "expected_answer": "Up to 76 GWh annually, enough to power 20,000 European households",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on typical offshore wind capacity factors of 50\u201360%, a single Haliade\u2011X 14.7\u202fMW turbine would generate roughly 65\u201375\u202fGWh of electricity per year (\u224814.7\u202fMW \u00d7 8760\u202fh \u00d7 0.55). This estimate is derived from industry\u2011average performance metrics because no specific annual generation figure for the Haliade\u2011X was located in the knowledge graph or web sources.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "graph",
+          "source_id": "Haliade-X",
+          "source_title": "Not found",
+          "trust_level": "unknown",
+          "excerpt": "Entity not present in knowledge graph."
+        },
+        {
+          "source_type": "web_search",
+          "source_id": "N/A",
+          "source_title": "No results",
+          "trust_level": "unknown",
+          "excerpt": "No relevant web search results were retrieved."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 19,
+      "question": "How does a GE Vernova H-class combined-cycle plant's CO2 emissions compare to a coal-fired plant?",
+      "expected_answer": "60% less CO2 emissions compared to a similarly sized coal-fired asset",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nA GE Vernova H\u2011class combined\u2011cycle plant emits considerably less carbon dioxide than a typical coal\u2011fired power plant. Because the H\u2011class design achieves thermal efficiencies around 60\u202f% and uses advanced turbine and heat\u2011recovery systems, its CO\u2082 intensity is roughly 350\u2013400\u202fg\u202fCO\u2082 per kilowatt\u2011hour (kWh). In contrast, a conventional coal\u2011fired plant generally releases about 820\u20131,000\u202fg\u202fCO\u2082 per kWh. This means the combined\u2011cycle facility produces approximately 50\u201360\u202f% fewer CO\u2082 emissions for the same electricity output.\n\nThese figures are based on typical emission factors reported for high\u2011efficiency natural\u2011gas combined\u2011cycle units and average coal\u2011fired generation profiles in recent environmental assessments.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "web_search",
+          "source_id": "GE Vernova H-class emissions report",
+          "source_title": "GE Power \u2013 H-Class Combined Cycle Plant Technical Overview",
+          "trust_level": "unknown",
+          "excerpt": "The H\u2011class combined\u2011cycle plant achieves up to 60% thermal efficiency and emits approximately 350\u2013400 g CO\u2082/kWh, roughly half the emissions of a typical coal plant."
+        },
+        {
+          "source_type": "web_search",
+          "source_id": "EPA Emissions Factors 2023",
+          "source_title": "U.S. Environmental Protection Agency \u2013 Emissions from Electricity Generation",
+          "trust_level": "unknown",
+          "excerpt": "Average CO\u2082 emission factor for coal\u2011fired electricity generation is about 820\u20131,000 g/kWh, whereas natural\u2011gas combined\u2011cycle plants emit around 350\u2013450 g/kWh."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "comparison",
+      "difficulty": "hard",
+      "status": "success"
+    },
+    {
+      "id": 20,
+      "question": "What is GE Vernova's total installed HVDC capacity globally?",
+      "expected_answer": "More than 35 GW of installed HVDC capacity",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the available information, there is no documented figure for GE Vernova's total installed HVDC capacity globally. Searches of the knowledge graph, web, and Wikipedia did not retrieve any reliable data on this metric.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [],
+      "reasoning_steps": 4,
+      "category": "factual",
+      "difficulty": "medium",
+      "status": "success"
+    }
+  ]
+}

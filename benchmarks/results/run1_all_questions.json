@@ -1,0 +1,246 @@
+{
+  "benchmark_name": "GE Vernova Knowledge Graph QA Benchmark",
+  "run_timestamp": "2026-01-30T00:40:51.705084",
+  "statistics": {
+    "total_questions": 20,
+    "successful": 0,
+    "failed": 20,
+    "avg_confidence": 0,
+    "avg_reasoning_steps": 0,
+    "external_info_used_count": 0,
+    "by_category": {
+      "technical": {
+        "count": 0,
+        "avg_confidence": 0
+      },
+      "comparison": {
+        "count": 0,
+        "avg_confidence": 0
+      },
+      "factual": {
+        "count": 0,
+        "avg_confidence": 0
+      },
+      "relationship": {
+        "count": 0,
+        "avg_confidence": 0
+      }
+    },
+    "by_difficulty": {
+      "easy": {
+        "count": 0,
+        "avg_confidence": 0
+      },
+      "hard": {
+        "count": 0,
+        "avg_confidence": 0
+      },
+      "medium": {
+        "count": 0,
+        "avg_confidence": 0
+      }
+    }
+  },
+  "results": [
+    {
+      "id": 1,
+      "question": "What is the headquarters location of GE Vernova?",
+      "expected_answer": "Cambridge, Massachusetts",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "factual",
+      "difficulty": "easy"
+    },
+    {
+      "id": 2,
+      "question": "When was GE Vernova formed as a spin-off from General Electric?",
+      "expected_answer": "2024",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "factual",
+      "difficulty": "easy"
+    },
+    {
+      "id": 3,
+      "question": "What is the maximum power output of the Haliade-X offshore wind turbine platform?",
+      "expected_answer": "Up to 18 MW (with models ranging from 12 MW to 18 MW)",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "technical",
+      "difficulty": "medium"
+    },
+    {
+      "id": 4,
+      "question": "What is the rotor diameter of the Haliade-X 13 MW wind turbine?",
+      "expected_answer": "220 meters",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "technical",
+      "difficulty": "medium"
+    },
+    {
+      "id": 5,
+      "question": "What is the combined cycle efficiency of GE Vernova's 9HA gas turbine?",
+      "expected_answer": "Greater than 61% (up to 64% for newer configurations)",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "technical",
+      "difficulty": "hard"
+    },
+    {
+      "id": 6,
+      "question": "What is the simple cycle output difference between the 9HA.01 and 9HA.02 gas turbines?",
+      "expected_answer": "9HA.01 is 397 MW and 9HA.02 is 470 MW, a difference of 73 MW",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "comparison",
+      "difficulty": "medium"
+    },
+    {
+      "id": 7,
+      "question": "Which GE Vernova business unit manufactures wind turbine blades?",
+      "expected_answer": "LM Wind Power",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "relationship",
+      "difficulty": "medium"
+    },
+    {
+      "id": 8,
+      "question": "How many gas turbines does GE Vernova have installed globally?",
+      "expected_answer": "Approximately 7,000 gas turbines",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "factual",
+      "difficulty": "medium"
+    },
+    {
+      "id": 9,
+      "question": "What is the installed capacity of GE Vernova's onshore wind turbine fleet?",
+      "expected_answer": "Over 120 GW from approximately 57,000 wind turbines",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "factual",
+      "difficulty": "medium"
+    },
+    {
+      "id": 10,
+      "question": "What hydrogen blending capability do GE Vernova's 9HA gas turbines currently support?",
+      "expected_answer": "50% hydrogen by volume, with a technology pathway to 100%",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "technical",
+      "difficulty": "hard"
+    },
+    {
+      "id": 11,
+      "question": "Which wind farm uses GE Vernova's Haliade-X turbines and how many turbines will be installed?",
+      "expected_answer": "Dogger Bank Wind Farm with 277 Haliade-X turbines (mix of 13 MW and 14 MW)",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "relationship",
+      "difficulty": "hard"
+    },
+    {
+      "id": 12,
+      "question": "What are the three main business segments of GE Vernova?",
+      "expected_answer": "Power (Gas Power), Wind, and Electrification",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "factual",
+      "difficulty": "easy"
+    },
+    {
+      "id": 13,
+      "question": "What is the voltage rating capability of GE Vernova's HVDC converter transformers?",
+      "expected_answer": "Up to 800 kV DC and 1200 kV AC, with power ratings up to 2750 MVA",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "technical",
+      "difficulty": "hard"
+    },
+    {
+      "id": 14,
+      "question": "Which companies were merged to form GE Vernova?",
+      "expected_answer": "GE Power, GE Renewable Energy, GE Digital, and GE Energy Financial Services",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "relationship",
+      "difficulty": "medium"
+    },
+    {
+      "id": 15,
+      "question": "What is the fast start capability of GE Vernova's LM2500XPRESS gas turbine package?",
+      "expected_answer": "Five-minute fast start, capable of starting independent of the power grid",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "technical",
+      "difficulty": "medium"
+    },
+    {
+      "id": 16,
+      "question": "What is GE Vernova's gas turbine backlog expected to be at the end of 2025?",
+      "expected_answer": "80 GW, extending through 2029",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "factual",
+      "difficulty": "hard"
+    },
+    {
+      "id": 17,
+      "question": "Where is LM Wind Power headquartered and how many production facilities does it operate?",
+      "expected_answer": "Headquartered in Kolding, Denmark, with 12-13 production facilities in 8 countries",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "relationship",
+      "difficulty": "hard"
+    },
+    {
+      "id": 18,
+      "question": "How much annual energy can a single Haliade-X 14.7 MW turbine generate?",
+      "expected_answer": "Up to 76 GWh annually, enough to power 20,000 European households",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "technical",
+      "difficulty": "medium"
+    },
+    {
+      "id": 19,
+      "question": "How does a GE Vernova H-class combined-cycle plant's CO2 emissions compare to a coal-fired plant?",
+      "expected_answer": "60% less CO2 emissions compared to a similarly sized coal-fired asset",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "comparison",
+      "difficulty": "hard"
+    },
+    {
+      "id": 20,
+      "question": "What is GE Vernova's total installed HVDC capacity globally?",
+      "expected_answer": "More than 35 GW of installed HVDC capacity",
+      "actual_answer": null,
+      "error": "'ReActQAAgent' object has no attribute 'answer'",
+      "status": "error",
+      "category": "factual",
+      "difficulty": "medium"
+    }
+  ]
+}

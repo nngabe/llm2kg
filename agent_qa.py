@@ -11,8 +11,10 @@ This agent performs question answering using:
 """
 
 import os
+import re
 import json
 import logging
+import requests
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Literal, Tuple
 from enum import Enum
@@ -46,6 +48,9 @@ from agent_skb import KnowledgeGraphAgent, AgentState as SKBAgentState
 # Uncertainty metrics
 from uncertainty_metrics import UncertaintyCalculator, UncertaintyScores
 
+# Zep temporal query utilities
+from knowledge_graph.temporal_queries import TemporalQueryBuilder, TemporalEntityManager
+
 # Wikipedia search
 from langchain_community.document_loaders import WikipediaLoader
 
@@ -66,6 +71,12 @@ OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434")
 FALKORDB_HOST = os.getenv("FALKORDB_HOST", "host.docker.internal")
 FALKORDB_PORT = int(os.getenv("FALKORDB_PORT", "6379"))
 FALKORDB_GRAPH = os.getenv("FALKORDB_GRAPH", "wikidata")
+
+# Reranker configuration (zerank-2 CrossEncoder server)
+RERANKER_ENABLED = os.getenv("RERANKER_ENABLED", "true").lower() == "true"
+RERANKER_URL = os.getenv("RERANKER_URL", "http://host.docker.internal:8081/rerank")
+RERANKER_TIMEOUT = int(os.getenv("RERANKER_TIMEOUT", "120"))  # seconds for batch rerank
+RERANKER_CANDIDATE_MULTIPLIER = 4  # Retrieve N*multiplier candidates, rerank to top N
 
 # Ollama model configuration (benchmark winner: Pair D)
 # Main model: Complex reasoning, ReAct loop, answer synthesis, compression, planning
@@ -183,16 +194,18 @@ SYSTEM_PROMPT = """You are a knowledgeable research assistant with access to a k
 Your goal is to answer questions accurately using available information sources.
 
 Available tools:
-1. graph_lookup(entity_name) - Look up an entity in the knowledge graph
+1. graph_lookup(entity_name) - Look up an entity in the knowledge graph (includes temporal provenance)
 2. wiki_search(query) - Search Wikipedia for encyclopedic information
 3. web_search(query) - Search the web for information (use only when graph and wiki don't have the answer)
 4. cypher_query(query) - Run a Cypher query on the knowledge graph
 5. entity_resolve(entity_name, context) - Disambiguate an entity name
+6. entity_timeline(entity_name) - Get temporal history of when facts about an entity were observed
 
 Guidelines:
 - ALWAYS try the knowledge graph first before using external sources
 - Use wiki_search for general knowledge, definitions, and encyclopedic facts
 - Use web_search for current events or when wiki doesn't have the answer
+- Use entity_timeline to understand when facts about an entity were discovered over time
 - When using external sources, clearly note that external information was used
 - Provide citations for all claims
 - If information conflicts between sources, note the discrepancy
@@ -220,7 +233,7 @@ Respond in this JSON format:
     "thought": "Your reasoning about what to do next",
     "ready_to_answer": true/false,
     "action": {{
-        "tool_name": "graph_lookup|wiki_search|web_search|cypher_query|entity_resolve|none",
+        "tool_name": "graph_lookup|wiki_search|web_search|cypher_query|entity_resolve|entity_timeline|none",
         "arguments": {{"key": "value"}}
     }}
 }}
@@ -466,6 +479,7 @@ class FalkorDBQALoader:
         port: int = FALKORDB_PORT,
         graph_name: str = FALKORDB_GRAPH,
         embedding_model: Optional[Any] = None,
+        reranker_enabled: bool = RERANKER_ENABLED,
     ):
         from falkordb import FalkorDB
         self.client = FalkorDB(host=host, port=port)
@@ -476,6 +490,8 @@ class FalkorDBQALoader:
             base_url=OLLAMA_HOST,
             num_ctx=4096,
         )
+        self.reranker_enabled = reranker_enabled
+        self._reranker_available = None  # Lazy check on first use
 
     def close(self):
         """Close the FalkorDB connection."""
@@ -545,15 +561,34 @@ class FalkorDBQALoader:
         self,
         entity_name: str,
         max_relationships: int = 20,
+        include_temporal: bool = True,
     ) -> Dict[str, Any]:
-        """Get entity and its relationships from FalkorDB."""
-        # Find entity
-        entity_query = """
-        MATCH (e)
-        WHERE toLower(e.name) = toLower($name) OR toLower(e.id) = toLower($name)
-        RETURN e, labels(e) as labels
-        LIMIT 1
+        """Get entity and its relationships from FalkorDB.
+
+        Args:
+            entity_name: Name of the entity to look up.
+            max_relationships: Maximum number of relationships to return.
+            include_temporal: Whether to include temporal info (Episode count, Community).
+
+        Returns:
+            Dictionary with entity, relationships, and optionally temporal metadata.
         """
+        # Find entity with optional temporal filtering
+        if include_temporal:
+            entity_query = """
+            MATCH (e:Entity)
+            WHERE (toLower(e.name) = toLower($name) OR toLower(e.id) = toLower($name))
+              AND (e.fact_status IS NULL OR e.fact_status = 'active')
+            RETURN e, labels(e) as labels
+            LIMIT 1
+            """
+        else:
+            entity_query = """
+            MATCH (e)
+            WHERE toLower(e.name) = toLower($name) OR toLower(e.id) = toLower($name)
+            RETURN e, labels(e) as labels
+            LIMIT 1
+            """
         result = self.graph.query(entity_query, {'name': entity_name})
 
         if not result.result_set:
@@ -563,17 +598,31 @@ class FalkorDBQALoader:
         entity = record[0].properties if hasattr(record[0], 'properties') else dict(record[0])
         entity["labels"] = record[1] if len(record) > 1 else []
 
-        # Get relationships
-        rel_query = """
-        MATCH (e)-[r]-(other)
-        WHERE toLower(e.name) = toLower($name) OR toLower(e.id) = toLower($name)
-        RETURN type(r) as rel_type,
-               properties(r) as rel_props,
-               other,
-               labels(other) as other_labels,
-               startNode(r) = e as is_outgoing
-        LIMIT $limit
-        """
+        # Get relationships (filter related entities by fact_status if temporal)
+        if include_temporal:
+            rel_query = """
+            MATCH (e:Entity)-[r]-(other)
+            WHERE (toLower(e.name) = toLower($name) OR toLower(e.id) = toLower($name))
+              AND (e.fact_status IS NULL OR e.fact_status = 'active')
+              AND (other.fact_status IS NULL OR other.fact_status = 'active')
+            RETURN type(r) as rel_type,
+                   properties(r) as rel_props,
+                   other,
+                   labels(other) as other_labels,
+                   startNode(r) = e as is_outgoing
+            LIMIT $limit
+            """
+        else:
+            rel_query = """
+            MATCH (e)-[r]-(other)
+            WHERE toLower(e.name) = toLower($name) OR toLower(e.id) = toLower($name)
+            RETURN type(r) as rel_type,
+                   properties(r) as rel_props,
+                   other,
+                   labels(other) as other_labels,
+                   startNode(r) = e as is_outgoing
+            LIMIT $limit
+            """
         rel_result = self.graph.query(rel_query, {'name': entity_name, 'limit': max_relationships})
 
         relationships = []
@@ -587,39 +636,282 @@ class FalkorDBQALoader:
                 "direction": "outgoing" if rec[4] else "incoming",
             })
 
-        return {
+        result_dict = {
             "found": True,
             "entity": entity,
             "relationships": relationships,
         }
+
+        # Add temporal metadata if requested
+        if include_temporal:
+            # Get Episode count
+            try:
+                name_escaped = entity_name.replace("'", "\\'")
+                ep_count_result = self.graph.query(f"""
+                    MATCH (ep:Episode)-[:CONTAINS]->(e:Entity)
+                    WHERE toLower(e.name) = toLower('{name_escaped}')
+                    RETURN count(ep) as episode_count
+                """)
+                if ep_count_result.result_set:
+                    result_dict["episode_count"] = ep_count_result.result_set[0][0]
+            except Exception:
+                result_dict["episode_count"] = 0
+
+            # Get Community info
+            try:
+                community_result = self.graph.query(f"""
+                    MATCH (e:Entity)-[:BELONGS_TO]->(c:Community)
+                    WHERE toLower(e.name) = toLower('{name_escaped}')
+                    RETURN c.name as community_name, c.community_id as community_id
+                    LIMIT 1
+                """)
+                if community_result.result_set:
+                    result_dict["community"] = {
+                        "name": community_result.result_set[0][0],
+                        "id": community_result.result_set[0][1],
+                    }
+            except Exception:
+                pass
+
+        return result_dict
 
     def search_documents(
         self,
         query: str,
         limit: int = 5,
     ) -> List[Dict[str, Any]]:
-        """Search DocumentChunk nodes by text matching in FalkorDB."""
+        """Search DocumentChunk nodes by text matching in FalkorDB.
+
+        Two-stage retrieval pipeline:
+        1. CANDIDATE RETRIEVAL: Broad keyword search to gather candidates
+           - Uses multiple keywords from query
+           - Filters for technical content (MW, %, efficiency, etc.)
+           - Retrieves 4x the final limit to give reranker good options
+
+        2. RERANKING: Cross-encoder model (zerank-2) scores each candidate
+           - Understands semantic relevance beyond keyword matching
+           - Prioritizes exact product matches and specific specs
+           - Gracefully falls back to keyword scoring if unavailable
+        """
         try:
-            # Try to search DocumentChunk nodes
-            cypher = """
-            MATCH (d:DocumentChunk)
-            WHERE toLower(d.text) CONTAINS toLower($query)
-            RETURN d, d.text as content
-            LIMIT $limit
-            """
-            result = self.graph.query(cypher, {'query': query, 'limit': limit})
+            # Extract keywords from query (words > 2 chars, excluding common words)
+            stop_words = {'the', 'is', 'at', 'which', 'on', 'what', 'how', 'does', 'are', 'was', 'for', 'and', 'gas', 'turbine'}
+            keywords = [w.strip("'\",.?!") for w in query.lower().split()
+                       if len(w) > 2 and w.lower() not in stop_words]
 
-            documents = []
-            for record in result.result_set:
-                doc = record[0].properties if hasattr(record[0], 'properties') else dict(record[0])
-                doc["content"] = record[1] if len(record) > 1 else doc.get("text", "")
-                doc["score"] = 0.5
-                documents.append(doc)
+            if not keywords:
+                keywords = [query.lower()]
 
-            return documents
+            all_docs = {}  # chunk_id -> doc with score
+
+            # Candidate pool size: retrieve more for reranking
+            candidate_limit = limit * RERANKER_CANDIDATE_MULTIPLIER if self.reranker_enabled else limit
+
+            # First pass: search for main keywords in chunks with technical specs
+            for kw in keywords[:4]:  # Use up to 4 keywords for broader coverage
+                cypher = """
+                MATCH (d:DocumentChunk)
+                WHERE d.source_type = 'webpage'
+                AND toLower(d.content) CONTAINS toLower($keyword)
+                AND (
+                    d.content CONTAINS 'MW' OR
+                    d.content CONTAINS 'efficiency' OR
+                    d.content CONTAINS 'min.' OR
+                    d.content CONTAINS 'min ' OR
+                    d.content CONTAINS 'output' OR
+                    d.content CONTAINS 'hydrogen' OR
+                    d.content CONTAINS 'kV' OR
+                    d.content CONTAINS 'Net ' OR
+                    d.content CONTAINS 'capability' OR
+                    d.content CONTAINS 'start time' OR
+                    d.chunk_type IN ['cluster', 'root']
+                )
+                RETURN d, d.content as content, d.source_url as url
+                LIMIT $limit
+                """
+                result = self.graph.query(cypher, {'keyword': kw, 'limit': candidate_limit})
+
+                for record in result.result_set:
+                    doc = record[0].properties if hasattr(record[0], 'properties') else dict(record[0])
+                    doc["content"] = record[1] if len(record) > 1 else doc.get("content", "")
+                    doc["source_url"] = record[2] if len(record) > 2 else doc.get("source_url", "")
+                    chunk_id = doc.get("chunk_id", id(doc))
+
+                    if chunk_id in all_docs:
+                        all_docs[chunk_id]["score"] += 1
+                    else:
+                        # Higher score for cluster/root summaries
+                        base_score = 1.5 if doc.get("chunk_type") in ["cluster", "root"] else 1.0
+                        doc["score"] = base_score
+                        all_docs[chunk_id] = doc
+
+            # Second pass: broader search for product-specific chunks that may not match all keywords
+            # This catches chunks like "5 min. start time" that don't contain "fast"
+            product_terms = [kw for kw in keywords if len(kw) > 4]  # Likely product names
+            for term in product_terms[:2]:
+                cypher = """
+                MATCH (d:DocumentChunk)
+                WHERE d.source_type = 'webpage'
+                AND toLower(d.content) CONTAINS toLower($term)
+                AND (d.content CONTAINS 'MW' OR d.content CONTAINS '%' OR d.content CONTAINS 'min.')
+                RETURN d, d.content as content, d.source_url as url
+                LIMIT $limit
+                """
+                result = self.graph.query(cypher, {'term': term, 'limit': candidate_limit // 2})
+
+                for record in result.result_set:
+                    doc = record[0].properties if hasattr(record[0], 'properties') else dict(record[0])
+                    doc["content"] = record[1] if len(record) > 1 else doc.get("content", "")
+                    doc["source_url"] = record[2] if len(record) > 2 else doc.get("source_url", "")
+                    chunk_id = doc.get("chunk_id", id(doc))
+
+                    if chunk_id not in all_docs:
+                        doc["score"] = 0.8  # Product match without keyword match
+                        all_docs[chunk_id] = doc
+
+            # Third pass: search Wikipedia for relevant content
+            if len(all_docs) < candidate_limit:
+                for kw in keywords[:2]:
+                    cypher = """
+                    MATCH (d:DocumentChunk)
+                    WHERE d.source_type = 'wikipedia' AND toLower(d.content) CONTAINS toLower($keyword)
+                    RETURN d, d.content as content, d.source_url as url
+                    LIMIT $limit
+                    """
+                    result = self.graph.query(cypher, {'keyword': kw, 'limit': limit})
+
+                    for record in result.result_set:
+                        doc = record[0].properties if hasattr(record[0], 'properties') else dict(record[0])
+                        doc["content"] = record[1] if len(record) > 1 else doc.get("content", "")
+                        doc["source_url"] = record[2] if len(record) > 2 else doc.get("source_url", "")
+                        chunk_id = doc.get("chunk_id", id(doc))
+
+                        if chunk_id not in all_docs:
+                            doc["score"] = 0.3
+                            all_docs[chunk_id] = doc
+
+            # Convert to list and sort by keyword score
+            documents = list(all_docs.values())
+            documents.sort(key=lambda x: x.get("score", 0), reverse=True)
+
+            # Apply reranking if enabled (takes top candidates, returns top `limit`)
+            if self.reranker_enabled and len(documents) > limit:
+                # Send top candidates to reranker
+                candidates = documents[:candidate_limit]
+                return self._rerank_documents(query, candidates, limit)
+            else:
+                return documents[:limit]
+
         except Exception as e:
             logger.debug(f"Document search not available: {e}")
             return []
+
+    def _check_reranker_available(self) -> bool:
+        """Check if the reranker service is available (cached)."""
+        if self._reranker_available is not None:
+            return self._reranker_available
+
+        try:
+            # Health check endpoint on the CrossEncoder server
+            health_url = RERANKER_URL.replace("/rerank", "/health")
+            response = requests.get(health_url, timeout=15)
+            data = response.json()
+            self._reranker_available = response.status_code == 200 and data.get("model_loaded", False)
+        except Exception as e:
+            logger.debug(f"Reranker health check failed: {e}")
+            self._reranker_available = False
+
+        if self._reranker_available:
+            logger.info(f"Reranker available at {RERANKER_URL}")
+        else:
+            logger.warning(f"Reranker not available at {RERANKER_URL}, using keyword-only scoring")
+
+        return self._reranker_available
+
+    def _rerank_documents(
+        self,
+        query: str,
+        documents: List[Dict[str, Any]],
+        limit: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Rerank documents using zerank-2 cross-encoder model.
+
+        Design Justification:
+        ---------------------
+        1. TWO-STAGE RETRIEVAL: Initial keyword retrieval is fast but imprecise
+           (e.g., "fast" matches navigation menus). Cross-encoder reranking is slower
+           but understands semantic relevance (e.g., "5 min. start time" answers
+           "fast start capability" even without keyword "fast").
+
+        2. CROSS-ENCODER SCORING: zerank-2 is a CrossEncoder model that directly
+           scores query-document relevance. We send all documents in a single batch
+           request for efficiency.
+
+        3. DOCUMENT TRUNCATION: Sends first 2000 chars to reranker. Cross-encoders
+           assess relevance from key signals, don't need full document.
+
+        4. GRACEFUL FALLBACK: If reranker fails, documents keep original keyword
+           scores. System degrades gracefully rather than failing entirely.
+
+        Args:
+            query: The user's question
+            documents: List of candidate documents from keyword retrieval
+            limit: Number of documents to return after reranking
+
+        Returns:
+            Top `limit` documents sorted by rerank score
+        """
+        if not documents:
+            return []
+
+        # Check reranker availability
+        if not self.reranker_enabled or not self._check_reranker_available():
+            return documents[:limit]
+
+        try:
+            # Build request for CrossEncoder server (batch all documents)
+            rerank_docs = []
+            for i, doc in enumerate(documents):
+                rerank_docs.append({
+                    "id": str(i),
+                    "content": doc.get("content", "")[:2000],
+                })
+
+            response = requests.post(
+                RERANKER_URL,
+                json={
+                    "query": query,
+                    "documents": rerank_docs,
+                },
+                timeout=RERANKER_TIMEOUT,
+            )
+
+            result = response.json()
+
+            if "error" in result:
+                logger.warning(f"Reranker error: {result['error']}")
+                return documents[:limit]
+
+            # Map scores back to documents
+            score_map = {item["id"]: item["score"] for item in result.get("scores", [])}
+
+            for i, doc in enumerate(documents):
+                doc["rerank_score"] = score_map.get(str(i), 0.0)
+
+            # Sort by rerank score (descending), use keyword score as tiebreaker
+            documents.sort(key=lambda x: (x.get("rerank_score", 0), x.get("score", 0)), reverse=True)
+
+            # Log reranking results for debugging
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"Reranking results for: {query[:50]}...")
+                for i, doc in enumerate(documents[:limit]):
+                    logger.debug(f"  {i+1}. score={doc.get('rerank_score', '?'):.3f} url={doc.get('source_url', '?')[-30:]}")
+
+            return documents[:limit]
+
+        except Exception as e:
+            logger.warning(f"Reranker failed, using keyword scores: {e}")
+            return documents[:limit]
 
     def add_document(
         self,
@@ -692,6 +984,126 @@ class FalkorDBQALoader:
                         row[f'col_{i}'] = val
                 results.append(row)
         return results
+
+    def get_entity_episodes(
+        self,
+        entity_name: str,
+        limit: int = 10,
+    ) -> List[Dict[str, Any]]:
+        """Get Episodes that mention this entity via CONTAINS relationship.
+
+        This method retrieves temporal provenance information showing when
+        and where an entity was mentioned in the knowledge graph.
+
+        Args:
+            entity_name: Name of the entity to look up.
+            limit: Maximum number of episodes to return.
+
+        Returns:
+            List of episode dictionaries with episode_id, name, content,
+            reference_time, source_url, source_type, and confidence.
+        """
+        try:
+            # Escape single quotes in entity name for Cypher
+            name_escaped = entity_name.replace("'", "\\'")
+            result = self.graph.query(f"""
+                MATCH (ep:Episode)-[r:CONTAINS]->(e:Entity)
+                WHERE toLower(e.name) = toLower('{name_escaped}')
+                  AND (e.fact_status IS NULL OR e.fact_status = 'active')
+                RETURN ep.episode_id as episode_id,
+                       ep.name as name,
+                       ep.content as content,
+                       ep.reference_time as reference_time,
+                       ep.source_url as source_url,
+                       ep.source_type as source_type,
+                       r.confidence as confidence
+                ORDER BY ep.reference_time DESC
+                LIMIT {limit}
+            """)
+            return [dict(zip(['episode_id', 'name', 'content', 'reference_time',
+                              'source_url', 'source_type', 'confidence'], row))
+                    for row in result.result_set]
+        except Exception as e:
+            logger.debug(f"Failed to get entity episodes: {e}")
+            return []
+
+    def get_community_members(
+        self,
+        entity_name: str,
+        limit: int = 10,
+    ) -> List[Dict[str, Any]]:
+        """Get entities in the same community as this entity.
+
+        This method finds related entities through community membership,
+        enabling community-aware search expansion.
+
+        Args:
+            entity_name: Name of the entity to look up.
+            limit: Maximum number of community members to return.
+
+        Returns:
+            List of entity dictionaries with entity_id, name, type,
+            description, community_name, and community_id.
+        """
+        try:
+            # Escape single quotes in entity name for Cypher
+            name_escaped = entity_name.replace("'", "\\'")
+            result = self.graph.query(f"""
+                MATCH (e1:Entity)-[:BELONGS_TO]->(c:Community)<-[:BELONGS_TO]-(e2:Entity)
+                WHERE toLower(e1.name) = toLower('{name_escaped}')
+                  AND e1 <> e2
+                  AND (e2.fact_status IS NULL OR e2.fact_status = 'active')
+                RETURN DISTINCT e2.entity_id as entity_id,
+                       e2.name as name,
+                       e2.ontology_type as type,
+                       e2.description as description,
+                       c.name as community_name,
+                       c.community_id as community_id
+                LIMIT {limit}
+            """)
+            return [dict(zip(['entity_id', 'name', 'type', 'description',
+                              'community_name', 'community_id'], row))
+                    for row in result.result_set]
+        except Exception as e:
+            logger.debug(f"Failed to get community members: {e}")
+            return []
+
+    def get_entity_timeline(
+        self,
+        entity_name: str,
+        limit: int = 20,
+    ) -> List[Dict[str, Any]]:
+        """Get temporal timeline of when this entity was mentioned.
+
+        This method returns a chronological view of when facts about
+        an entity were observed, providing temporal context for the
+        knowledge graph.
+
+        Args:
+            entity_name: Name of the entity to look up.
+            limit: Maximum number of timeline entries to return.
+
+        Returns:
+            List of timeline entries with observed_at, source, url, and excerpt.
+        """
+        try:
+            # Escape single quotes in entity name for Cypher
+            name_escaped = entity_name.replace("'", "\\'")
+            result = self.graph.query(f"""
+                MATCH (ep:Episode)-[:CONTAINS]->(e:Entity)
+                WHERE toLower(e.name) = toLower('{name_escaped}')
+                RETURN ep.reference_time as observed_at,
+                       ep.source_type as source,
+                       ep.source_url as url,
+                       ep.content as excerpt
+                ORDER BY ep.reference_time
+                LIMIT {limit}
+            """)
+            return [dict(zip(['observed_at', 'source', 'url', 'excerpt'], row))
+                    for row in result.result_set]
+        except Exception as e:
+            logger.debug(f"Failed to get entity timeline: {e}")
+            return []
 
 
 def create_qa_loader(
@@ -1495,9 +1907,30 @@ class ReActQAAgent:
         for attempt in range(self.tool_call_max_retries + 1):
             try:
                 if tool_name == "graph_lookup":
+                    entity_name = args.get("entity_name", "")
+
+                    # Get entity with relationships (includes temporal filtering)
                     result = self.neo4j_loader.get_entity_with_relationships(
-                        entity_name=args.get("entity_name", ""),
+                        entity_name=entity_name,
+                        include_temporal=True,
                     )
+
+                    # Zep temporal features: Get Episode context (temporal provenance)
+                    if result.get("found") and hasattr(self.neo4j_loader, 'get_entity_episodes'):
+                        try:
+                            episodes = self.neo4j_loader.get_entity_episodes(entity_name, limit=5)
+                            result["episodes"] = episodes
+                        except Exception as e:
+                            logger.debug(f"Failed to get episodes for {entity_name}: {e}")
+
+                    # Zep temporal features: Get Community context (related entities)
+                    if result.get("found") and hasattr(self.neo4j_loader, 'get_community_members'):
+                        try:
+                            community_members = self.neo4j_loader.get_community_members(entity_name, limit=5)
+                            result["community_members"] = community_members
+                        except Exception as e:
+                            logger.debug(f"Failed to get community members for {entity_name}: {e}")
+
                     observation = self._format_graph_lookup_result(result)
 
                     # Add to context if found
@@ -1506,7 +1939,7 @@ class ReActQAAgent:
                         new_context.append(ContextItem(
                             source_type="entity",
                             content=observation,
-                            source_id=args.get("entity_name", "unknown"),
+                            source_id=entity_name or "unknown",
                             relevance_score=1.0,
                         ))
 
@@ -1598,6 +2031,34 @@ class ReActQAAgent:
                     observation = f"Found {len(candidates)} candidates:\n{json.dumps(candidates, indent=2)}"
                     return {"last_observation": observation}
 
+                elif tool_name == "entity_timeline":
+                    entity_name = args.get("entity_name", "")
+
+                    # Get temporal timeline using Zep-style method
+                    if hasattr(self.neo4j_loader, 'get_entity_timeline'):
+                        timeline = self.neo4j_loader.get_entity_timeline(entity_name, limit=20)
+                    else:
+                        timeline = []
+
+                    if not timeline:
+                        observation = f"No temporal history found for entity '{entity_name}'."
+                    else:
+                        parts = [f"Temporal history for '{entity_name}' ({len(timeline)} observations):"]
+                        for entry in timeline:
+                            observed_at = entry.get('observed_at', 'unknown time')
+                            source = entry.get('source', 'unknown')
+                            url = entry.get('url', '')
+                            excerpt = entry.get('excerpt', '')
+                            if excerpt:
+                                excerpt = excerpt[:100] + "..." if len(excerpt) > 100 else excerpt
+                            if url:
+                                parts.append(f"  - {observed_at} ({source}): {excerpt} [{url}]")
+                            else:
+                                parts.append(f"  - {observed_at} ({source}): {excerpt}")
+                        observation = "\n".join(parts)
+
+                    return {"last_observation": observation}
+
                 else:
                     return {"last_observation": f"Unknown tool: {tool_name}"}
 
@@ -1621,7 +2082,7 @@ class ReActQAAgent:
         return {"last_observation": f"Tool {tool_name} failed: {last_error}"}
 
     def _format_graph_lookup_result(self, result: Dict[str, Any]) -> str:
-        """Format graph lookup result."""
+        """Format graph lookup result with Zep temporal features."""
         if not result.get("found"):
             return f"Entity '{result.get('entity_name')}' not found in knowledge graph."
 
@@ -1634,6 +2095,26 @@ class ReActQAAgent:
         if entity.get("ontology_type"):
             parts.append(f"Type: {entity['ontology_type']}")
 
+        # Add temporal metadata (fact_status, valid_from/valid_to)
+        if entity.get("fact_status"):
+            parts.append(f"Status: {entity['fact_status']}")
+        if entity.get("valid_from") or entity.get("valid_to"):
+            validity = []
+            if entity.get("valid_from"):
+                validity.append(f"from {entity['valid_from']}")
+            if entity.get("valid_to"):
+                validity.append(f"to {entity['valid_to']}")
+            parts.append(f"Valid: {' '.join(validity)}")
+
+        # Add Community info if available
+        if result.get("community"):
+            community = result["community"]
+            parts.append(f"Community: {community.get('name', community.get('id', 'Unknown'))}")
+
+        # Add Episode count if available
+        if result.get("episode_count"):
+            parts.append(f"Mentioned in {result['episode_count']} episode(s)")
+
         relationships = result.get("relationships", [])
         if relationships:
             parts.append(f"\nRelationships ({len(relationships)}):")
@@ -1642,6 +2123,31 @@ class ReActQAAgent:
                 other_name = other.get("name", other.get("id", "?"))
                 direction = "->" if rel["direction"] == "outgoing" else "<-"
                 parts.append(f"  {direction} [{rel['type']}] {other_name}")
+
+        # Add Episode provenance (temporal context from Zep)
+        episodes = result.get("episodes", [])
+        if episodes:
+            parts.append("\nObserved in Episodes:")
+            for ep in episodes[:3]:
+                source_type = ep.get('source_type', 'unknown')
+                ref_time = ep.get('reference_time', 'unknown time')
+                source_url = ep.get('source_url', '')
+                if source_url:
+                    parts.append(f"  - {source_type}: {ref_time} ({source_url})")
+                else:
+                    parts.append(f"  - {source_type}: {ref_time}")
+
+        # Add Community members (related entities from Zep)
+        community_members = result.get("community_members", [])
+        if community_members:
+            parts.append("\nRelated entities (same community):")
+            for member in community_members[:5]:
+                member_name = member.get('name', 'Unknown')
+                member_type = member.get('type', '')
+                if member_type:
+                    parts.append(f"  - {member_name} ({member_type})")
+                else:
+                    parts.append(f"  - {member_name}")
 
         return "\n".join(parts)
 

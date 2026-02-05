@@ -1174,6 +1174,7 @@ class WikidataKGBuilder:
         root_threshold: float = 5.0,
         max_leaves: Optional[int] = None,
         falkordb_graph_name: Optional[str] = None,
+        require_label: bool = False,
     ):
         """
         Initialize the KG builder.
@@ -1187,6 +1188,7 @@ class WikidataKGBuilder:
             root_threshold: Abstraction score threshold for root classification.
             max_leaves: Maximum leaf nodes to collect in phase 2 (None = no limit).
             falkordb_graph_name: Custom graph name for FalkorDB (default: env var or 'wikidata').
+            require_label: If True, skip entities without English labels (QID-only names).
         """
         self.sparql_client = sparql_client or WikidataSPARQLClient()
         self.loader = loader
@@ -1195,6 +1197,8 @@ class WikidataKGBuilder:
         self.exploration_strategy = exploration_strategy
         self.root_threshold = root_threshold
         self.max_leaves = max_leaves
+        self.require_label = require_label
+        self.skipped_no_label = 0  # Track entities skipped due to missing labels
 
         if not dry_run and loader is None:
             if backend == "falkordb":
@@ -1337,6 +1341,9 @@ class WikidataKGBuilder:
         This is the original algorithm that explores all children at each level
         before moving to the next depth.
         """
+        # Reset skipped counter for this build
+        self.skipped_no_label = 0
+
         # Track visited entities and all collected data
         visited: Set[str] = set()
         all_entities: List[WikidataEntity] = []
@@ -1382,6 +1389,18 @@ class WikidataKGBuilder:
 
             # Filter out already visited entities
             new_entities = [e for e in result.entities if e.qid not in visited]
+
+            # Filter out entities without English labels if require_label is set
+            if self.require_label:
+                filtered_entities = []
+                for entity in new_entities:
+                    if entity.name == entity.qid:
+                        logger.debug(f"Skipping {entity.qid} - no English label available")
+                        self.skipped_no_label += 1
+                    else:
+                        filtered_entities.append(entity)
+                new_entities = filtered_entities
+
             new_qids = [e.qid for e in new_entities]
 
             # Update visited set
@@ -1428,6 +1447,8 @@ class WikidataKGBuilder:
             stats["relationships_found"] = len(all_relationships)
 
         stats["total_visited"] = len(visited)
+        if self.require_label:
+            stats["skipped_no_label"] = self.skipped_no_label
 
         return stats
 
@@ -1447,6 +1468,9 @@ class WikidataKGBuilder:
         Phase 2: Collect "leaf" nodes prioritized by their connectivity to collected roots
         """
         logger.info(f"Using ROOT_FIRST strategy (threshold={self.root_threshold})")
+
+        # Reset skipped counter for this build
+        self.skipped_no_label = 0
 
         # Initialize exploration state
         state = ExplorationState()
@@ -1506,6 +1530,18 @@ class WikidataKGBuilder:
 
             # Filter to unvisited entities
             new_entities = [e for e in result.entities if e.qid not in state.visited]
+
+            # Filter out entities without English labels if require_label is set
+            if self.require_label:
+                filtered_entities = []
+                for entity in new_entities:
+                    if entity.name == entity.qid:
+                        logger.debug(f"Skipping {entity.qid} - no English label available")
+                        self.skipped_no_label += 1
+                    else:
+                        filtered_entities.append(entity)
+                new_entities = filtered_entities
+
             if not new_entities:
                 continue
 
@@ -1626,6 +1662,8 @@ class WikidataKGBuilder:
             stats["relationships_found"] = len(all_relationships)
 
         stats["total_visited"] = len(state.visited)
+        if self.require_label:
+            stats["skipped_no_label"] = self.skipped_no_label
 
         return stats
 
@@ -1693,6 +1731,7 @@ class WikidataKGBuilder:
                 "total_entities": 0,
                 "total_relationships": 0,
                 "total_visited": 0,
+                "total_skipped_no_label": 0,
             },
         }
 
@@ -1732,6 +1771,7 @@ class WikidataKGBuilder:
                     all_stats["totals"]["total_entities"] += seed_stats.get("entities_created", 0)
                     all_stats["totals"]["total_relationships"] += seed_stats.get("relationships_created", 0)
                 all_stats["totals"]["total_visited"] += seed_stats.get("total_visited", 0)
+                all_stats["totals"]["total_skipped_no_label"] += seed_stats.get("skipped_no_label", 0)
 
             except Exception as e:
                 logger.error(f"Failed to process seed {qid}: {e}")
@@ -2106,6 +2146,11 @@ def main():
         default=None,
         help="FalkorDB graph name for this run (default: 'wikidata' or FALKORDB_GRAPH_NAME env var)"
     )
+    parser.add_argument(
+        "--require-label",
+        action="store_true",
+        help="Skip entities without English labels (filters QID-only names)"
+    )
 
     args = parser.parse_args()
 
@@ -2182,6 +2227,7 @@ def main():
     print(f"Include Instances: {not args.no_instances}")
     print(f"Include Parts: {not args.no_parts}")
     print(f"With Embeddings: {args.with_embeddings}")
+    print(f"Require Label: {args.require_label}")
     print(f"Dry Run:       {args.dry_run}")
     print("=" * 60)
 
@@ -2192,6 +2238,7 @@ def main():
         root_threshold=args.root_threshold,
         max_leaves=args.max_leaves,
         falkordb_graph_name=args.falkordb_graph,
+        require_label=args.require_label,
     )
 
     try:
@@ -2234,6 +2281,8 @@ def main():
             if totals.get("seeds_failed", 0) > 0:
                 print(f"Seeds failed: {totals.get('seeds_failed', 0)}")
             print(f"Total entities visited: {totals.get('total_visited', 0)}")
+            if totals.get("total_skipped_no_label", 0) > 0:
+                print(f"Entities skipped (no label): {totals['total_skipped_no_label']}")
 
             print("\nPer-seed breakdown:")
             for seed_stats in stats.get("seeds", []):
@@ -2269,6 +2318,8 @@ def main():
             # Single root results
             print(f"Strategy: {stats.get('strategy', 'bfs')}")
             print(f"Total entities visited: {stats['total_visited']}")
+            if stats.get("skipped_no_label", 0) > 0:
+                print(f"Entities skipped (no label): {stats['skipped_no_label']}")
 
             # Handle different stats formats for BFS vs root_first
             if stats.get("strategy") == "root_first":

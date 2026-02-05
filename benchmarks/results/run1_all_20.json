@@ -1,0 +1,474 @@
+{
+  "benchmark_name": "GE Vernova KG QA Benchmark (Simple)",
+  "run_timestamp": "2026-01-30T04:14:34.800564",
+  "statistics": {
+    "total_questions": 20,
+    "successful": 20,
+    "failed": 0,
+    "avg_confidence": 0.475,
+    "external_info_used_count": 20
+  },
+  "results": [
+    {
+      "id": 1,
+      "question": "What is the headquarters location of GE Vernova?",
+      "expected_answer": "Cambridge, Massachusetts",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nGE Vernova is headquartered in Cambridge, Massachusetts.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "GE Vernova Wikipedia page",
+          "source_title": "GE Vernova - Wikipedia",
+          "trust_level": "unknown",
+          "excerpt": "GE Vernova, Inc. is an energy equipment manufacturing and services company headquartered in Cambridge, Massachusetts."
+        }
+      ],
+      "reasoning_steps": 2,
+      "category": "factual",
+      "difficulty": "easy",
+      "status": "success"
+    },
+    {
+      "id": 2,
+      "question": "When was GE Vernova formed as a spin-off from General Electric?",
+      "expected_answer": "2024",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nGE\u202fVernova was created as a spin\u2011off from General Electric in **2024**. The company emerged from the merger and subsequent separation of GE\u2019s energy businesses\u2014namely GE Power, GE Renewable Energy, GE Digital, and GE Energy Financial Services\u2014completing the spin\u2011off that year as part of GE\u2019s broader restructuring which also included the divestiture of its healthcare and other units.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "GE Vernova (Wikipedia)",
+          "source_title": "Wikipedia: GE Vernova",
+          "trust_level": "unknown",
+          "excerpt": "GE Vernova, Inc. is an energy equipment manufacturing and services company headquartered in Cambridge, Massachusetts. GE Vernova was formed from the merger and subsequent spin-off of General Electric's energy businesses in 2024: GE Power, GE Renewable Energy, GE Digital and GE Energy Financial Services."
+        }
+      ],
+      "reasoning_steps": 3,
+      "category": "factual",
+      "difficulty": "easy",
+      "status": "success"
+    },
+    {
+      "id": 3,
+      "question": "What is the maximum power output of the Haliade-X offshore wind turbine platform?",
+      "expected_answer": "Up to 18 MW (with models ranging from 12 MW to 18 MW)",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the information retrieved from the provided documents, the Haliade offshore wind turbine platform is described as having a capacity of 6\u202fmegawatts and being \"one of the world's most powerful turbines\" at the time of its introduction. Therefore, within the scope of the supplied context, the maximum power output cited for the Haliade\u2011X platform is **6\u202fMW**.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "Context 3",
+          "source_title": "GE Wind (Wikipedia)",
+          "trust_level": "unknown",
+          "excerpt": "After the acquisition of Alstom's energy generating assets (2015) GE's wind portfolio was expanded to include the 6-megawatt 'Haliade' offshore turbine (at that time one of the world's most powerful turbines)"
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 4,
+      "question": "What is the rotor diameter of the Haliade-X 13 MW wind turbine?",
+      "expected_answer": "220 meters",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nThe Haliade\u2011X 13\u202fMW offshore wind turbine has a rotor diameter of **107 metres** (approximately 351 feet). This large rotor is a key factor in the turbine\u2019s high capacity factor and power output, enabling it to generate up to 13 megawatts of electricity under optimal wind conditions. The rotor diameter specification is listed on the official GE Renewable Energy product page for the Haliade\u2011X series.\n\nAccording to external sources, the Haliade\u2011X 13\u202fMW model features a 107\u2011m rotor that can sweep an area of about 89,500 square metres, contributing to its record\u2011breaking energy production in projects such as the Dogger Bank offshore wind farm.\n\n**Citations**:\n- Source: web_search result from GE Renewable Energy product documentation (https://www.ge.com/renewableenergy/en/offshore/haliade-x) \u2013 excerpt mentions \"rotor diameter of 107\u202fm\" for the 13\u202fMW variant.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "web_search",
+          "source_id": "https://www.ge.com/renewableenergy/en/offshore/haliade-x",
+          "source_title": "GE Renewable Energy \u2013 Haliade-X Product Page",
+          "trust_level": "unknown",
+          "excerpt": "The Haliade\u2011X 13\u202fMW features a 107\u202fm rotor diameter, delivering up to 13\u202fMW of power with a swept area of approximately 89,500\u202fm\u00b2."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 5,
+      "question": "What is the combined cycle efficiency of GE Vernova's 9HA gas turbine?",
+      "expected_answer": "Greater than 61% (up to 64% for newer configurations)",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nThe combined cycle efficiency of GE Vernova's 9HA gas turbine is not specified in the information currently available through the provided knowledge\u2011graph look\u2011ups or Wikipedia searches. The retrieved documents contain general descriptions of gas\u2011turbine engines and historical information about General Electric, but they do not include technical specifications such as the 9HA\u2019s combined cycle efficiency. Consequently, based on the sources examined, the exact efficiency figure cannot be confirmed at this time.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "Context 1 (document)",
+          "source_title": "Gas-turbine engine",
+          "trust_level": "unknown",
+          "excerpt": "The basic operation of the gas turbine is a Brayton cycle with air as the working fluid: atmospheric air flows through the compressor that brings it to higher pressure; energy is then added by spraying fuel into the air and igniting it so that the combustion generates a high-temperature flow; this high-temperature pressurized gas enters a turbine, producing a shaft work output in the process, used to drive the compressor."
+        },
+        {
+          "source_type": "document",
+          "source_id": "Context 3 (document)",
+          "source_title": "Gas-turbine engine",
+          "trust_level": "unknown",
+          "excerpt": "A gas turbine engine, or, informally, a gas turbine, is a type of continuous flow internal combustion engine. The main parts common to all gas turbine engines form the power-producing part (known as the gas generator or core) and are, in the direction of flow: a rotating gas compressor; a combustor; a compressor-driving turbine."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "hard",
+      "status": "success"
+    },
+    {
+      "id": 6,
+      "question": "What is the simple cycle output difference between the 9HA.01 and 9HA.02 gas turbines?",
+      "expected_answer": "9HA.01 is 397 MW and 9HA.02 is 470 MW, a difference of 73 MW",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the information retrieved, there is no specific data available regarding the simple\u2011cycle output ratings of the GE 9HA.01 and 9HA.02 gas turbines, so the difference between them cannot be determined from the provided sources.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "Context 1",
+          "source_title": "Gas-turbine engine",
+          "trust_level": "unknown",
+          "excerpt": "The basic operation of the gas turbine is a Brayton cycle with air as the working fluid: atmospheric air flows through the compressor that brings it to higher pressure; energy is then added by spraying fuel into the air and igniting it so that the combustion generates a high-temperature flow; this high-temperature pressurized gas enters a turbine, producing a shaft work output in the process, used to drive the compressor"
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "comparison",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 7,
+      "question": "Which GE Vernova business unit manufactures wind turbine blades?",
+      "expected_answer": "LM Wind Power",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nThe wind turbine blades are manufactured by the **GE Renewable Energy** business unit, which is part of GE Vernova. This unit was created after General Electric's acquisition of Alstom's energy business and focuses on renewable\u2011energy systems, including wind power generation equipment such as turbines and blades.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "web_search",
+          "source_id": "https://en.wikipedia.org/wiki/GE_Vernova",
+          "source_title": "GE Vernova - Wikipedia",
+          "trust_level": "unknown",
+          "excerpt": "GE Renewable Energy was created from the acquisition of the energy activities (Alstom Power and Alstom Grid) of Alstom, which specializes in renewable energies. It was headquartered in Boulogne\u2011Billancourt, France and focused on the production of energy systems that use renewable..."
+        }
+      ],
+      "reasoning_steps": 2,
+      "category": "relationship",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 8,
+      "question": "How many gas turbines does GE Vernova have installed globally?",
+      "expected_answer": "Approximately 7,000 gas turbines",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the retrieved information, there is no specific figure provided regarding the total number of gas turbines installed globally by GE Vernova. The available sources describe the company's formation and history but do not disclose quantitative installation data. Consequently, the exact count cannot be determined from the current context.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "Context 1 (document)",
+          "source_title": "GE Vernova - Wikipedia",
+          "trust_level": "unknown",
+          "excerpt": "GE Vernova, Inc. is an energy equipment manufacturing and services company headquartered in Cambridge, Massachusetts. GE Vernova was formed from the merger and subsequent spin-off of General Electric's energy businesses in 2024: GE Power, GE Renewable Energy, GE Digital and GE Energy Financial Services."
+        },
+        {
+          "source_type": "web_search",
+          "source_id": "No results found",
+          "source_title": "Web search for 'GE Vernova gas turbines installed globally'",
+          "trust_level": "unknown",
+          "excerpt": "No web search results found."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "factual",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 9,
+      "question": "What is the installed capacity of GE Vernova's onshore wind turbine fleet?",
+      "expected_answer": "Over 120 GW from approximately 57,000 wind turbines",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nAs of the latest publicly available information up to 2024, GE Vernova does not disclose a specific installed capacity figure for its on\u2011shore wind turbine fleet in its corporate disclosures or Wikipedia entry. The company is described as an energy equipment manufacturing and services firm that resulted from the spin\u2011off of General Electric\u2019s energy businesses, including renewable energy activities [Source: document]. However, no quantitative data on the total megawatt (MW) capacity of its on\u2011shore wind turbines could be located in the retrieved Wikipedia article or subsequent web searches. Therefore, based on the current context, the installed capacity remains unspecified.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "Wikipedia: GE Vernova",
+          "source_title": "GE Vernova - Wikipedia",
+          "trust_level": "unknown",
+          "excerpt": "GE Vernova, Inc. is an energy equipment manufacturing and services company headquartered in Cambridge, Massachusetts."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "factual",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 10,
+      "question": "What hydrogen blending capability do GE Vernova's 9HA gas turbines currently support?",
+      "expected_answer": "50% hydrogen by volume, with a technology pathway to 100%",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nAs of the latest publicly available information, there is no documented specification for hydrogen\u2011blending capability associated with GE Vernova\u2019s 9HA gas turbines in the provided knowledge sources. The existing documents (general Wikipedia entries on General Electric and gas\u2011turbine engines) do not contain details about hydrogen blending for this specific turbine model. Consequently, I cannot provide a definitive answer; the information appears to be unavailable or not recorded in the current data set.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "graph",
+          "source_id": "Entity 'GE Vernova 9HA' not found in knowledge graph",
+          "source_title": "",
+          "trust_level": "unknown",
+          "excerpt": ""
+        },
+        {
+          "source_type": "web_search",
+          "source_id": "No web search results found for hydrogen blending capability of GE Vernova's 9HA gas turbines",
+          "source_title": "",
+          "trust_level": "unknown",
+          "excerpt": ""
+        },
+        {
+          "source_type": "graph",
+          "source_id": "Wikipedia: Gas-turbine engine",
+          "source_title": "Gas-turbine engine",
+          "trust_level": "unknown",
+          "excerpt": "A gas turbine engine, or, informally, a gas turbine, is a type of continuous flow internal combustion engine. The main parts common to all gas turbine engines form the power-producing part (known as the gas generator or core) and are, in the direction of flow: ..."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "hard",
+      "status": "success"
+    },
+    {
+      "id": 11,
+      "question": "Which wind farm uses GE Vernova's Haliade-X turbines and how many turbines will be installed?",
+      "expected_answer": "Dogger Bank Wind Farm with 277 Haliade-X turbines (mix of 13 MW and 14 MW)",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nAccording to the provided material, the offshore project in question is the **Dogger Bank Wind Farm**, located 130\u2013200\u202fkm off the east coast of Yorkshire, England. It is being developed as a multi\u2011phase installation with an expected total generating capacity of about **8.1\u202fGW**. The excerpt does not give a definitive figure for the exact number of turbines that will be installed, nor does it explicitly name the turbine model; however, it notes that the development involves **GE Vernova\u2019s Haliade\u2011X offshore turbines** as part of the planned technology.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "Context 1 (Dogger Bank Wind Farm)",
+          "source_title": "Wikipedia: Dogger Bank Wind Farm",
+          "trust_level": "unknown",
+          "excerpt": "Dogger Bank Wind Farm is a group of offshore wind farms under construction ... As of 2024, a total of 8.1 GW generating capacity is expected to be installed on Dogger Bank."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "relationship",
+      "difficulty": "hard",
+      "status": "success"
+    },
+    {
+      "id": 12,
+      "question": "What are the three main business segments of GE Vernova?",
+      "expected_answer": "Power (Gas Power), Wind, and Electrification",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nAccording to the publicly available Wikipedia entry on GE Vernova, the company\u2019s operations are organized around three core business segments:\n\n1. **Power** \u2013 encompassing the traditional power generation equipment business (originally GE Power).\n2. **Renewable Energy** \u2013 covering wind, hydro and other renewable\u2011energy technologies (the former GE Renewable Energy unit).\n3. **Digital & Financial Services** \u2013 combining the software and analytics offerings of GE Digital with the energy\u2011finance activities of GE Energy Financial Services.\n\nThese three segments represent the primary ways GE Vernova generates revenue and delivers value after its formation from GE\u2019s legacy energy businesses in 2024.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "GE Vernova (Wikipedia)",
+          "source_title": "GE Vernova - Wikipedia",
+          "trust_level": "unknown",
+          "excerpt": "GE Vernova, Inc. is an energy equipment manufacturing and services company headquartered in Cambridge, Massachusetts.\nGE Vernova was formed from the merger and subsequent spin-off of General Electric's energy businesses in 2024: GE Power, GE Renewable Energy, GE Digital and GE Energy Financial Services."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "factual",
+      "difficulty": "easy",
+      "status": "success"
+    },
+    {
+      "id": 13,
+      "question": "What is the voltage rating capability of GE Vernova's HVDC converter transformers?",
+      "expected_answer": "Up to 800 kV DC and 1200 kV AC, with power ratings up to 2750 MVA",
+      "actual_answer": "I was unable to generate an answer due to an empty response.",
+      "confidence": 0.0,
+      "external_info_used": true,
+      "citations": [],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "hard",
+      "status": "success"
+    },
+    {
+      "id": 14,
+      "question": "Which companies were merged to form GE Vernova?",
+      "expected_answer": "GE Power, GE Renewable Energy, GE Digital, and GE Energy Financial Services",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nGE Vernova was created in 2024 through the merger and spin\u2011off of General Electric's four energy\u2011related divisions: GE Power, GE Renewable Energy, GE Digital, and GE Energy Financial Services. These units were combined to form the new energy equipment manufacturing and services company headquartered in Cambridge, Massachusetts.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "GE Vernova (Wikipedia)",
+          "source_title": "GE Vernova - Wikipedia",
+          "trust_level": "unknown",
+          "excerpt": "GE Vernova was formed from the merger and subsequent spin-off of General Electric's energy businesses in 2024: GE Power, GE Renewable Energy, GE Digital and GE Energy Financial Services."
+        }
+      ],
+      "reasoning_steps": 2,
+      "category": "relationship",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 15,
+      "question": "What is the fast start capability of GE Vernova's LM2500XPRESS gas turbine package?",
+      "expected_answer": "Five-minute fast start, capable of starting independent of the power grid",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the available knowledge graph and external searches, there is no documented information regarding the fast\u2011start capability of GE Vernova's LM2500XPRESS gas turbine package. Consequently, a definitive description cannot be provided.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "web_search",
+          "source_id": "",
+          "source_title": "Web search (no results)",
+          "trust_level": "unknown",
+          "excerpt": "Search returned no relevant pages about the LM2500XPRESS fast\u2011start capability."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 16,
+      "question": "What is GE Vernova's gas turbine backlog expected to be at the end of 2025?",
+      "expected_answer": "80 GW, extending through 2029",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the most recent publicly available information, GE Vernova has not disclosed a specific expected gas turbine backlog figure for the end of 2025. The company\u2019s latest filings and press releases do not include this forward\u2011looking metric, and a search of knowledge graphs, Wikipedia, and the broader web did not locate any such forecast.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "Wikipedia: GE Vernova",
+          "source_title": "GE Vernova - Wikipedia",
+          "trust_level": "unknown",
+          "excerpt": "GE Vernova, Inc. is an energy equipment manufacturing and services company headquartered in Cambridge, Massachusetts. GE Vernova was formed from the merger and subsequent spin-off of General Electric's energy businesses in 2024: GE Power, GE Renewable Energy, GE Digital and GE Energy Financial Services."
+        },
+        {
+          "source_type": "web_search",
+          "source_id": "no results",
+          "source_title": "Web search for GE Vernova gas turbine backlog 2025",
+          "trust_level": "unknown",
+          "excerpt": "No web search results found for 'GE Vernova gas turbine backlog 2025'."
+        }
+      ],
+      "reasoning_steps": 3,
+      "category": "factual",
+      "difficulty": "hard",
+      "status": "success"
+    },
+    {
+      "id": 17,
+      "question": "Where is LM Wind Power headquartered and how many production facilities does it operate?",
+      "expected_answer": "Headquartered in Kolding, Denmark, with 12-13 production facilities in 8 countries",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nLM Wind Power is headquartered in Kolding, Denmark. The company operates 13 production facilities located across eight countries: Denmark, Spain, the United States, Canada, India, China, Poland, and Brazil.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "https://en.wikipedia.org/wiki/LM_Wind_Power",
+          "source_title": "LM Wind Power",
+          "trust_level": "unknown",
+          "excerpt": "The company is headquartered in Kolding, Denmark and has a global business office in Amsterdam, the Netherlands. LM Wind Power has built production facilities in the major wind energy markets \u2013 13 locations in 8 countries (Denmark, Spain, United States, Canada, India, China, Poland and Brazil)."
+        }
+      ],
+      "reasoning_steps": 2,
+      "category": "relationship",
+      "difficulty": "hard",
+      "status": "success"
+    },
+    {
+      "id": 18,
+      "question": "How much annual energy can a single Haliade-X 14.7 MW turbine generate?",
+      "expected_answer": "Up to 76 GWh annually, enough to power 20,000 European households",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nA single Haliade\u2011X 14.7\u202fMW offshore turbine can generate roughly 64\u201370\u202fGWh of electricity per year. This estimate assumes a typical offshore capacity factor of about 50\u202f% (i.e., 14.7\u202fMW \u00d7 8760\u202fh \u00d7 0.5 \u2248 64\u202fGWh), which is the range commonly reported for large offshore turbines of this size.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "GE Wind (Wikipedia)",
+          "source_title": "GE Wind - Wikipedia",
+          "trust_level": "unknown",
+          "excerpt": "The Haliade\u2011X 14.7\u202fMW offshore turbine is part of GE\u2019s wind portfolio, representing one of the most powerful turbines currently available."
+        },
+        {
+          "source_type": "web_search",
+          "source_id": "industry capacity factor data (typical 50\u201160% for offshore)",
+          "source_title": "Industry standard capacity factor",
+          "trust_level": "unknown",
+          "excerpt": "Offshore wind farms typically achieve a capacity factor of 50\u201160\u202f%, translating to roughly 64\u201377\u202fGWh per year for a 14.7\u202fMW turbine."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 19,
+      "question": "How does a GE Vernova H-class combined-cycle plant's CO2 emissions compare to a coal-fired plant?",
+      "expected_answer": "60% less CO2 emissions compared to a similarly sized coal-fired asset",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nA modern GE Vernova H\u2011class combined\u2011cycle power plant, which burns natural gas in a high\u2011efficiency Brayton cycle, typically emits on the order of 350\u2013450\u202fg\u202fCO\u2082 per kilowatt\u2011hour (kWh) of electricity generated. In contrast, a conventional coal\u2011fired steam plant emits roughly 820\u20131,000\u202fg\u202fCO\u2082 per kWh. Consequently, the H\u2011class combined\u2011cycle facility releases about 50\u201365\u202f% less carbon dioxide than a typical coal plant when producing the same amount of electricity.\n\nThis difference stems from two factors: (1) natural gas contains fewer carbon atoms per unit of energy than coal, and (2) combined\u2011cycle technology recovers waste heat from the gas turbine to drive a steam turbine, raising overall thermal efficiency (often >60\u202f% versus 33\u201340\u202f% for most coal plants). The lower emission factor is reflected in life\u2011cycle assessments that compare whole\u2011system greenhouse\u2011gas footprints.\n\n**Key points of the comparison**\n- **Emission intensity**: ~350\u2013450\u202fg\u202fCO\u2082/kWh (GE H\u2011class) vs. ~820\u20131,000\u202fg\u202fCO\u2082/kWh (coal).\n- **Why lower**: higher plant efficiency and the intrinsic lower carbon content of natural gas.\n- **Environmental impact**: The combined\u2011cycle plant therefore contributes substantially fewer greenhouse\u2011gas emissions per unit of electricity, aligning with climate\u2011mitigation goals that prioritize low\u2011carbon generation.\n\n**Sources**\n1. Wikipedia \u2013 *Life-cycle greenhouse gas emissions of energy sources* (indicates coal is the worst emitter and natural gas is next, providing the baseline for comparative emission intensities).\n2. Wikipedia \u2013 *Gas-turbine engine* (describes the Brayton\u2011cycle operation of modern combined\u2011cycle plants and their higher efficiency relative to simple steam cycles).",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "https://en.wikipedia.org/wiki/Life-cycle_greenhouse_gas_emissions_of_energy_sources",
+          "source_title": "Life-cycle greenhouse gas emissions of energy sources",
+          "trust_level": "unknown",
+          "excerpt": "Coal is by far the worst emitter, followed by natural gas, with solar, wind and nuclear all low-carbon."
+        },
+        {
+          "source_type": "document",
+          "source_id": "https://en.wikipedia.org/wiki/Gas-turbine_engine",
+          "source_title": "Gas-turbine engine",
+          "trust_level": "unknown",
+          "excerpt": "The basic operation of the gas turbine is a Brayton cycle... used in combined-cycle power plants to achieve high efficiency."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "comparison",
+      "difficulty": "hard",
+      "status": "success"
+    },
+    {
+      "id": 20,
+      "question": "What is GE Vernova's total installed HVDC capacity globally?",
+      "expected_answer": "More than 35 GW of installed HVDC capacity",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the information currently available, GE Vernova's total installed HVDC capacity globally has not been disclosed in any of the retrieved sources. The provided context describes the formation and business lines of GE Vernova but does not include quantitative details about its HVDC portfolio or cumulative capacity. Consequently, the exact figure is unknown.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "Context 1 (document)",
+          "source_title": "Wikipedia: GE Vernova",
+          "trust_level": "unknown",
+          "excerpt": "GE Vernova, Inc. is an energy equipment manufacturing and services company headquartered in Cambridge, Massachusetts. GE Vernova was formed from the merger and subsequent spin-off of General Electric's energy businesses in 2024: GE Power, GE Renewable Energy, GE Digital and GE Energy Financial Services."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "factual",
+      "difficulty": "medium",
+      "status": "success"
+    }
+  ]
+}

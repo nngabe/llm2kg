@@ -29,6 +29,7 @@ from .models import (
     PipelineConfig,
     ChunkStatus,
     ChunkType,
+    SourceType,
 )
 
 
@@ -384,35 +385,41 @@ class WikipediaArticlePipeline:
         except Exception:
             return None
 
-    def chunk_content(self, content: str, source_qid: str) -> List[DocumentChunk]:
+    def chunk_content(
+        self, content: str, source_qid: str, source_url: str = None
+    ) -> List[DocumentChunk]:
         """
         Split content into chunks based on configured strategy.
 
         Args:
             content: Full article content.
             source_qid: Wikidata QID of the source WikiPage.
+            source_url: Wikipedia article URL for provenance.
 
         Returns:
             List of DocumentChunk objects.
         """
         if self.chunking_strategy == ChunkingStrategy.RAPTOR:
-            return self._chunk_content_raptor(content, source_qid)
+            return self._chunk_content_raptor(content, source_qid, source_url)
         elif self.chunking_strategy == ChunkingStrategy.SEMANTIC:
-            return self._chunk_content_semantic(content, source_qid)
+            return self._chunk_content_semantic(content, source_qid, source_url)
         elif self.chunking_strategy == ChunkingStrategy.HYBRID:
-            return self._chunk_content_hybrid(content, source_qid)
+            return self._chunk_content_hybrid(content, source_qid, source_url)
         elif self.chunking_strategy == ChunkingStrategy.SECTION:
-            return self._chunk_content_section(content, source_qid)
+            return self._chunk_content_section(content, source_qid, source_url)
         else:
-            return self._chunk_content_recursive(content, source_qid)
+            return self._chunk_content_recursive(content, source_qid, source_url)
 
-    def _chunk_content_recursive(self, content: str, source_qid: str) -> List[DocumentChunk]:
+    def _chunk_content_recursive(
+        self, content: str, source_qid: str, source_url: str = None
+    ) -> List[DocumentChunk]:
         """
         Split content using recursive character splitting (original behavior).
 
         Args:
             content: Full article content.
             source_qid: Wikidata QID of the source WikiPage.
+            source_url: Wikipedia article URL for provenance.
 
         Returns:
             List of DocumentChunk objects.
@@ -424,8 +431,13 @@ class WikipediaArticlePipeline:
         for i, text in enumerate(texts):
             chunk = DocumentChunk(
                 content=text,
-                source_qid=source_qid,
                 chunk_index=i,
+                # Multi-source support
+                source_id=source_qid,
+                source_type=SourceType.WIKIPEDIA,
+                source_url=source_url,
+                # Backwards compatibility
+                source_qid=source_qid,
                 status=ChunkStatus.PENDING,
             )
             chunks.append(chunk)
@@ -433,13 +445,16 @@ class WikipediaArticlePipeline:
         logger.debug(f"Created {len(chunks)} chunks for {source_qid} (recursive)")
         return chunks
 
-    def _chunk_content_section(self, content: str, source_qid: str) -> List[DocumentChunk]:
+    def _chunk_content_section(
+        self, content: str, source_qid: str, source_url: str = None
+    ) -> List[DocumentChunk]:
         """
         Split content by markdown section headers only.
 
         Args:
             content: Full article content.
             source_qid: Wikidata QID of the source WikiPage.
+            source_url: Wikipedia article URL for provenance.
 
         Returns:
             List of DocumentChunk objects with section metadata.
@@ -454,8 +469,13 @@ class WikipediaArticlePipeline:
 
             chunk = DocumentChunk(
                 content=section_text,
-                source_qid=source_qid,
                 chunk_index=i,
+                # Multi-source support
+                source_id=source_qid,
+                source_type=SourceType.WIKIPEDIA,
+                source_url=source_url,
+                # Backwards compatibility
+                source_qid=source_qid,
                 metadata={
                     **section_metadata,
                     "section_index": i,
@@ -468,7 +488,9 @@ class WikipediaArticlePipeline:
         logger.debug(f"Created {len(chunks)} chunks for {source_qid} (section)")
         return chunks
 
-    def _chunk_content_hybrid(self, content: str, source_qid: str) -> List[DocumentChunk]:
+    def _chunk_content_hybrid(
+        self, content: str, source_qid: str, source_url: str = None
+    ) -> List[DocumentChunk]:
         """
         Hybrid chunking: section headers → size control.
 
@@ -478,6 +500,7 @@ class WikipediaArticlePipeline:
         Args:
             content: Full article content.
             source_qid: Wikidata QID of the source WikiPage.
+            source_url: Wikipedia article URL for provenance.
 
         Returns:
             List of DocumentChunk objects with section metadata.
@@ -499,8 +522,13 @@ class WikipediaArticlePipeline:
                 for j, sub_text in enumerate(sub_chunks):
                     chunk = DocumentChunk(
                         content=sub_text,
-                        source_qid=source_qid,
                         chunk_index=len(final_chunks),
+                        # Multi-source support
+                        source_id=source_qid,
+                        source_type=SourceType.WIKIPEDIA,
+                        source_url=source_url,
+                        # Backwards compatibility
+                        source_qid=source_qid,
                         metadata={
                             **section_metadata,
                             "section_index": i,
@@ -514,8 +542,13 @@ class WikipediaArticlePipeline:
                 # Small section: keep as-is
                 chunk = DocumentChunk(
                     content=section_text,
-                    source_qid=source_qid,
                     chunk_index=len(final_chunks),
+                    # Multi-source support
+                    source_id=source_qid,
+                    source_type=SourceType.WIKIPEDIA,
+                    source_url=source_url,
+                    # Backwards compatibility
+                    source_qid=source_qid,
                     metadata={
                         **section_metadata,
                         "section_index": i,
@@ -528,7 +561,9 @@ class WikipediaArticlePipeline:
         logger.debug(f"Created {len(final_chunks)} chunks for {source_qid} (hybrid: {len(header_docs)} sections)")
         return final_chunks
 
-    def _chunk_content_semantic(self, content: str, source_qid: str) -> List[DocumentChunk]:
+    def _chunk_content_semantic(
+        self, content: str, source_qid: str, source_url: str = None
+    ) -> List[DocumentChunk]:
         """
         Split content using embedding-based semantic boundary detection.
 
@@ -540,6 +575,7 @@ class WikipediaArticlePipeline:
         Args:
             content: Full article content.
             source_qid: Wikidata QID of the source WikiPage.
+            source_url: Wikipedia article URL for provenance.
 
         Returns:
             List of DocumentChunk objects (all LEAF type).
@@ -550,14 +586,19 @@ class WikipediaArticlePipeline:
             docs = chunker.create_documents([content])
         except Exception as e:
             logger.warning(f"Semantic chunking failed, falling back to recursive: {e}")
-            return self._chunk_content_recursive(content, source_qid)
+            return self._chunk_content_recursive(content, source_qid, source_url)
 
         chunks = []
         for i, doc in enumerate(docs):
             chunk = DocumentChunk(
                 content=doc.page_content,
-                source_qid=source_qid,
                 chunk_index=i,
+                # Multi-source support
+                source_id=source_qid,
+                source_type=SourceType.WIKIPEDIA,
+                source_url=source_url,
+                # Backwards compatibility
+                source_qid=source_qid,
                 chunk_type=ChunkType.LEAF,
                 level=2,
                 metadata={
@@ -571,7 +612,9 @@ class WikipediaArticlePipeline:
         logger.debug(f"Created {len(chunks)} semantic chunks for {source_qid}")
         return chunks
 
-    def _chunk_content_raptor(self, content: str, source_qid: str) -> List[DocumentChunk]:
+    def _chunk_content_raptor(
+        self, content: str, source_qid: str, source_url: str = None
+    ) -> List[DocumentChunk]:
         """
         RAPTOR-style hierarchical chunking: semantic chunks + clustering + LLM summaries.
 
@@ -590,6 +633,7 @@ class WikipediaArticlePipeline:
         Args:
             content: Full article content.
             source_qid: Wikidata QID of the source WikiPage.
+            source_url: Wikipedia article URL for provenance.
 
         Returns:
             List of DocumentChunk objects (leaves + clusters + root).
@@ -597,7 +641,7 @@ class WikipediaArticlePipeline:
         import numpy as np
 
         # Step 1: Create semantic chunks (leaf nodes)
-        leaf_chunks = self._chunk_content_semantic(content, source_qid)
+        leaf_chunks = self._chunk_content_semantic(content, source_qid, source_url)
         if len(leaf_chunks) < 3:
             # Too few chunks to cluster meaningfully
             logger.debug(f"Only {len(leaf_chunks)} chunks, skipping RAPTOR clustering")
@@ -651,8 +695,13 @@ class WikipediaArticlePipeline:
 
             cluster_chunk = DocumentChunk(
                 content=summary,
-                source_qid=source_qid,
                 chunk_index=len(leaf_chunks) + len(cluster_chunks),
+                # Multi-source support
+                source_id=source_qid,
+                source_type=SourceType.WIKIPEDIA,
+                source_url=source_url,
+                # Backwards compatibility
+                source_qid=source_qid,
                 chunk_type=ChunkType.CLUSTER,
                 level=1,
                 cluster_id=cluster_id,
@@ -679,8 +728,13 @@ class WikipediaArticlePipeline:
 
             root_chunk = DocumentChunk(
                 content=root_summary,
-                source_qid=source_qid,
                 chunk_index=len(leaf_chunks) + len(cluster_chunks),
+                # Multi-source support
+                source_id=source_qid,
+                source_type=SourceType.WIKIPEDIA,
+                source_url=source_url,
+                # Backwards compatibility
+                source_qid=source_qid,
                 chunk_type=ChunkType.ROOT,
                 level=0,
                 metadata={
@@ -820,7 +874,12 @@ Summary:"""
                 level_val = chunk.level if chunk.level is not None else 2
                 cluster_id_val = chunk.cluster_id if chunk.cluster_id is not None else "null"
 
-                # MERGE the DocumentChunk node with hierarchy fields
+                # Prepare multi-source fields
+                source_id = chunk.source_id or chunk.source_qid
+                source_type_val = chunk.source_type.value if chunk.source_type else "wikipedia"
+                source_url = (chunk.source_url or "").replace("'", "\\'")
+
+                # MERGE the DocumentChunk node with hierarchy and multi-source fields
                 if chunk.embedding:
                     embed_str = str(chunk.embedding)
                     self.graph.query(f"""
@@ -828,6 +887,9 @@ Summary:"""
                         ON CREATE SET
                             c.content = '{escaped_content}',
                             c.chunk_index = {chunk.chunk_index},
+                            c.source_id = '{source_id}',
+                            c.source_type = '{source_type_val}',
+                            c.source_url = '{source_url}',
                             c.source_qid = '{chunk.source_qid}',
                             c.status = '{chunk.status.value}',
                             c.created_at = '{timestamp}',
@@ -845,6 +907,9 @@ Summary:"""
                         ON CREATE SET
                             c.content = '{escaped_content}',
                             c.chunk_index = {chunk.chunk_index},
+                            c.source_id = '{source_id}',
+                            c.source_type = '{source_type_val}',
+                            c.source_url = '{source_url}',
                             c.source_qid = '{chunk.source_qid}',
                             c.status = '{chunk.status.value}',
                             c.created_at = '{timestamp}',
@@ -918,8 +983,8 @@ Summary:"""
             logger.warning(f"  Skipping: Could not load content")
             return 0, []
 
-        # Chunk the content
-        chunks = self.chunk_content(content, article.qid)
+        # Chunk the content (pass URL for provenance)
+        chunks = self.chunk_content(content, article.qid, source_url=article.wikipedia_url)
         if not chunks:
             logger.warning(f"  Skipping: No chunks generated")
             return 0, []
@@ -1260,6 +1325,16 @@ def main():
         action="store_true",
         help="Verbose output"
     )
+    parser.add_argument(
+        "--detect-communities",
+        action="store_true",
+        help="Run Louvain community detection after processing"
+    )
+    parser.add_argument(
+        "--temporal-stats",
+        action="store_true",
+        help="Show temporal layer statistics (Episodes, Communities)"
+    )
 
     args = parser.parse_args()
 
@@ -1344,6 +1419,28 @@ def main():
             print(f"  - {a['name']}: {a['chunks']} chunks (score: {a['score']:.3f})")
         if len(stats["articles"]) > 10:
             print(f"  ... and {len(stats['articles']) - 10} more")
+
+    # Show temporal stats if requested
+    if args.temporal_stats:
+        from .temporal_queries import get_temporal_statistics
+        temporal_stats = get_temporal_statistics(pipeline.graph)
+        print("\n" + "=" * 60)
+        print("TEMPORAL LAYER STATISTICS")
+        print("=" * 60)
+        print(f"Episodes: {temporal_stats.get('episodes', 0)}")
+        print(f"Communities: {temporal_stats.get('communities', 0)}")
+        print(f"CONTAINS relationships: {temporal_stats.get('contains_relationships', 0)}")
+        print(f"BELONGS_TO relationships: {temporal_stats.get('belongs_to_relationships', 0)}")
+
+    # Run community detection if requested
+    if args.detect_communities:
+        from .community_detection import EntityCommunityDetector
+        print("\n" + "=" * 60)
+        print("COMMUNITY DETECTION")
+        print("=" * 60)
+        detector = EntityCommunityDetector(pipeline.graph, min_community_size=3)
+        count = detector.run()
+        print(f"Created {count} entity communities")
 
 
 if __name__ == "__main__":

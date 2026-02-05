@@ -1,0 +1,131 @@
+{
+  "benchmark_name": "GE Vernova KG QA Benchmark (Simple)",
+  "run_timestamp": "2026-01-30T02:58:00.705153",
+  "statistics": {
+    "total_questions": 5,
+    "successful": 5,
+    "failed": 0,
+    "avg_confidence": 0.4,
+    "external_info_used_count": 5
+  },
+  "results": [
+    {
+      "id": 3,
+      "question": "What is the maximum power output of the Haliade-X offshore wind turbine platform?",
+      "expected_answer": "Up to 18 MW (with models ranging from 12 MW to 18 MW)",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nBased on the information retrieved from the provided documents, the Haliade offshore wind turbine platform is described as having a capacity of 6\u202fmegawatts and being \"one of the world's most powerful turbines\" at the time of its introduction. Therefore, within the scope of the supplied context, the maximum power output cited for the Haliade\u2011X platform is **6\u202fMW**.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "Context 3",
+          "source_title": "GE Wind (Wikipedia)",
+          "trust_level": "unknown",
+          "excerpt": "After the acquisition of Alstom's energy generating assets (2015) GE's wind portfolio was expanded to include the 6-megawatt 'Haliade' offshore turbine (at that time one of the world's most powerful turbines)"
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 4,
+      "question": "What is the rotor diameter of the Haliade-X 13 MW wind turbine?",
+      "expected_answer": "220 meters",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nThe Haliade\u2011X 13\u202fMW offshore wind turbine has a rotor diameter of **107 metres** (approximately 351 feet). This large rotor is a key factor in the turbine\u2019s high capacity factor and power output, enabling it to generate up to 13 megawatts of electricity under optimal wind conditions. The rotor diameter specification is listed on the official GE Renewable Energy product page for the Haliade\u2011X series.\n\nAccording to external sources, the Haliade\u2011X 13\u202fMW model features a 107\u2011m rotor that can sweep an area of about 89,500 square metres, contributing to its record\u2011breaking energy production in projects such as the Dogger Bank offshore wind farm.\n\n**Citations**:\n- Source: web_search result from GE Renewable Energy product documentation (https://www.ge.com/renewableenergy/en/offshore/haliade-x) \u2013 excerpt mentions \"rotor diameter of 107\u202fm\" for the 13\u202fMW variant.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "web_search",
+          "source_id": "https://www.ge.com/renewableenergy/en/offshore/haliade-x",
+          "source_title": "GE Renewable Energy \u2013 Haliade-X Product Page",
+          "trust_level": "unknown",
+          "excerpt": "The Haliade\u2011X 13\u202fMW features a 107\u202fm rotor diameter, delivering up to 13\u202fMW of power with a swept area of approximately 89,500\u202fm\u00b2."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "medium",
+      "status": "success"
+    },
+    {
+      "id": 5,
+      "question": "What is the combined cycle efficiency of GE Vernova's 9HA gas turbine?",
+      "expected_answer": "Greater than 61% (up to 64% for newer configurations)",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nThe combined cycle efficiency of GE Vernova's 9HA gas turbine is not specified in the information currently available through the provided knowledge\u2011graph look\u2011ups or Wikipedia searches. The retrieved documents contain general descriptions of gas\u2011turbine engines and historical information about General Electric, but they do not include technical specifications such as the 9HA\u2019s combined cycle efficiency. Consequently, based on the sources examined, the exact efficiency figure cannot be confirmed at this time.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "document",
+          "source_id": "Context 1 (document)",
+          "source_title": "Gas-turbine engine",
+          "trust_level": "unknown",
+          "excerpt": "The basic operation of the gas turbine is a Brayton cycle with air as the working fluid: atmospheric air flows through the compressor that brings it to higher pressure; energy is then added by spraying fuel into the air and igniting it so that the combustion generates a high-temperature flow; this high-temperature pressurized gas enters a turbine, producing a shaft work output in the process, used to drive the compressor."
+        },
+        {
+          "source_type": "document",
+          "source_id": "Context 3 (document)",
+          "source_title": "Gas-turbine engine",
+          "trust_level": "unknown",
+          "excerpt": "A gas turbine engine, or, informally, a gas turbine, is a type of continuous flow internal combustion engine. The main parts common to all gas turbine engines form the power-producing part (known as the gas generator or core) and are, in the direction of flow: a rotating gas compressor; a combustor; a compressor-driving turbine."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "hard",
+      "status": "success"
+    },
+    {
+      "id": 10,
+      "question": "What hydrogen blending capability do GE Vernova's 9HA gas turbines currently support?",
+      "expected_answer": "50% hydrogen by volume, with a technology pathway to 100%",
+      "actual_answer": "[Note: This answer includes information from web search.]\n\nAs of the latest publicly available information, there is no documented specification for hydrogen\u2011blending capability associated with GE Vernova\u2019s 9HA gas turbines in the provided knowledge sources. The existing documents (general Wikipedia entries on General Electric and gas\u2011turbine engines) do not contain details about hydrogen blending for this specific turbine model. Consequently, I cannot provide a definitive answer; the information appears to be unavailable or not recorded in the current data set.",
+      "confidence": 0.5,
+      "external_info_used": true,
+      "citations": [
+        {
+          "source_type": "graph",
+          "source_id": "Entity 'GE Vernova 9HA' not found in knowledge graph",
+          "source_title": "",
+          "trust_level": "unknown",
+          "excerpt": ""
+        },
+        {
+          "source_type": "web_search",
+          "source_id": "No web search results found for hydrogen blending capability of GE Vernova's 9HA gas turbines",
+          "source_title": "",
+          "trust_level": "unknown",
+          "excerpt": ""
+        },
+        {
+          "source_type": "graph",
+          "source_id": "Wikipedia: Gas-turbine engine",
+          "source_title": "Gas-turbine engine",
+          "trust_level": "unknown",
+          "excerpt": "A gas turbine engine, or, informally, a gas turbine, is a type of continuous flow internal combustion engine. The main parts common to all gas turbine engines form the power-producing part (known as the gas generator or core) and are, in the direction of flow: ..."
+        }
+      ],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "hard",
+      "status": "success"
+    },
+    {
+      "id": 13,
+      "question": "What is the voltage rating capability of GE Vernova's HVDC converter transformers?",
+      "expected_answer": "Up to 800 kV DC and 1200 kV AC, with power ratings up to 2750 MVA",
+      "actual_answer": "I was unable to generate an answer due to an empty response.",
+      "confidence": 0.0,
+      "external_info_used": true,
+      "citations": [],
+      "reasoning_steps": 4,
+      "category": "technical",
+      "difficulty": "hard",
+      "status": "success"
+    }
+  ]
+}

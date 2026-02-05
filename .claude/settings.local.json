@@ -31,7 +31,10 @@
       "WebFetch(domain:towardsdatascience.com)",
       "Bash(pip install:*)",
       "Bash(sort:*)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:www.gevernova.com)",
+      "Bash(ls:*)",
+      "Bash(PYTHONPATH=/app python3:*)"
     ]
   }
 }
